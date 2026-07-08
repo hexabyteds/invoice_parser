@@ -64,7 +64,7 @@ class ExcelService {
                     description: item.description || "",
                     quantity: item.quantity || 0,
                     unitPrice: Number(item.unitPrice || 0).toFixed(2),
-                    amount: Number(item.amount || 0).toFixed(2),
+                    amount: Number(item.totalPrice || 0).toFixed(2),
                     currency: invoice.currency,
                 });
             });

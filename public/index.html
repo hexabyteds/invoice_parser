@@ -382,6 +382,13 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
+    // Works at domain root or sub-path (e.g. /invoice). Strips /api/... if present in URL.
+    const pathname = window.location.pathname;
+    const apiIdx = pathname.indexOf('/api/');
+    const BASE_PATH = (apiIdx >= 0 ? pathname.slice(0, apiIdx) : pathname)
+      .replace(/\/(index\.html)?$/, '') || '';
+    const apiUrl = (path) => `${BASE_PATH}/api/${path}`;
+
     function InvoiceApp() {
       const [files, setFiles] = useState([]);
       const [loading, setLoading] = useState(false);
@@ -398,7 +405,7 @@
 
       async function fetchStats() {
         try {
-          const res = await fetch('/api/stats');
+          const res = await fetch(apiUrl('stats'));
           const data = await res.json();
           if (data.success) {
             setStats(data.stats);
@@ -410,7 +417,7 @@
 
       async function fetchInvoices() {
         try {
-          const res = await fetch('/api/invoices');
+          const res = await fetch(apiUrl('invoices'));
           const data = await res.json();
           if (data.success) {
             setInvoices(data.invoices);
@@ -452,7 +459,7 @@
             const formData = new FormData();
             formData.append('image', file);
 
-            const response = await fetch('/api/upload', {
+            const response = await fetch(apiUrl('upload'), {
               method: 'POST',
               body: formData,
             });
@@ -536,13 +543,13 @@
               <div className="button-group">
                 <button 
                   className="btn-primary"
-                  onClick={() => window.location.href = '/api/download-excel'}
+                  onClick={() => window.location.href = apiUrl('download-excel')}
                 >
                   📥 Download Excel
                 </button>
                 <button 
                   className="btn-secondary"
-                  onClick={() => window.location.href = '/api/report'}
+                  onClick={() => window.location.href = apiUrl('report')}
                 >
                   📈 View Report
                 </button>
@@ -581,7 +588,7 @@
                   className="btn-secondary"
                   onClick={() => {
                     if (window.confirm('Clear all data?')) {
-                      fetch('/api/clear', { method: 'POST' })
+                      fetch(apiUrl('clear'), { method: 'POST' })
                         .then(() => {
                           fetchStats();
                           fetchInvoices();
@@ -659,7 +666,7 @@
                               <td>{item.description || '-'}</td>
                               <td>{item.quantity || 0}</td>
                               <td>{invoice.currency} {parseFloat(item.unitPrice || 0).toLocaleString()}</td>
-                              <td>{invoice.currency} {parseFloat(item.amount || 0).toLocaleString()}</td>
+                              <td>{invoice.currency} {parseFloat(item.totalPrice || 0).toLocaleString()}</td>
                             </tr>
                           ))}
                         </tbody>

@@ -1,12 +1,17 @@
 const invoiceService = require("./services/invoiceService");
 const excelService = require("./services/excelService");
 const reportService = require("./services/reportService");
-const storageService = require("./services/storageService");
+const invoiceRepository = require("./repositories/invoiceRepository");
+const invoiceNormalizer = require("./services/invoiceNormalizer");
 
+const invoiceItemRepository = require("./repositories/invoiceItemRepository");
 class FreeInvoiceAgent {
 
     async processImage(imagePath) {
+
+        // Extract invoice using Gemini
         const result = await invoiceService.extract(imagePath);
+
 
         if (!result.success) {
             return {
@@ -14,8 +19,21 @@ class FreeInvoiceAgent {
                 message: result.error,
             };
         }
+        result.invoice = invoiceNormalizer.normalize(result.invoice);
 
-        storageService.add(result.invoice);
+        // Temporary until authentication is implemented
+        result.invoice.user_id = 1;
+
+        // Save invoice into MySQL
+        // await invoiceRepository.create(result.invoice);
+        const invoiceId = await invoiceRepository.create(result.invoice);
+
+        console.log(invoiceId);
+        console.log(JSON.stringify(result.invoice.lineItems, null, 2));
+        await invoiceItemRepository.createMany(
+            invoiceId,
+            result.invoice.lineItems
+        );
 
         return {
             status: "success",
@@ -25,19 +43,37 @@ class FreeInvoiceAgent {
     }
 
     async saveToExcel(file = "invoices.xlsx") {
-        return excelService.export(storageService.getAll(), file);
+
+        const invoices = await invoiceRepository.findByUser(1);
+ 
+
+        return excelService.export(invoices, file);
     }
 
-    generateHTMLReport(file = "invoice_report.html") {
-        return reportService.generate(storageService.getAll(), file);
+    async generateHTMLReport(file = "invoice_report.html") {
+
+        const invoices = await invoiceRepository.findAll();
+    
+        return reportService.generate(invoices, file);
+    
     }
 
-    getStats() {
-        return storageService.getStats();
+    async getStats() {
+
+        return await invoiceRepository.getStatistics(1);
+
     }
 
-    clear() {
-        storageService.clear();
+    async clear() {
+
+        return await invoiceRepository.deleteAll(1);
+
+    }
+
+
+
+    async getInvoices(userId = 1) {
+        return await invoiceRepository.findByUser(userId);
     }
 
 }

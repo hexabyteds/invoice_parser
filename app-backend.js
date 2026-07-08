@@ -14,6 +14,16 @@ const FreeInvoiceAgent = require('./free-invoice-agent');
 
 const app = express();
 
+// Support running behind a proxy under a sub-path (e.g. /invoice).
+// Rewrites "/invoice/api/..." to "/api/..." so the API routes below still match.
+app.use((req, res, next) => {
+  const apiIndex = req.url.indexOf('/api/');
+  if (apiIndex > 0) {
+    req.url = req.url.slice(apiIndex);
+  }
+  next();
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -35,7 +45,7 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ 
+const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
     const allowed = /jpeg|jpg|png|gif/;
@@ -53,12 +63,24 @@ const upload = multer({
  */
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    message: 'Invoice Agent API',
-    totalInvoices: agent.getStats().totalInvoices,
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+
+    const stats = await agent.getStats(1);
+
+    res.json({
+      status: "healthy",
+      message: "Invoice Agent API",
+      totalInvoices: stats.totalInvoices
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
 });
 
 // Upload and process invoice
@@ -74,39 +96,46 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
     const result = await agent.processImage(req.file.path);
 
     if (result.status === 'success') {
+
       const invoice = result.invoice;
       const validation = result.validation;
-
-      res.json({
-        success: true,
-        invoice: {
-          invoiceType: invoice.invoiceType,
-          clientName: invoice.clientName,
-          invoiceNo: invoice.invoiceNo,
-          invoiceDate: invoice.invoiceDate,
-          dueDate: invoice.dueDate,
-          phoneNumber: invoice.phoneNumber,
-          location: invoice.location,
-          description: invoice.description || "",
-          subtotal: parseFloat(invoice.subtotal).toFixed(2),
-          vatRate: invoice.vatRate || 0,
-          vatAmount: parseFloat(invoice.vatAmount).toFixed(2),
-          totalAmount: parseFloat(invoice.totalAmount).toFixed(2),
-          currency: invoice.currency,
-          lineItems: invoice.lineItems,
-          trn: invoice.trn,
-        },
-        validation: {
-          isValid: validation.isValid,
-          confidence: validation.confidence,
-          errors: validation.errors,
-          warnings: validation.warnings,
-        },
-        message: `✅ Processed successfully (${validation.confidence}% confidence)`,
-      });
-
-      // Save to Excel after successful upload
-      await agent.saveToExcel();
+  
+      const response = {
+          success: true,
+          invoice: {
+              invoiceType: invoice.invoiceType,
+              clientName: invoice.clientName,
+              invoiceNo: invoice.invoiceNo,
+              invoiceDate: invoice.invoiceDate,
+              dueDate: invoice.dueDate,
+              phoneNumber: invoice.phoneNumber,
+              location: invoice.location,
+              description: invoice.description || "",
+              subtotal: Number(invoice.subtotal).toFixed(2),
+              vatRate: invoice.vatRate || 0,
+              vatAmount: Number(invoice.vatAmount).toFixed(2),
+              totalAmount: Number(invoice.totalAmount).toFixed(2),
+              currency: invoice.currency,
+              lineItems: invoice.lineItems || [],
+              trn: invoice.trn
+          },
+          validation: {
+              isValid: validation.isValid,
+              confidence: validation.confidence,
+              errors: validation.errors,
+              warnings: validation.warnings
+          },
+          message: `✅ Processed successfully (${validation.confidence}% confidence)`
+      };
+  
+      // Send response once
+      res.json(response);
+  
+      // Generate Excel in background
+      agent.saveToExcel().catch(console.error);
+  
+      return;
+  
     } else {
       res.status(400).json({
         success: false,
@@ -123,48 +152,75 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
 });
 
 // Get all invoices
-app.get('/api/invoices', (req, res) => {
+// app.get('/api/invoices', (req, res) => {
+//   try {
+//     const stats = agent.getStats();
+//     res.json({
+//       success: true,
+//       invoices: stats.invoices.map(inv => ({
+//         clientName: inv.clientName,
+//         invoiceNo: inv.invoiceNo,
+//         invoiceDate: inv.invoiceDate,
+//         description: inv.description || "",
+//         subtotal: parseFloat(inv.subtotal || 0).toFixed(2),
+//         vatRate: inv.vatRate || 0,
+//         vatAmount: parseFloat(inv.vatAmount || 0).toFixed(2),
+//         totalAmount: parseFloat(inv.totalAmount).toFixed(2),
+//         currency: inv.currency,
+//         invoiceType: inv.invoiceType,
+//         phoneNumber: inv.phoneNumber,
+//         lineItems: inv.lineItems || [],
+//       })),
+//     });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// });
+
+
+app.get("/api/invoices", async (req, res) => {
+
   try {
-    const stats = agent.getStats();
-    res.json({
-      success: true,
-      invoices: stats.invoices.map(inv => ({
-        clientName: inv.clientName,
-        invoiceNo: inv.invoiceNo,
-        invoiceDate: inv.invoiceDate,
-        description: inv.description || "",
-        subtotal: parseFloat(inv.subtotal || 0).toFixed(2),
-        vatRate: inv.vatRate || 0,
-        vatAmount: parseFloat(inv.vatAmount || 0).toFixed(2),
-        totalAmount: parseFloat(inv.totalAmount).toFixed(2),
-        currency: inv.currency,
-        invoiceType: inv.invoiceType,
-        phoneNumber: inv.phoneNumber,
-        lineItems: inv.lineItems || [],
-      })),
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+
+      const invoices = await agent.getInvoices(1);
+
+      res.json({
+          success: true,
+          invoices
+      });
+
+  } catch (err) {
+
+      res.status(500).json({
+          success: false,
+          error: err.message
+      });
+
   }
+
 });
 
 // Get statistics
-app.get('/api/stats', (req, res) => {
+app.get('/api/stats', async (req, res) => {
+
   try {
-    const stats = agent.getStats();
-    res.json({
-      success: true,
-      stats: {
-        totalInvoices: stats.totalInvoices,
-        uniqueClients: stats.uniqueClients,
-        totalAmount: parseFloat(stats.totalAmount).toFixed(2),
-        totalVAT: parseFloat(stats.totalVAT).toFixed(2),
-        currency: stats.currency,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+
+      const stats = await agent.getStats(1);
+
+      res.json({
+          success: true,
+          stats
+      });
+
+  } catch (err) {
+
+      res.status(500).json({
+          success: false,
+          error: err.message
+      });
+
   }
+
 });
 
 // Download Excel
@@ -182,25 +238,50 @@ app.get('/api/download-excel', (req, res) => {
 });
 
 // Generate HTML report
-app.get('/api/report', (req, res) => {
+app.get("/api/report", async (req, res) => {
+
   try {
-    const reportFile = agent.generateHTMLReport();
-    const html = fs.readFileSync(reportFile, 'utf8');
-    res.setHeader('Content-Type', 'text/html');
-    res.send(html);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+
+      const reportFile = await agent.generateHTMLReport();
+
+      const html = fs.readFileSync(reportFile, "utf8");
+
+      res.setHeader("Content-Type", "text/html");
+
+      res.send(html);
+
+  } catch (err) {
+
+      res.status(500).json({
+          success: false,
+          error: err.message
+      });
+
   }
+
 });
 
 // Clear all data
-app.post('/api/clear', (req, res) => {
+app.post('/api/clear', async (req, res) => {
+
   try {
-    agent.clear();
-    res.json({ success: true, message: 'All data cleared' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+
+      await agent.clear(1);
+
+      res.json({
+          success: true,
+          message: "All invoices deleted."
+      });
+
+  } catch (err) {
+
+      res.status(500).json({
+          success: false,
+          error: err.message
+      });
+
   }
+
 });
 
 /**
