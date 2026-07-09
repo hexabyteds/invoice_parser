@@ -7,7 +7,7 @@ const invoiceNormalizer = require("./services/invoiceNormalizer");
 const invoiceItemRepository = require("./repositories/invoiceItemRepository");
 class FreeInvoiceAgent {
 
-    async processImage(imagePath) {
+    async processImage(imagePath, userId) {
 
         // Extract invoice using Gemini
         const result = await invoiceService.extract(imagePath);
@@ -22,7 +22,7 @@ class FreeInvoiceAgent {
         result.invoice = invoiceNormalizer.normalize(result.invoice);
 
         // Temporary until authentication is implemented
-        result.invoice.user_id = 1;
+        result.invoice.user_id = userId;
 
         // Save invoice into MySQL
         // await invoiceRepository.create(result.invoice);
@@ -42,15 +42,15 @@ class FreeInvoiceAgent {
         };
     }
 
-    async saveToExcel(file = "invoices.xlsx") {
+    async saveToExcel(userId, file = "invoices.xlsx") {
 
-        const invoices = await invoiceRepository.findByUser(1);
+        const invoices = await invoiceRepository.findByUser(userId);
  
 
         return excelService.export(invoices, file);
     }
 
-    async generateHTMLReport(file = "invoice_report.html") {
+    async generateHTMLReport(userId, file = "invoice_report.html") {
 
         const invoices = await invoiceRepository.findAll();
     
@@ -58,21 +58,21 @@ class FreeInvoiceAgent {
     
     }
 
-    async getStats() {
+    async getStats(userId) {
 
-        return await invoiceRepository.getStatistics(1);
-
-    }
-
-    async clear() {
-
-        return await invoiceRepository.deleteAll(1);
+        return await invoiceRepository.getStatistics(userId);
 
     }
 
+    async clear(userId) {
+
+        return await invoiceRepository.deleteAll(userId);
+
+    }
 
 
-    async getInvoices(userId = 1) {
+
+    async getInvoices(userId) {
         return await invoiceRepository.findByUser(userId);
     }
 

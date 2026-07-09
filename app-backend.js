@@ -9,20 +9,29 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 require('dotenv').config();
-
+const authRoutes = require("./routes/authRoutes");
 const FreeInvoiceAgent = require('./free-invoice-agent');
+const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
+ 
 
-// Support running behind a proxy under a sub-path (e.g. /invoice).
-// Rewrites "/invoice/api/..." to "/api/..." so the API routes below still match.
+app.use(cors());
+app.use(express.json());
+
+
+ 
+
+
 app.use((req, res, next) => {
-  const apiIndex = req.url.indexOf('/api/');
-  if (apiIndex > 0) {
-    req.url = req.url.slice(apiIndex);
-  }
-  next();
+    const apiIndex = req.url.indexOf("/api/");
+    if (apiIndex > 0) {
+        req.url = req.url.slice(apiIndex);
+    }
+    next();
 });
+
+app.use("/api/auth", authRoutes);
 
 // Middleware
 app.use(cors());
@@ -84,7 +93,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Upload and process invoice
-app.post('/api/upload', upload.single('image'), async (req, res) => {
+app.post('/api/upload', authMiddleware, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -93,7 +102,7 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
     console.log(`📸 Processing: ${req.file.filename}`);
 
     // Process image
-    const result = await agent.processImage(req.file.path);
+    const result = await agent.processImage(req.file.path, req.user.id);
 
     if (result.status === 'success') {
 
@@ -132,7 +141,7 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
       res.json(response);
   
       // Generate Excel in background
-      agent.saveToExcel().catch(console.error);
+      agent.saveToExcel(req.user.id).catch(console.error);
   
       return;
   
@@ -178,11 +187,11 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
 // });
 
 
-app.get("/api/invoices", async (req, res) => {
+app.get("/api/invoices", authMiddleware, async (req, res) => {
 
   try {
 
-      const invoices = await agent.getInvoices(1);
+      const invoices = await agent.getInvoices(req.user.id);
 
       res.json({
           success: true,
@@ -201,11 +210,11 @@ app.get("/api/invoices", async (req, res) => {
 });
 
 // Get statistics
-app.get('/api/stats', async (req, res) => {
+app.get('/api/stats', authMiddleware, async (req, res) => {
 
   try {
 
-      const stats = await agent.getStats(1);
+      const stats = await agent.getStats(req.user.id);
 
       res.json({
           success: true,
@@ -224,7 +233,7 @@ app.get('/api/stats', async (req, res) => {
 });
 
 // Download Excel
-app.get('/api/download-excel', (req, res) => {
+app.get('/api/download-excel', authMiddleware, (req, res) => {
   try {
     const filePath = path.join(process.cwd(), 'invoices.xlsx');
     if (fs.existsSync(filePath)) {
@@ -238,11 +247,11 @@ app.get('/api/download-excel', (req, res) => {
 });
 
 // Generate HTML report
-app.get("/api/report", async (req, res) => {
+app.get("/api/report", authMiddleware, async (req, res) => {
 
   try {
 
-      const reportFile = await agent.generateHTMLReport();
+      const reportFile = await agent.generateHTMLReport(req.user.id);
 
       const html = fs.readFileSync(reportFile, "utf8");
 
@@ -266,7 +275,7 @@ app.post('/api/clear', async (req, res) => {
 
   try {
 
-      await agent.clear(1);
+      await agent.clear(req.user.id);
 
       res.json({
           success: true,
