@@ -114,29 +114,60 @@
 
 // test();
 
+// require("dotenv").config();
+
+// const { GoogleGenAI } = require("@google/genai");
+
+// const ai = new GoogleGenAI({
+//     apiKey: process.env.GEMINI_API_KEY
+// });
+
+// (async () => {
+//     try {
+
+//         const response = await ai.models.generateContent({
+//             model: "gemini-2.5-flash",
+//             contents: [
+//                 {
+//                     text: "Say Hello"
+//                 }
+//             ]
+//         });
+
+//         console.log(response.text);
+
+//     } catch (err) {
+//         console.log(err);
+//     }
+// })();
+
+
+
+// const pdfService = require("./services/pdfService");
+
+// (async () => {
+
+//     const pages = await pdfService.split(
+//         "./uploads/sample.pdf"
+//     );
+
+//     console.log(pages);
+
+
+    
+// })();
+
 require("dotenv").config();
+const invoiceService = require("./services/invoiceService");
 
-const { GoogleGenAI } = require("@google/genai");
+(async()=>{
 
-const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY
-});
+    const result = await invoiceService.extractPDF(
+        "./uploads/sample.pdf"
+    );
 
-(async () => {
-    try {
+    console.log(
+        JSON.stringify(result,null,2)
+    );
 
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: [
-                {
-                    text: "Say Hello"
-                }
-            ]
-        });
-
-        console.log(response.text);
-
-    } catch (err) {
-        console.log(err);
-    }
 })();
