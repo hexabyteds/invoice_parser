@@ -161,6 +161,26 @@ class InvoiceRepository {
     
         return invoices;
     }
+
+    // Get invoice by ID
+    async findById(id, userId) {
+
+        const sql = `
+            SELECT *
+            FROM invoices
+            WHERE id = ?
+            AND user_id = ?
+            LIMIT 1
+        `;
+    
+        const [rows] = await db.execute(sql, [
+            id,
+            userId
+        ]);
+    
+        return rows.length ? rows[0] : null;
+    
+    }
     // Delete invoice
     async delete(id) {
 

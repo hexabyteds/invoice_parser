@@ -50,7 +50,19 @@ class InvoiceItemRepository {
             [invoiceId]
         );
     }
+    async findByInvoice(invoiceId) {
 
+        const sql = `
+            SELECT *
+            FROM invoice_items
+            WHERE invoice_id = ?
+            ORDER BY id ASC
+        `;
+    
+        const [rows] = await db.execute(sql, [invoiceId]);
+    
+        return rows;
+    }
 }
 
 module.exports = new InvoiceItemRepository();

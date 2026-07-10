@@ -9,15 +9,18 @@ class UserRepository {
             INSERT INTO users (
                 name,
                 email,
+                company_name,
                 password
             )
-            VALUES (?, ?, ?)
+            VALUES (?, ?, ?, ?)
         `;
 
         const [result] = await db.execute(sql, [
             user.name,
             user.email,
-            user.password
+            user.company,
+            user.password,
+    
         ]);
 
         return result.insertId;

@@ -5,7 +5,7 @@ class AuthController {
     async register(req, res) {
 
         try {
-
+            console.log("Request body:", req.body);
             const result = await authService.register(req.body);
 
             res.status(201).json({
@@ -17,6 +17,7 @@ class AuthController {
 
         } catch (err) {
 
+            console.log("Error:", err);
             res.status(400).json({
                 success: false,
                 error: err.message

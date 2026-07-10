@@ -75,7 +75,28 @@ class FreeInvoiceAgent {
     async getInvoices(userId) {
         return await invoiceRepository.findByUser(userId);
     }
+    async getInvoiceById(invoiceId, userId) {
 
+        const invoice = await invoiceRepository.findById(
+            invoiceId,
+            userId
+        );
+    
+        if (!invoice) {
+            return null;
+        }
+    
+        const lineItems =
+            await invoiceItemRepository.findByInvoice(
+                invoice.id
+            );
+    
+        return {
+            invoice,
+            lineItems
+        };
+    
+    }
 }
 
 module.exports = FreeInvoiceAgent;

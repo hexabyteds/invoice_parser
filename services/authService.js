@@ -5,35 +5,69 @@ const { generateToken } = require("../utils/jwt");
 class AuthService {
 
     // Register
+    // async register(data) {
+
+    //     // Check existing email
+    //     const existingUser = await userRepository.findByEmail(data.email);
+
+    //     if (existingUser) {
+    //         throw new Error("Email already exists.");
+    //     }
+
+    //     // Hash password
+    //     const password = await hashPassword(data.password);
+
+    //     // Create user
+    //     const id = await userRepository.create({
+    //         name: data.name,
+    //         email: data.email,
+    //         password
+    //     });
+
+    //     // Fetch created user
+    //     const user = await userRepository.findById(id);
+
+    //     // Generate JWT
+    //     const token = generateToken(user);
+
+    //     return {
+    //         user,
+    //         token
+    //     };
+    // }
+
+
     async register(data) {
-
-        // Check existing email
-        const existingUser = await userRepository.findByEmail(data.email);
-
-        if (existingUser) {
-            throw new Error("Email already exists.");
+        try {
+            console.log("Incoming data:", data);
+    
+            const existingUser = await userRepository.findByEmail(data.email);
+            console.log("Existing user:", existingUser);
+    
+            if (existingUser) {
+                throw new Error("Email already exists.");
+            }
+    
+            const password = await hashPassword(data.password);
+    
+            const id = await userRepository.create({
+                name: data.fullName,
+                company: data.company,
+                email: data.email,
+                password
+            });
+    
+            console.log("Created ID:", id);
+    
+            const user = await userRepository.findById(id);
+    
+            const token = generateToken(user);
+    
+            return { user, token };
+        } catch (err) {
+            console.error("Register Error:", err);
+            throw err;
         }
-
-        // Hash password
-        const password = await hashPassword(data.password);
-
-        // Create user
-        const id = await userRepository.create({
-            name: data.name,
-            email: data.email,
-            password
-        });
-
-        // Fetch created user
-        const user = await userRepository.findById(id);
-
-        // Generate JWT
-        const token = generateToken(user);
-
-        return {
-            user,
-            token
-        };
     }
 
     // Login

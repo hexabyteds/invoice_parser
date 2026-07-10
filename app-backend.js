@@ -209,6 +209,45 @@ app.get("/api/invoices", authMiddleware, async (req, res) => {
 
 });
 
+
+app.get(
+  "/api/invoices/:id",
+  authMiddleware,
+  async (req, res) => {
+
+      try {
+
+        const data = await agent.getInvoiceById(
+          req.params.id,
+          req.user.id
+      );
+      
+      if (!data) {
+      
+          return res.status(404).json({
+              success: false,
+              error: "Invoice not found."
+          });
+      
+      }
+      
+      res.json({
+          success: true,
+          invoice: data.invoice,
+          lineItems: data.lineItems
+      });
+
+  } catch (err) {
+
+      res.status(500).json({
+          success: false,
+          error: err.message
+      });
+
+  }
+
+});
+
 // Get statistics
 app.get('/api/stats', authMiddleware, async (req, res) => {
 
