@@ -97,6 +97,12 @@ class FreeInvoiceAgent {
         };
     
     }
+
+    async getAnalytics(userId) {
+
+        return await invoiceRepository.getAnalytics(userId);
+
+    }   
 }
 
 module.exports = FreeInvoiceAgent;

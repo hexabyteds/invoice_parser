@@ -248,6 +248,34 @@ app.get(
 
 });
 
+
+app.get(
+  "/api/analytics",
+  authMiddleware,
+  async (req, res) => {
+
+      try {
+
+          const analytics =
+              await agent.getAnalytics(req.user.id);
+          console.log("ANALYTICS", analytics);
+          res.json({
+              success: true,
+              analytics
+          });
+
+      } catch (err) {
+
+          res.status(500).json({
+              success: false,
+              error: err.message
+          });
+
+      }
+
+  }
+);
+
 // Get statistics
 app.get('/api/stats', authMiddleware, async (req, res) => {
 
@@ -271,16 +299,13 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
 
 });
 
-// Download Excel
-app.get('/api/download-excel', authMiddleware, (req, res) => {
+// Download Excel (regenerate from DB — one row per line item)
+app.get('/api/download-excel', authMiddleware, async (req, res) => {
   try {
-    const filePath = path.join(process.cwd(), 'invoices.xlsx');
-    if (fs.existsSync(filePath)) {
-      res.download(filePath, 'invoices.xlsx');
-    } else {
-      res.status(404).json({ error: 'No invoices yet' });
-    }
+    const filePath = await agent.saveToExcel(req.user.id);
+    res.download(filePath, 'invoices.xlsx');
   } catch (error) {
+    console.error('Excel download error:', error);
     res.status(500).json({ error: error.message });
   }
 });

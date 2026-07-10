@@ -50,6 +50,11 @@ export const downloadExcel = () =>
     responseType: "blob",
   });
 
+
+  export const getInvoice = (id) =>
+    API.get(`/invoices/${id}`);
+
+  
 // ==========================
 // HTML Report
 // ==========================

@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import {
     getInvoices,
-  } from "../services/invoiceApi";
+} from "../services/invoiceApi";
 import { useNavigate } from "react-router-dom";
 
 export default function Invoices() {
@@ -22,7 +22,7 @@ export default function Invoices() {
             setLoading(true);
 
             const res = await getInvoices();
-            console.log("invoices",res.data.invoices);
+            console.log("invoices", res.data.invoices);
             setInvoices(res.data.invoices || []);
         } catch (err) {
             console.error(err);
@@ -161,6 +161,7 @@ export default function Invoices() {
               focus:border-blue-500
               transition
             "
+            style={{ color: "black" }}
                     />
 
                 </div>
@@ -260,37 +261,49 @@ export default function Invoices() {
                                     <tr
                                         key={invoice.id}
                                         className="border-b hover:bg-slate-50 transition"
+                                        style={{ color: "black" }}
                                     >
 
-<td className="px-6 py-5 font-semibold text-blue-600">
-    {invoice.invoiceNo}
-</td>
+                                        <td className="px-6 py-5 font-semibold text-blue-600"
+                                            style={{ color: "black" }}
+                                        >
+                                            {invoice.invoiceNo}
+                                        </td>
 
-<td className="px-6 py-5 text-blue-300">
-    {invoice.clientName}
-</td>
+                                        <td className="px-6 py-5 text-blue-300"
+                                            style={{ color: "black" }}
+                                        >
+                                            {invoice.clientName}
+                                        </td>
 
-<td className="px-6 py-5 text-blue-300">
-    {new Date(invoice.invoiceDate).toLocaleDateString()}
-</td>
+                                        <td className="px-6 py-5 text-blue-300"
+                                            style={{ color: "black" }}
+                                        >
+                                            {new Date(invoice.invoiceDate).toLocaleDateString()}
+                                        </td>
 
-<td className="px-6 py-5 text-right font-semibold text-blue-300">
-    {Number(invoice.totalAmount).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    })}
-</td>
+                                        <td className="px-6 py-5 text-right font-semibold text-blue-300"
+                                            style={{ color: "black" }}
+                                        >
+                                            {Number(invoice.totalAmount).toLocaleString(undefined, {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            })}
+                                        </td>
 
-<td className="px-6 py-5 text-center text-blue-300">
-    <span className="inline-flex px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
-        {invoice.currency}
-    </span>
-</td>
+                                        <td className="px-6 py-5 text-center text-blue-300">
+                                            <span className="inline-flex px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+                                                {invoice.currency}
+                                            </span>
+                                        </td>
                                         <td className="px-6 py-5">
 
                                             <div className="flex justify-center gap-2">
 
                                                 <button
+                                                    onClick={() =>
+                                                        navigate(`/dashboard/invoices/${invoice.id}`)
+                                                    }
                                                     className="
                   w-10
                   h-10

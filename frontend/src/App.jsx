@@ -11,7 +11,7 @@ import Invoices from "./pages/Invoices";
 import Report from "./pages/Report";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Setting";
- 
+import InvoiceDetails from "./pages/InvoiceDetails";
 function App() {
   return (
     <BrowserRouter>
@@ -34,6 +34,7 @@ function App() {
             <Route path="reports" element={<Report />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="invoices/:id" element={<InvoiceDetails />} />
         </Route>
       </Routes>
     </BrowserRouter>

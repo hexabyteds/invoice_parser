@@ -215,6 +215,31 @@ class InvoiceRepository {
         return rows[0];
     }
 
+
+    async getAnalytics(userId) {
+
+        const [rows] = await db.execute(
+            `
+            SELECT
+                COUNT(*) AS totalInvoices,
+                COALESCE(SUM(total_amount), 0) AS totalRevenue,
+                COALESCE(SUM(vat_amount), 0) AS totalVAT,
+                COUNT(
+                    CASE
+                        WHEN MONTH(invoice_date) = MONTH(CURDATE())
+                         AND YEAR(invoice_date) = YEAR(CURDATE())
+                        THEN 1
+                    END
+                ) AS monthlyInvoices
+            FROM invoices
+            WHERE user_id = ?
+            `,
+            [userId]
+        );
+    
+        return rows[0];
+    }
+
 }
 
 module.exports = new InvoiceRepository();
