@@ -1,61 +1,90 @@
-// const db = require("./config/database");
+// // const db = require("./config/database");
 
-// async function test() {
-//     try {
-//         const [rows] = await db.query("SELECT * FROM invoice_items;");
+// // async function test() {
+// //     try {
+// //         const [rows] = await db.query("SELECT * FROM invoice_items;");
 
-//         console.log(rows);
+// //         console.log(rows);
 
-//         console.log("✅ MySQL Connected");
-//     } catch (err) {
-//         console.error(err);
-//     }
+// //         console.log("✅ MySQL Connected");
+// //     } catch (err) {
+// //         console.error(err);
+// //     }
 
-//     process.exit();
-// }
+// //     process.exit();
+// // }
 
-// test();
-
-
-// require("dotenv").config();
-
-// const { generateToken, verifyToken } = require("./utils/jwt");
-
-// const token = generateToken({
-//     id: 1,
-//     email: "admin@test.com"
-// });
-
-// console.log(token);
-
-// console.log(verifyToken(token));
+// // test();
 
 
-// require("dotenv").config();
+// // require("dotenv").config();
 
-// const userRepository = require("./repositories/userRepository");
-// const { hashPassword } = require("./utils/password");
+// // const { generateToken, verifyToken } = require("./utils/jwt");
 
-// async function test() {
+// // const token = generateToken({
+// //     id: 1,
+// //     email: "admin@test.com"
+// // });
 
-//     const password = await hashPassword("123456");
+// // console.log(token);
 
-//     const id = await userRepository.create({
-//         name: "Toqeer",
-//         email: "toqeer@test.com",
-//         password
-//     });
+// // console.log(verifyToken(token));
 
-//     console.log("Inserted:", id);
 
-//     const user = await userRepository.findByEmail("toqeer@test.com");
+// // require("dotenv").config();
 
-//     console.log(user);
+// // const userRepository = require("./repositories/userRepository");
+// // const { hashPassword } = require("./utils/password");
 
-//     process.exit();
-// }
+// // async function test() {
 
-// test();
+// //     const password = await hashPassword("123456");
+
+// //     const id = await userRepository.create({
+// //         name: "Toqeer",
+// //         email: "toqeer@test.com",
+// //         password
+// //     });
+
+// //     console.log("Inserted:", id);
+
+// //     const user = await userRepository.findByEmail("toqeer@test.com");
+
+// //     console.log(user);
+
+// //     process.exit();
+// // }
+
+// // test();
+
+
+
+// // require("dotenv").config();
+
+// // const authService = require("./services/authService");
+
+// // async function test() {
+
+// //     try {
+
+// //         const result = await authService.register({
+// //             name: "Ali",
+// //             email: "ali@test.com",
+// //             password: "123456"
+// //         });
+
+// //         console.log(result);
+
+// //     } catch (err) {
+
+// //         console.log(err.message);
+
+// //     }
+
+// //     process.exit();
+// // }
+
+// // test();
 
 
 
@@ -67,11 +96,10 @@
 
 //     try {
 
-//         const result = await authService.register({
-//             name: "Ali",
-//             email: "ali@test.com",
-//             password: "123456"
-//         });
+//         const result = await authService.login(
+//             "ali@test.com",
+//             "123456"
+//         );
 
 //         console.log(result);
 
@@ -86,30 +114,29 @@
 
 // test();
 
-
-
 require("dotenv").config();
 
-const authService = require("./services/authService");
+const { GoogleGenAI } = require("@google/genai");
 
-async function test() {
+const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY
+});
 
+(async () => {
     try {
 
-        const result = await authService.login(
-            "ali@test.com",
-            "123456"
-        );
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: [
+                {
+                    text: "Say Hello"
+                }
+            ]
+        });
 
-        console.log(result);
+        console.log(response.text);
 
     } catch (err) {
-
-        console.log(err.message);
-
+        console.log(err);
     }
-
-    process.exit();
-}
-
-test();
+})();

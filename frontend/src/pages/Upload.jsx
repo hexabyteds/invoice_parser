@@ -36,27 +36,51 @@ export default function Upload() {
 
   const upload = async () => {
     if (!file) {
-      setError("Please select an invoice.");
+      setError("Please select a file.");
       return;
     }
-
+  
     try {
       setLoading(true);
       setError("");
-
+  
       const formData = new FormData();
       formData.append("image", file);
-
+  
       const response = await uploadInvoice(formData);
+  
       console.log(response.data);
-      setResult(response.data);
+  
+      // PDF upload
+      if (response.data.invoices) {
+  
+        setResult(null);
+  
+        alert(
+          `${response.data.totalInvoices} invoice(s) imported successfully.`
+        );
+  
+        // later you can navigate to invoice list
+        // navigate("/dashboard/invoices");
+  
+      } else {
+  
+        // Single image upload
+        setResult(response.data);
+  
+      }
+  
     } catch (err) {
+  
       setError(
         err.response?.data?.error ||
-          "Unable to upload invoice."
+        "Unable to upload invoice."
       );
+  
     } finally {
+  
       setLoading(false);
+  
     }
   };
 
@@ -204,42 +228,42 @@ export default function Upload() {
 
 <div>
   <label className="text-slate-500">Invoice Number</label>
-  <p className="font-semibold">
+  <p className="font-semibold text-black">
     {result.invoice?.invoiceNo}
   </p>
 </div>
 
 <div>
   <label className="text-slate-500">Client</label>
-  <p className="font-semibold">
+  <p className="font-semibold text-black">
     {result.invoice?.clientName}
   </p>
 </div>
 
 <div>
   <label className="text-slate-500">Invoice Date</label>
-  <p className="font-semibold">
+  <p className="font-semibold text-black">
     {result.invoice?.invoiceDate}
   </p>
 </div>
 
 <div>
   <label className="text-slate-500">Total Amount</label>
-  <p className="font-semibold">
+  <p className="font-semibold text-black">
     {result.invoice?.currency} {result.invoice?.totalAmount}
   </p>
 </div>
 
 <div>
   <label className="text-slate-500">VAT Amount</label>
-  <p className="font-semibold">
+  <p className="font-semibold text-black">
     {result.invoice?.vatAmount}
   </p>
 </div>
 
 <div>
   <label className="text-slate-500">TRN</label>
-  <p className="font-semibold">
+  <p className="font-semibold text-black">
     {result.invoice?.trn}
   </p>
 </div>

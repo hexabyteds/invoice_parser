@@ -31,7 +31,15 @@ class GeminiService {
         text = text.replace(/```/g, "");
         text = text.trim();
 
-        return JSON.parse(text);
+        const json = JSON.parse(text);
+
+        if (Array.isArray(json)) {
+
+            return json;
+
+        }
+
+        return json;
 
     }
 
@@ -44,45 +52,106 @@ class GeminiService {
             const mimeType = this.getMimeType(imagePath);
 
             const prompt = `
-You are an expert invoice extraction AI. Read this invoice image carefully.
-
-Extract EVERY field below. Pay special attention to:
-- Product/service line items: extract ALL rows from the items table with full descriptions
-- Amounts: subtotal (before tax), VAT/tax amount, and grand total (final amount due) as separate numbers
-- If VAT rate is shown (e.g. 5%), include vatRate as a number
-
-Rules:
-- Return ONLY valid JSON, no markdown, no explanation
-- Use numbers only for amounts (no currency symbols)
-- If a field is missing on the invoice, use "" for strings and 0 for numbers
-- lineItems must include every product/service row visible on the invoice
-
-Schema:
-{
- "vendorName": "",
- "invoiceNumber": "",
- "invoiceDate": "",
- "dueDate": "",
- "trn": "",
- "phone": "",
- "email": "",
- "address": "",
- "currency": "AED",
- "subtotal": 0,
- "vatRate": 0,
- "vat": 0,
- "total": 0,
- "lineItems": [
-   {
-     "description": "",
-     "qty": 0,
-     "unitPrice": 0,
-     "amount": 0
-   }
- ]
-}
-`;
-
+            You are an expert AI specialized in invoice extraction.
+            
+            The uploaded file may be:
+            
+            1. A single invoice image (JPG, PNG, JPEG)
+            OR
+            2. A PDF containing one or more invoice pages.
+            
+            IMPORTANT RULES
+            
+            • If the file contains ONE invoice, return ONE JSON object.
+            
+            • If the PDF contains MULTIPLE invoices (one invoice per page), treat EACH PAGE as a separate invoice and return a JSON ARRAY.
+            
+            • Do NOT merge invoices from different pages.
+            
+            • Read every page carefully.
+            
+            • Extract ALL visible line items.
+            
+            • Preserve full product descriptions.
+            
+            • Do not skip rows.
+            
+            • Ignore logos, watermarks, stamps and signatures.
+            
+            • Return ONLY valid JSON.
+            
+            • No markdown.
+            
+            • No explanation.
+            
+            • Numbers must not contain currency symbols or commas.
+            
+            • Dates should be YYYY-MM-DD whenever possible.
+            
+            • If a value is missing:
+            
+            Strings => ""
+            
+            Numbers => 0
+            
+            lineItems => []
+            
+            Single invoice format:
+            
+            {
+              "vendorName": "",
+              "invoiceNumber": "",
+              "invoiceDate": "",
+              "dueDate": "",
+              "trn": "",
+              "phone": "",
+              "email": "",
+              "address": "",
+              "currency": "AED",
+              "subtotal": 0,
+              "vatRate": 0,
+              "vat": 0,
+              "total": 0,
+              "lineItems": [
+                {
+                  "description": "",
+                  "qty": 0,
+                  "unitPrice": 0,
+                  "amount": 0
+                }
+              ]
+            }
+            
+            If there are multiple invoices, return:
+            
+            [
+              {
+                "vendorName": "",
+                "invoiceNumber": "",
+                "invoiceDate": "",
+                "dueDate": "",
+                "trn": "",
+                "phone": "",
+                "email": "",
+                "address": "",
+                "currency": "AED",
+                "subtotal": 0,
+                "vatRate": 0,
+                "vat": 0,
+                "total": 0,
+                "lineItems": [
+                  {
+                    "description": "",
+                    "qty": 0,
+                    "unitPrice": 0,
+                    "amount": 0
+                  }
+                ]
+              }
+            ]
+            
+            Return ONLY valid JSON.
+            `;
             const response = await this.ai.models.generateContent({
 
                 model: "gemini-2.5-flash",

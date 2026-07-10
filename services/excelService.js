@@ -2,10 +2,10 @@ const ExcelJS = require("exceljs");
 
 class ExcelService {
 
-    async export(invoices, filePath = "invoices.xlsx") {
+    async export(invoices, filePath = "invoices_" + new Date().toISOString().split("T")[0] + ".xlsx") {
 
         const workbook = new ExcelJS.Workbook();
-
+        const usedSheetNames = new Set();
         // One row per product / description (item-wise)
         const itemsSheet = workbook.addWorksheet("Line Items");
 
@@ -114,36 +114,44 @@ class ExcelService {
         // });
 
 
-        invoices.forEach((invoice) => {
+        invoices.forEach((invoice, index) => {
+
+            let sheetName = String(invoice.invoiceNo || "Invoice");
+
+            if (usedSheetNames.has(sheetName)) {
+                sheetName = `${sheetName}_${index + 1}`;
+            }
+
+            usedSheetNames.add(sheetName);
 
             const sheet = workbook.addWorksheet(
-                invoice.invoiceNo.substring(0, 25)
+                sheetName
             );
-        
+
             sheet.columns = [
                 { width: 45 },
                 { width: 15 },
                 { width: 18 },
                 { width: 18 }
             ];
-        
+
             // Title
-        
+
             sheet.mergeCells("A1:D1");
-        
+
             sheet.getCell("A1").value = "Invoice Details";
-        
+
             sheet.getCell("A1").font = {
                 bold: true,
                 size: 20
             };
-        
+
             sheet.getCell("A1").alignment = {
                 horizontal: "center"
             };
-        
+
             // Information
-        
+
             sheet.addRow([]);
             sheet.addRow(["Invoice Number", invoice.invoiceNo]);
             sheet.addRow(["Client", invoice.clientName]);
@@ -152,69 +160,69 @@ class ExcelService {
             sheet.addRow(["TRN", invoice.trn]);
             sheet.addRow(["Phone", invoice.phoneNumber]);
             sheet.addRow(["Location", invoice.location]);
-        
+
             sheet.addRow([]);
-        
+
             // Table Header
-        
+
             const header = sheet.addRow([
                 "Description",
                 "Qty",
                 "Unit Price",
                 "Total"
             ]);
-        
+
             header.font = {
                 bold: true,
                 color: { argb: "FFFFFFFF" }
             };
-        
+
             header.fill = {
                 type: "pattern",
                 pattern: "solid",
                 fgColor: { argb: "366092" }
             };
-        
+
             // Items
-        
+
             (invoice.lineItems || []).forEach(item => {
-        
+
                 sheet.addRow([
                     item.description,
                     item.quantity,
                     item.unitPrice,
                     item.totalPrice
                 ]);
-        
+
             });
-        
+
             sheet.addRow([]);
-        
+
             sheet.addRow([
                 "",
                 "",
                 "Subtotal",
                 invoice.subtotal
             ]);
-        
+
             sheet.addRow([
                 "",
                 "",
                 "VAT (" + invoice.vatRate + "%)",
                 invoice.vatAmount
             ]);
-        
+
             const total = sheet.addRow([
                 "",
                 "",
                 "Grand Total",
                 invoice.totalAmount
             ]);
-        
+
             total.font = {
                 bold: true
             };
-        
+
         });
         await workbook.xlsx.writeFile(filePath);
 

@@ -57,7 +57,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif/;
+    const allowed = /jpeg|jpg|png|gif|pdf/;
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowed.test(ext)) {
       cb(null, true);
@@ -92,73 +92,119 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Upload and process invoice
-app.post('/api/upload', authMiddleware, upload.single('image'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
+app.post(
+  "/api/upload",
+  authMiddleware,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: "No file uploaded",
+        });
+      }
 
-    console.log(`📸 Processing: ${req.file.filename}`);
+      console.log(`📸 Processing: ${req.file.filename}`);
 
-    // Process image
-    const result = await agent.processImage(req.file.path, req.user.id);
+      const extension = path
+        .extname(req.file.originalname)
+        .toLowerCase();
 
-    if (result.status === 'success') {
+      let result;
 
-      const invoice = result.invoice;
-      const validation = result.validation;
-  
-      const response = {
+      if (extension === ".pdf") {
+        result = await agent.processPDF(
+          req.file.path,
+          req.user.id
+        );
+      } else {
+        result = await agent.processImage(
+          req.file.path,
+          req.user.id
+        );
+      }
+
+      if (result.status !== "success") {
+        return res.status(400).json({
+          success: false,
+          error: result.message,
+        });
+      }
+
+      // ===========================
+      // PDF RESPONSE
+      // ===========================
+
+      if (extension === ".pdf") {
+
+        // agent.saveToExcel(req.user.id).catch(console.error);
+
+        return res.json({
           success: true,
+          totalInvoices: result.totalInvoices,
+          invoices: result.invoices,
+          message: `${result.totalInvoices} invoice(s) processed successfully.`,
+        });
+      }
+
+      else {
+        const invoice = result.invoice;
+        const validation = result.validation;
+  
+        const response = {
+          success: true,
+  
           invoice: {
-              invoiceType: invoice.invoiceType,
-              clientName: invoice.clientName,
-              invoiceNo: invoice.invoiceNo,
-              invoiceDate: invoice.invoiceDate,
-              dueDate: invoice.dueDate,
-              phoneNumber: invoice.phoneNumber,
-              location: invoice.location,
-              description: invoice.description || "",
-              subtotal: Number(invoice.subtotal).toFixed(2),
-              vatRate: invoice.vatRate || 0,
-              vatAmount: Number(invoice.vatAmount).toFixed(2),
-              totalAmount: Number(invoice.totalAmount).toFixed(2),
-              currency: invoice.currency,
-              lineItems: invoice.lineItems || [],
-              trn: invoice.trn
+            invoiceType: invoice.invoiceType,
+            clientName: invoice.clientName,
+            invoiceNo: invoice.invoiceNo,
+            invoiceDate: invoice.invoiceDate,
+            dueDate: invoice.dueDate,
+            phoneNumber: invoice.phoneNumber,
+            location: invoice.location,
+            description: invoice.description || "",
+            subtotal: Number(invoice.subtotal).toFixed(2),
+            vatRate: invoice.vatRate || 0,
+            vatAmount: Number(invoice.vatAmount).toFixed(2),
+            totalAmount: Number(invoice.totalAmount).toFixed(2),
+            currency: invoice.currency,
+            lineItems: invoice.lineItems || [],
+            trn: invoice.trn,
           },
+  
           validation: {
-              isValid: validation.isValid,
-              confidence: validation.confidence,
-              errors: validation.errors,
-              warnings: validation.warnings
+            isValid: validation.isValid,
+            confidence: validation.confidence,
+            errors: validation.errors,
+            warnings: validation.warnings,
           },
-          message: `✅ Processed successfully (${validation.confidence}% confidence)`
-      };
   
-      // Send response once
-      res.json(response);
+          message: `✅ Processed successfully (${validation.confidence}% confidence)`,
+        };
   
-      // Generate Excel in background
-      agent.saveToExcel(req.user.id).catch(console.error);
+        // agent.saveToExcel(req.user.id).catch(console.error);
   
-      return;
+        return res.json(response);
+      }
+
+      // ===========================
+      // IMAGE RESPONSE
+      // ===========================
+
   
-    } else {
-      res.status(400).json({
+
+    } catch (error) {
+      console.error("Upload error:", error);
+
+      return res.status(500).json({
         success: false,
-        error: result.message,
+        error: error.message,
       });
     }
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
   }
-});
+);
+
 
 // Get all invoices
 // app.get('/api/invoices', (req, res) => {
@@ -303,7 +349,7 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
 app.get('/api/download-excel', authMiddleware, async (req, res) => {
   try {
     const filePath = await agent.saveToExcel(req.user.id);
-    res.download(filePath, 'invoices.xlsx');
+    res.download(filePath, filePath);
   } catch (error) {
     console.error('Excel download error:', error);
     res.status(500).json({ error: error.message });

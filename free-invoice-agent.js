@@ -42,7 +42,7 @@ class FreeInvoiceAgent {
         };
     }
 
-    async saveToExcel(userId, file = "invoices.xlsx") {
+    async saveToExcel(userId, file = "invoices_" + new Date().toISOString().split("T")[0] + ".xlsx") {
 
         const invoices = await invoiceRepository.findByUser(userId);
  
@@ -103,6 +103,44 @@ class FreeInvoiceAgent {
         return await invoiceRepository.getAnalytics(userId);
 
     }   
+
+    async processPDF(pdfPath, userId) {
+
+        // We'll implement this next.
+        const result = await invoiceService.extractPDF(pdfPath);
+
+        if (!result.success) {
+            return {
+                status: "error",
+                message: result.error,
+            };
+        }
+
+        console.log("result.invoices", JSON.stringify(result.invoices, null, 2));
+        const savedInvoices = [];
+        
+        for (const item of result.invoices) {
+        
+            const invoice = invoiceNormalizer.normalize(item.invoice);
+        
+            invoice.user_id = userId;
+        
+            const invoiceId = await invoiceRepository.create(invoice);
+        
+            await invoiceItemRepository.createMany(
+                invoiceId,
+                invoice.lineItems
+            );
+        
+            savedInvoices.push(invoice);
+        }
+        
+        return {
+            status: "success",
+            invoices: savedInvoices,
+            totalInvoices: savedInvoices.length
+        };
+    }
 }
 
 module.exports = FreeInvoiceAgent;

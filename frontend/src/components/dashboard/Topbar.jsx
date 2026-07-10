@@ -346,6 +346,7 @@ export default function Topbar({
                   border
                   border-slate-200
                   shadow-2xl
+                text-black
                   overflow-hidden
                 "
                         >
@@ -360,6 +361,7 @@ export default function Topbar({
                     gap-3
                     hover:bg-slate-50
                     transition
+                    text-black
                   "
                             >
                                 <User size={18} />
@@ -374,7 +376,8 @@ export default function Topbar({
                     flex
                     items-center
                     gap-3
-                    hover:bg-slate-50
+                    hover:bg-slate-50   
+                    text-black
                     transition
                   "
                             >

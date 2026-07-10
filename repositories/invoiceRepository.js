@@ -8,6 +8,7 @@ class InvoiceRepository {
     // Create Invoice
     async create(invoice) {
 
+        console.log("invoice", JSON.stringify(invoice, null, 2));
         const sql = `
             INSERT INTO invoices (
                 user_id,
