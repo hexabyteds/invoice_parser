@@ -22,6 +22,11 @@ const menuItems = [
     path: "/dashboard",
   },
   {
+    title: "Clients",
+    icon: FolderOpen,
+    path: "/dashboard/clients",
+  },
+  {
     title: "Upload Invoice",
     icon: Upload,
     path: "/dashboard/upload",

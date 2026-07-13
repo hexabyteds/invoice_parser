@@ -63,3 +63,9 @@ export const downloadReport = () =>
   API.get("/report", {
     responseType: "blob",
   });
+
+
+  export const getInvoicesByClient = (clientId) =>
+    API.get(`/invoices?client_id=${clientId}`);
+
+  

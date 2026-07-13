@@ -8,10 +8,10 @@ class InvoiceRepository {
     // Create Invoice
     async create(invoice) {
 
-        console.log("invoice", JSON.stringify(invoice, null, 2));
         const sql = `
             INSERT INTO invoices (
                 user_id,
+                client_id,
                 invoice_type,
                 invoice_no,
                 client_name,
@@ -28,11 +28,12 @@ class InvoiceRepository {
                 trn,
                 image_path
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `;
-
+    
         const values = [
             invoice.user_id,
+            invoice.client_id,
             invoice.invoiceType,
             invoice.invoiceNo,
             invoice.clientName,
@@ -49,12 +50,11 @@ class InvoiceRepository {
             invoice.trn,
             invoice.imagePath || null
         ];
-
+    
         const [result] = await db.execute(sql, values);
-
+    
         return result.insertId;
     }
-
     // Get all invoices
     async findAll() {
 
@@ -63,52 +63,14 @@ class InvoiceRepository {
             FROM invoices
             ORDER BY created_at DESC
         `);
-    
-        const invoices = [];
-    
-        for (const row of rows) {
-    
-            const items = await invoiceItemRepository.findByInvoice(row.id);
-    
-            invoices.push({
-                id: row.id,
-                userId: row.user_id,
-    
-                invoiceType: row.invoice_type,
-                invoiceNo: row.invoice_no,
-                clientName: row.client_name,
-    
-                invoiceDate: row.invoice_date,
-                dueDate: row.due_date,
-    
-                phoneNumber: row.phone_number,
-                location: row.location,
-                description: row.description,
-    
-                subtotal: Number(row.subtotal),
-                vatRate: Number(row.vat_rate),
-                vatAmount: Number(row.vat_amount),
-                totalAmount: Number(row.total_amount),
-    
-                currency: row.currency,
-                trn: row.trn,
-                imagePath: row.image_path,
-    
-                lineItems: items.map(item => ({
-                    id: item.id,
-                    description: item.description,
-                    quantity: Number(item.quantity),
-                    unitPrice: Number(item.unit_price),
-                    totalPrice: Number(item.total_price)
-                }))
-            });
-        }
-    
-        return invoices;
+
+  return await this.mapInvoices(rows);
+
+      
     }
 
     // Get invoice by ID
-  
+
     // Get invoices of one user
     async findByUser(userId) {
 
@@ -119,48 +81,8 @@ class InvoiceRepository {
              ORDER BY created_at DESC`,
             [userId]
         );
-    
-        const invoices = [];
-    
-        for (const row of rows) {
-    
-            const items = await invoiceItemRepository.findByInvoice(row.id);
-    
-            invoices.push({
-                id: row.id,
-                userId: row.user_id,
-    
-                invoiceType: row.invoice_type,
-                invoiceNo: row.invoice_no,
-                clientName: row.client_name,
-    
-                invoiceDate: row.invoice_date,
-                dueDate: row.due_date,
-    
-                phoneNumber: row.phone_number,
-                location: row.location,
-                description: row.description,
-    
-                subtotal: Number(row.subtotal),
-                vatRate: Number(row.vat_rate),
-                vatAmount: Number(row.vat_amount),
-                totalAmount: Number(row.total_amount),
-    
-                currency: row.currency,
-                trn: row.trn,
-                imagePath: row.image_path,
-    
-                lineItems: items.map(item => ({
-                    id: item.id,
-                    description: item.description,
-                    quantity: Number(item.quantity),
-                    unitPrice: Number(item.unit_price),
-                    totalPrice: Number(item.total_price)
-                }))
-            });
-        }
-    
-        return invoices;
+
+        return await this.mapInvoices(rows);
     }
 
     // Get invoice by ID
@@ -173,14 +95,14 @@ class InvoiceRepository {
             AND user_id = ?
             LIMIT 1
         `;
-    
+
         const [rows] = await db.execute(sql, [
             id,
             userId
         ]);
-    
+
         return rows.length ? rows[0] : null;
-    
+
     }
     // Delete invoice
     async delete(id) {
@@ -237,10 +159,93 @@ class InvoiceRepository {
             `,
             [userId]
         );
+
+        return rows[0];
+    }
+    async findByClient(userId, clientId) {
+
+        const [rows] = await db.execute(
+            `
+            SELECT *
+            FROM invoices
+            WHERE user_id = ?
+            AND client_id = ?
+            ORDER BY created_at DESC
+            `,
+            [userId, clientId]
+        );
+    
+        return await this.mapInvoices(rows);
+    }
+
+
+    async getStatisticsByClient(userId, clientId) {
+
+        const [rows] = await db.execute(`
+            SELECT
+                COUNT(*) AS totalInvoices,
+                SUM(total_amount) AS totalAmount,
+                SUM(vat_amount) AS totalVAT,
+                COUNT(DISTINCT invoice_no) AS uniqueInvoices
+            FROM invoices
+            WHERE user_id = ?
+            AND client_id = ?
+        `,[userId, clientId]);
     
         return rows[0];
     }
 
+
+    async mapInvoices(rows) {
+
+        const invoices = [];
+    
+        for (const row of rows) {
+    
+            const items =
+                await invoiceItemRepository.findByInvoice(row.id);
+    
+            invoices.push({
+    
+                id: row.id,
+                userId: row.user_id,
+                clientId: row.client_id,
+    
+                invoiceType: row.invoice_type,
+                invoiceNo: row.invoice_no,
+                clientName: row.client_name,
+    
+                invoiceDate: row.invoice_date,
+                dueDate: row.due_date,
+    
+                phoneNumber: row.phone_number,
+                location: row.location,
+                description: row.description,
+    
+                subtotal: Number(row.subtotal),
+                vatRate: Number(row.vat_rate),
+                vatAmount: Number(row.vat_amount),
+                totalAmount: Number(row.total_amount),
+    
+                currency: row.currency,
+                trn: row.trn,
+                imagePath: row.image_path,
+    
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+    
+                lineItems: items.map(item => ({
+                    id: item.id,
+                    description: item.description,
+                    quantity: Number(item.quantity),
+                    unitPrice: Number(item.unit_price),
+                    totalPrice: Number(item.total_price)
+                }))
+            });
+        }
+    
+        return invoices;
+    }
 }
 
 module.exports = new InvoiceRepository();
