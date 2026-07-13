@@ -14,6 +14,7 @@ import Settings from "./pages/Setting";
 import InvoiceDetails from "./pages/InvoiceDetails";
 import Clients from "./pages/Clients";
 import ClientDetails from "./pages/ClientDetails";
+import AddClient from "./pages/AddClient";
 function App() {
   return (
     <BrowserRouter>
@@ -39,6 +40,8 @@ function App() {
             <Route path="invoices/:id" element={<InvoiceDetails />} />
             <Route path="clients" element={<Clients />} />
             <Route path="clients/:id" element={<ClientDetails />} />
+            <Route path="clients/new" element={<AddClient />} />
+            <Route path="upload/:clientId" element={<Upload />} />
         </Route>
       </Routes>
     </BrowserRouter>

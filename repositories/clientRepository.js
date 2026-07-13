@@ -4,18 +4,20 @@ class ClientRepository {
 
     async create(client) {
 
+        console.log("client", client);
+
         const sql = `
             INSERT INTO clients
 (
     user_id,
     company_name,
     contact_person,
-    email,
+    email, 
     phone,
-    trn,
-    address,
     country,
     city,
+    trn,
+    address,
     notes
 )
 VALUES (?,?,?,?,?,?,?,?,?,?)
@@ -33,6 +35,9 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
             client.city,
             client.notes
         ];
+
+        console.log(JSON.stringify(client, null, 2));
+        console.log(JSON.stringify(values, null, 2));
         const [result] = await db.execute(sql, values);
         return result.insertId;
     }
@@ -51,7 +56,9 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
     }
 
     async findById(id) {
-
+        console.log("id", id);
+        const values = [id];
+        console.log("values", values);
         const [rows] = await db.execute(
             `SELECT *
              FROM clients
@@ -98,6 +105,8 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
 
     async findById(id, userId) {
 
+        console.log("id", id);
+        console.log("userId", userId);
         const [rows] = await db.execute(
             `
             SELECT *

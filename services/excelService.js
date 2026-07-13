@@ -116,17 +116,31 @@ class ExcelService {
 
         invoices.forEach((invoice, index) => {
 
-            let sheetName = String(invoice.invoiceNo || "Invoice");
+            // Create a safe worksheet name
+            let sheetName = String(invoice.invoiceNo || `Invoice_${index + 1}`)
+                .replace(/[\\/*?:[\]]/g, "_") // Invalid Excel chars
+                .substring(0, 31);            // Excel max length
 
-            if (usedSheetNames.has(sheetName)) {
-                sheetName = `${sheetName}_${index + 1}`;
+            if (!sheetName) {
+                sheetName = `Invoice_${index + 1}`;
+            }
+
+            // Ensure unique names
+            let originalName = sheetName;
+            let counter = 1;
+
+            while (usedSheetNames.has(sheetName)) {
+                sheetName = `${originalName}_${counter}`;
+                sheetName = sheetName.substring(0, 31);
+                counter++;
             }
 
             usedSheetNames.add(sheetName);
 
-            const sheet = workbook.addWorksheet(
-                sheetName
-            );
+            const sheet = workbook.addWorksheet(sheetName);
+
+
+
 
             sheet.columns = [
                 { width: 45 },

@@ -3,7 +3,8 @@ const clientRepository = require("../repositories/clientRepository");
 class ClientService {
 
     async create(userId, data) {
-
+        console.log("data", data);
+        console.log("userId", userId);
         const id = await clientRepository.create({
             user_id: userId,
             company_name: data.company_name,
@@ -16,8 +17,15 @@ class ClientService {
             city: data.city || "",
             notes: data.notes || ""
         });
-
-        return await clientRepository.findById(id);
+        console.log("id", id);
+        try {
+            return await clientRepository.findById(id, userId);
+        } catch (error) {
+                
+                    console.log("error", error);
+            
+            return false;
+        }
     }
 
     async getAll(userId) {

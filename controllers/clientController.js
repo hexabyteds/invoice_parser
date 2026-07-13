@@ -5,6 +5,8 @@ class ClientController {
     async create(req, res) {
 
         try {
+            console.log("req.body", req.body);
+            console.log("req.user.id", req.user.id);
 
             const client = await clientService.create(req.user.id, req.body);
 

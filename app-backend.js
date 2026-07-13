@@ -342,9 +342,22 @@ app.get(
 
     try {
 
-      const analytics =
-        await agent.getAnalytics(req.user.id);
-      console.log("ANALYTICS", analytics);
+      const clientId = req.query.client_id
+        ? Number(req.query.client_id)
+        : null;
+
+      console.log("ANALYTICS QUERY", {
+        userId: req.user.id,
+        clientId,
+      });
+
+      const analytics = await agent.getAnalytics(
+        req.user.id,
+        clientId
+      );
+
+      console.log("ANALYTICS RESULT", analytics);
+
       res.json({
         success: true,
         analytics
@@ -386,25 +399,36 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
 });
 
 // Download Excel (regenerate from DB — one row per line item)
-app.get('/api/download-excel?client_id=1', authMiddleware, async (req, res) => {
+// Download Excel
+// - All invoices:     GET /api/download-excel
+// - One client only:  GET /api/download-excel?client_id=14
+app.get("/api/download-excel", authMiddleware, async (req, res) => {
   try {
+    const clientId = req.query.client_id
+      ? Number(req.query.client_id)
+      : null;
 
-    const clientId = req.query.client_id;
+    console.log("DOWNLOAD EXCEL", {
+      userId: req.user.id,
+      clientId,
+    });
 
     const file = await agent.saveToExcel(
       req.user.id,
       clientId
     );
 
-    res.download(file);
+    const filename = clientId
+      ? `client_${clientId}_invoices.xlsx`
+      : "invoices.xlsx";
 
+    res.download(file, filename);
   } catch (err) {
-
+    console.error("DOWNLOAD EXCEL ERROR", err);
     res.status(500).json({
       success: false,
-      error: err.message
+      error: err.message,
     });
-
   }
 });
 

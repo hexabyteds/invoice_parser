@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import clientApi from "../services/clientApi.js";
- 
+import { useNavigate } from "react-router-dom";
+
+
 import {
     getInvoicesByClient,
   } from "../services/invoiceApi";
@@ -10,32 +12,71 @@ export default function ClientDetails() {
     const { id } = useParams();
 
     const [client, setClient] = useState(null);
-
     const [invoices, setInvoices] = useState([]);
+    const [downloading, setDownloading] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
-        console.log("id", id);
         load();
-
-    }, []);
+    }, [id]);
 
     async function load() {
-        console.log("load");
-        const clientRes =
-            await clientApi.get(id);
+        const clientRes = await clientApi.get(id);
+        const invoiceRes = await getInvoicesByClient(id);
 
-            const invoiceRes = await getInvoicesByClient(id);
-        console.log("invoiceRes", invoiceRes?.data?.invoices);
         setClient(clientRes.client);
-
-        setInvoices(invoiceRes?.data?.invoices);
-
+        setInvoices(invoiceRes?.data?.invoices || []);
     }
 
+    // Client-wise Excel: /api/download-excel?client_id={id}
+    async function handleDownloadExcel() {
+
+        try {
+    
+            setDownloading(true);
+    
+            const blob = await clientApi.downloadExcel(id);
+    
+            // Backend returned an error as JSON
+            if (blob.type?.includes("application/json")) {
+    
+                const text = await blob.text();
+                const json = JSON.parse(text);
+    
+                throw new Error(json.error);
+    
+            }
+    
+            const url = window.URL.createObjectURL(blob);
+    
+            const link = document.createElement("a");
+    
+            link.href = url;
+            link.download = `${client.company_name}-invoices.xlsx`;
+    
+            document.body.appendChild(link);
+    
+            link.click();
+    
+            link.remove();
+    
+            window.URL.revokeObjectURL(url);
+    
+        } catch (err) {
+    
+            console.error(err);
+    
+            alert(err.message);
+    
+        } finally {
+    
+            setDownloading(false);
+    
+        }
+    
+    }
     if (!client) {
-
         return <p>Loading...</p>;
-
     }
 
     return (
@@ -128,16 +169,19 @@ export default function ClientDetails() {
 
             <div className="grid md:grid-cols-4 gap-6">
 
-                <button className="bg-blue-600 rounded-xl p-5">
-
+                <button
+                  onClick={() => navigate(`/dashboard/upload/${id}`)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl p-5 font-semibold transition"
+                >
                     Upload Invoice
-
                 </button>
 
-                <button className="bg-slate-800 rounded-xl p-5">
-
-                    Download Excel
-
+                <button
+                  onClick={handleDownloadExcel}
+                  disabled={downloading}
+                  className="bg-slate-800 hover:bg-slate-700 text-white rounded-xl p-5 font-semibold transition disabled:opacity-60"
+                >
+                    {downloading ? "Downloading..." : "Download Excel"}
                 </button>
 
                 <button className="bg-slate-800 rounded-xl p-5">
@@ -146,10 +190,11 @@ export default function ClientDetails() {
 
                 </button>
 
-                <button className="bg-slate-800 rounded-xl p-5">
-
+                <button
+                  onClick={() => navigate(`/dashboard/analytics?client=${id}`)}
+                  className="bg-slate-800 hover:bg-slate-700 text-white rounded-xl p-5 font-semibold transition"
+                >
                     Analytics
-
                 </button>
 
             </div>

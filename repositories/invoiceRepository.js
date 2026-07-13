@@ -139,10 +139,9 @@ class InvoiceRepository {
     }
 
 
-    async getAnalytics(userId) {
+    async getAnalytics(userId, clientId = null) {
 
-        const [rows] = await db.execute(
-            `
+        let sql = `
             SELECT
                 COUNT(*) AS totalInvoices,
                 COALESCE(SUM(total_amount), 0) AS totalRevenue,
@@ -156,9 +155,16 @@ class InvoiceRepository {
                 ) AS monthlyInvoices
             FROM invoices
             WHERE user_id = ?
-            `,
-            [userId]
-        );
+        `;
+
+        const values = [userId];
+
+        if (clientId) {
+            sql += ` AND client_id = ?`;
+            values.push(clientId);
+        }
+
+        const [rows] = await db.execute(sql, values);
 
         return rows[0];
     }

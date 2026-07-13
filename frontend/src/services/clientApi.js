@@ -17,8 +17,23 @@ const clientApi = {
 
   // Create client
   create: async (client) => {
-    const { data } = await api.post("/clients", client);
-    return data;
+    try {
+      console.log("Sending:", client);
+  
+      
+      const response = await api.post("/clients", client);
+  
+      console.log("Response:", response.data);
+  
+      return response.data;
+  
+    } catch (error) {
+  
+      console.log("Status:", error.response?.status);
+      console.log("Response:", error.response?.data);
+  
+      throw error;
+    }
   },
 
   // Update client
@@ -45,17 +60,18 @@ const clientApi = {
     return data;
   },
 
-  // Download Excel
-  downloadExcel: async (clientId) => {
-    const response = await api.get(
+// Download client excel
+downloadExcel: async (clientId) => {
+
+  const response = await api.get(
       `/download-excel?client_id=${clientId}`,
       {
-        responseType: "blob",
+          responseType: "blob",
       }
-    );
+  );
 
-    return response.data;
-  },
+  return response.data;
+},
 
   // HTML Report
   getReport: async (clientId) => {

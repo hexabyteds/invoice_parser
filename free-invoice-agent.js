@@ -150,13 +150,17 @@ class FreeInvoiceAgent {
         clientId = null,
         file = `invoices_${new Date().toISOString().split("T")[0]}.xlsx`
     ) {
-
+        // clientId set  → only that client's invoices
+        // clientId null → all invoices for this user
         const invoices = clientId
-            ? await invoiceRepository.findByClient(
-                  userId,
-                  clientId
-              )
+            ? await invoiceRepository.findByClient(userId, Number(clientId))
             : await invoiceRepository.findByUser(userId);
+
+        console.log("Excel export:", {
+            userId,
+            clientId: clientId || "ALL",
+            count: invoices.length,
+        });
 
         return await excelService.export(invoices, file);
     }
@@ -201,9 +205,8 @@ class FreeInvoiceAgent {
     // ANALYTICS
     // =========================
 
-    async getAnalytics(userId) {
-
-        return await invoiceRepository.getAnalytics(userId);
+    async getAnalytics(userId, clientId = null) {
+        return await invoiceRepository.getAnalytics(userId, clientId);
     }
     async getInvoicesByClient(userId, clientId) {
         return await invoiceRepository.findByClient(

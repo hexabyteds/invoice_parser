@@ -52,11 +52,12 @@ export default function Clients() {
 
                 </div>
 
-                <button
-                    className="bg-blue-600 hover:bg-blue-700 rounded-xl px-5 py-3 font-semibold"
+                <Link
+                    to="/dashboard/clients/new"
+                    className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700"
                 >
                     + Add Client
-                </button>
+                </Link>
 
             </div>
 
