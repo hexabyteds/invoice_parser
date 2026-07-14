@@ -17,7 +17,7 @@ import ClientDetails from "./pages/ClientDetails";
 import AddClient from "./pages/AddClient";
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/invoice">
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
