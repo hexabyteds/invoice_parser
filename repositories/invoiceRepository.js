@@ -104,6 +104,51 @@ class InvoiceRepository {
         return rows.length ? rows[0] : null;
 
     }
+    // Update invoice
+    async update(id, userId, invoice) {
+
+        const sql = `
+            UPDATE invoices SET
+                invoice_no = ?,
+                client_name = ?,
+                invoice_date = ?,
+                due_date = ?,
+                phone_number = ?,
+                location = ?,
+                description = ?,
+                subtotal = ?,
+                vat_rate = ?,
+                vat_amount = ?,
+                total_amount = ?,
+                currency = ?,
+                trn = ?
+            WHERE id = ?
+            AND user_id = ?
+        `;
+
+        const values = [
+            invoice.invoice_no ?? null,
+            invoice.client_name ?? null,
+            formatDate(invoice.invoice_date) || null,
+            formatDate(invoice.due_date) || null,
+            invoice.phone_number ?? null,
+            invoice.location ?? null,
+            invoice.description ?? null,
+            invoice.subtotal ?? 0,
+            invoice.vat_rate ?? 0,
+            invoice.vat_amount ?? 0,
+            invoice.total_amount ?? 0,
+            invoice.currency ?? null,
+            invoice.trn ?? null,
+            id,
+            userId
+        ];
+
+        const [result] = await db.execute(sql, values);
+
+        return result.affectedRows;
+    }
+
     // Delete invoice
     async delete(id) {
 
@@ -181,6 +226,39 @@ class InvoiceRepository {
             [userId, clientId]
         );
     
+        return await this.mapInvoices(rows);
+    }
+
+    // Export filter: optional client + optional date range on invoice_date
+    async findForExport(userId, { clientId = null, from = null, to = null } = {}) {
+
+        let sql = `
+            SELECT *
+            FROM invoices
+            WHERE user_id = ?
+        `;
+
+        const values = [userId];
+
+        if (clientId) {
+            sql += ` AND client_id = ?`;
+            values.push(Number(clientId));
+        }
+
+        if (from) {
+            sql += ` AND invoice_date >= ?`;
+            values.push(formatDate(from) || from);
+        }
+
+        if (to) {
+            sql += ` AND invoice_date <= ?`;
+            values.push(formatDate(to) || to);
+        }
+
+        sql += ` ORDER BY invoice_date DESC, created_at DESC`;
+
+        const [rows] = await db.execute(sql, values);
+
         return await this.mapInvoices(rows);
     }
 

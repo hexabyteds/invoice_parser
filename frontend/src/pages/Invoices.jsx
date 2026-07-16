@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
     Search,
     Eye,
+    Pencil,
     Trash2,
     FileText,
     Loader2,
@@ -229,6 +230,16 @@ export default function Invoices() {
                                                     className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition"
                                                 >
                                                     <Eye size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/dashboard/invoices/${invoice.id}/edit`
+                                                        )
+                                                    }
+                                                    className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition"
+                                                >
+                                                    <Pencil size={18} />
                                                 </button>
                                                 <button
                                                     onClick={() =>

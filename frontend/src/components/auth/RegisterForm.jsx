@@ -145,7 +145,7 @@ export default function RegisterForm() {
 
           <input
             {...register("company")}
-            placeholder="InvoicePilot Inc."
+            placeholder="EazeeBooks Inc."
             className="w-full bg-transparent px-4 py-4 outline-none"
           />
 

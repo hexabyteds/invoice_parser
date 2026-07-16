@@ -105,11 +105,11 @@ export default function Login() {
 
                                 <div>
                                     <h1 className="text-4xl font-bold">
-                                        InvoicePilot
+                                        EazeeBooks
                                     </h1>
 
                                     <p className="text-slate-400">
-                                        AI Finance Platform
+                                        AI Accounting Platform
                                     </p>
                                 </div>
 

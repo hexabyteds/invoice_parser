@@ -19,11 +19,11 @@ export default function Navbar() {
 
             <div>
               <h1 className="text-lg font-bold text-white">
-                InvoicePilot
+                EazeeBooks
               </h1>
 
               <p className="text-xs text-slate-400">
-                AI Finance Platform
+                AI Accounting Platform
               </p>
             </div>
           </div>

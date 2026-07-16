@@ -5,7 +5,7 @@ export default function Register() {
   return (
     <AuthLayout
       title="Create Account"
-      subtitle="Start using InvoicePilot today."
+      subtitle="Start using EazeeBooks today."
     >
       <RegisterForm />
     </AuthLayout>

@@ -3,7 +3,8 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:3001/api",
+  // baseURL: "http://localhost:3001/api",
+  baseURL: import.meta.env.VITE_API_URL,
 });
 
 API.interceptors.request.use((config) => {
@@ -53,6 +54,9 @@ export const downloadExcel = () =>
 
   export const getInvoice = (id) =>
     API.get(`/invoices/${id}`);
+
+  export const updateInvoice = (id, data) =>
+    API.put(`/invoices/${id}`, data);
 
   
 // ==========================

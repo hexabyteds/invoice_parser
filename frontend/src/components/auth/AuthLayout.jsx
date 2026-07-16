@@ -32,16 +32,16 @@ export default function AuthLayout({ title, subtitle, children }) {
               <div className="mt-12 flex items-center gap-4">
 
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-500 to-violet-600 text-2xl font-bold shadow-lg">
-                  IP
+                  EZ
                 </div>
 
                 <div>
                   <h1 className="text-3xl font-bold">
-                    InvoicePilot
+                    EazeeBooks
                   </h1>
 
                   <p className="text-slate-400">
-                    AI Finance Platform
+                    AI Accounting Platform
                   </p>
                 </div>
 

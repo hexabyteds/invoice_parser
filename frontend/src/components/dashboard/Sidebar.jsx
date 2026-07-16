@@ -183,7 +183,7 @@ export default function Sidebar({
                         font-bold
                       "
                     >
-                      InvoicePilot
+                      EazeeBooks
                     </h2>
     
                     <p

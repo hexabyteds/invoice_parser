@@ -15,9 +15,11 @@ import InvoiceDetails from "./pages/InvoiceDetails";
 import Clients from "./pages/Clients";
 import ClientDetails from "./pages/ClientDetails";
 import AddClient from "./pages/AddClient";
+import EditInvoice from "./pages/EditInvoice";
+import ExportCenter from "./pages/ExportCenter";
 function App() {
   return (
-    <BrowserRouter basename="/invoice">
+    <BrowserRouter basename="/">
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
@@ -42,6 +44,11 @@ function App() {
             <Route path="clients/:id" element={<ClientDetails />} />
             <Route path="clients/new" element={<AddClient />} />
             <Route path="upload/:clientId" element={<Upload />} />
+            <Route path="export" element={<ExportCenter />} />
+                        <Route
+    path="invoices/:id/edit"
+    element={<EditInvoice />}
+/>
         </Route>
       </Routes>
     </BrowserRouter>

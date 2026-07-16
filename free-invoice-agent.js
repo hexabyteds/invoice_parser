@@ -1,6 +1,7 @@
 const invoiceService = require("./services/invoiceService");
 const excelService = require("./services/excelService");
 const reportService = require("./services/reportService");
+const exportFormatsService = require("./services/exportFormatsService");
 const invoiceNormalizer = require("./services/invoiceNormalizer");
 
 const invoiceRepository = require("./repositories/invoiceRepository");
@@ -126,6 +127,41 @@ class FreeInvoiceAgent {
     }
 
     // =========================
+    // UPDATE INVOICE
+    // =========================
+
+    async updateInvoice(invoiceId, userId, data) {
+
+        const existing = await invoiceRepository.findById(
+            invoiceId,
+            userId
+        );
+
+        if (!existing) {
+            return null;
+        }
+
+        await invoiceRepository.update(invoiceId, userId, data);
+
+        // Replace line items if provided
+        if (Array.isArray(data.lineItems)) {
+
+            await invoiceItemRepository.delete(invoiceId);
+
+            const items = data.lineItems.map(item => ({
+                description: item.description || "",
+                quantity: item.quantity ?? 0,
+                unitPrice: item.unit_price ?? item.unitPrice ?? 0,
+                totalPrice: item.total_price ?? item.totalPrice ?? 0
+            }));
+
+            await invoiceItemRepository.createMany(invoiceId, items);
+        }
+
+        return await this.getInvoiceById(invoiceId, userId);
+    }
+
+    // =========================
     // STATISTICS
     // =========================
 
@@ -142,27 +178,90 @@ class FreeInvoiceAgent {
     }
 
     // =========================
+    // EXPORT HELPERS
+    // =========================
+
+    async getExportInvoices(userId, filters = {}) {
+        return await invoiceRepository.findForExport(userId, {
+            clientId: filters.clientId || null,
+            from: filters.from || null,
+            to: filters.to || null,
+        });
+    }
+
+    // =========================
     // EXCEL
     // =========================
 
     async saveToExcel(
         userId,
         clientId = null,
-        file = `invoices_${new Date().toISOString().split("T")[0]}.xlsx`
+        file = `invoices_${new Date().toISOString().split("T")[0]}.xlsx`,
+        filters = {}
     ) {
-        // clientId set  → only that client's invoices
-        // clientId null → all invoices for this user
-        const invoices = clientId
-            ? await invoiceRepository.findByClient(userId, Number(clientId))
-            : await invoiceRepository.findByUser(userId);
+        const invoices = await this.getExportInvoices(userId, {
+            clientId,
+            ...filters,
+        });
 
         console.log("Excel export:", {
             userId,
             clientId: clientId || "ALL",
+            from: filters.from || null,
+            to: filters.to || null,
             count: invoices.length,
         });
 
         return await excelService.export(invoices, file);
+    }
+
+    // =========================
+    // CSV / ZOHO / QUICKBOOKS / PDF
+    // =========================
+
+    async exportCSV(userId, filters = {}) {
+        const invoices = await this.getExportInvoices(userId, filters);
+        return {
+            csv: exportFormatsService.toStandardCsv(invoices),
+            count: invoices.length,
+        };
+    }
+
+    async exportZoho(
+        userId,
+        filters = {},
+        file = `zoho_bills_${Date.now()}.xlsx`
+    ) {
+        const invoices = await this.getExportInvoices(userId, filters);
+        const filePath = await exportFormatsService.toZohoBillsExcel(
+            invoices,
+            file
+        );
+        return {
+            filePath,
+            count: invoices.length,
+        };
+    }
+
+    async exportQuickBooks(userId, filters = {}) {
+        const invoices = await this.getExportInvoices(userId, filters);
+        return {
+            csv: exportFormatsService.toQuickBooksCsv(invoices),
+            count: invoices.length,
+        };
+    }
+
+    async exportPDF(
+        userId,
+        filters = {},
+        file = `invoices_export_${Date.now()}.pdf`
+    ) {
+        const invoices = await this.getExportInvoices(userId, filters);
+        const filePath = await exportFormatsService.toPdf(invoices, file);
+        return {
+            filePath,
+            count: invoices.length,
+        };
     }
 
     // =========================
@@ -172,15 +271,14 @@ class FreeInvoiceAgent {
     async generateHTMLReport(
         userId,
         clientId = null,
-        file = "invoice_report.html"
+        file = "invoice_report.html",
+        filters = {}
     ) {
 
-        const invoices = clientId
-            ? await invoiceRepository.findByClient(
-                  userId,
-                  clientId
-              )
-            : await invoiceRepository.findByUser(userId);
+        const invoices = await this.getExportInvoices(userId, {
+            clientId,
+            ...filters,
+        });
 
         return await reportService.generate(invoices, file);
     }

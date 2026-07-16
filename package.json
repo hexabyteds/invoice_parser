@@ -1,5 +1,5 @@
 {
-  "name": "invoice-agent",
+  "name": "eazeebooks",
   "version": "1.0.0",
   "description": "Invoice extraction web app powered by Google Gemini",
   "main": "app-backend.js",

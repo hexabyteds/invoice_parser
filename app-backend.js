@@ -1,6 +1,6 @@
 /**
- * Invoice Agent - Express Backend
- * Serves React frontend + API endpoints (Gemini-powered extraction)
+ * EazeeBooks - Express Backend
+ * Serves React AI Accounting Platformend + API endpoints (Gemini-powered extraction)
  */
 
 const express = require('express');
@@ -79,7 +79,7 @@ app.get('/api/health', async (req, res) => {
 
     res.json({
       status: "healthy",
-      message: "Invoice Agent API",
+      message: "EazeeBooks API",
       totalInvoices: stats.totalInvoices
     });
 
@@ -335,6 +335,45 @@ app.get(
   });
 
 
+// Update an invoice
+app.put(
+  "/api/invoices/:id",
+  authMiddleware,
+  async (req, res) => {
+
+    try {
+
+      const updated = await agent.updateInvoice(
+        req.params.id,
+        req.user.id,
+        req.body
+      );
+
+      if (!updated) {
+        return res.status(404).json({
+          success: false,
+          error: "Invoice not found."
+        });
+      }
+
+      res.json({
+        success: true,
+        invoice: updated.invoice,
+        lineItems: updated.lineItems
+      });
+
+    } catch (err) {
+
+      res.status(500).json({
+        success: false,
+        error: err.message
+      });
+
+    }
+
+  });
+
+
 app.get(
   "/api/analytics",
   authMiddleware,
@@ -398,28 +437,34 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
 
 });
 
+function getExportFilters(query = {}) {
+  return {
+    clientId: query.client_id ? Number(query.client_id) : null,
+    from: query.from || null,
+    to: query.to || null,
+  };
+}
+
 // Download Excel (regenerate from DB — one row per line item)
-// Download Excel
-// - All invoices:     GET /api/download-excel
-// - One client only:  GET /api/download-excel?client_id=14
+// Supports: ?client_id=&from=YYYY-MM-DD&to=YYYY-MM-DD
 app.get("/api/download-excel", authMiddleware, async (req, res) => {
   try {
-    const clientId = req.query.client_id
-      ? Number(req.query.client_id)
-      : null;
+    const filters = getExportFilters(req.query);
 
     console.log("DOWNLOAD EXCEL", {
       userId: req.user.id,
-      clientId,
+      ...filters,
     });
 
     const file = await agent.saveToExcel(
       req.user.id,
-      clientId
+      filters.clientId,
+      undefined,
+      filters
     );
 
-    const filename = clientId
-      ? `client_${clientId}_invoices.xlsx`
+    const filename = filters.clientId
+      ? `client_${filters.clientId}_invoices.xlsx`
       : "invoices.xlsx";
 
     res.download(file, filename);
@@ -432,12 +477,106 @@ app.get("/api/download-excel", authMiddleware, async (req, res) => {
   }
 });
 
+// Unified export:
+// format = excel | csv | zoho | quickbooks | pdf | html
+// Supports: ?format=&client_id=&from=YYYY-MM-DD&to=YYYY-MM-DD
+app.get("/api/export", authMiddleware, async (req, res) => {
+  try {
+    const format = String(req.query.format || "excel").toLowerCase();
+    const filters = getExportFilters(req.query);
+    const prefix = filters.clientId
+      ? `client_${filters.clientId}`
+      : "invoices";
+
+    console.log("EXPORT", {
+      userId: req.user.id,
+      format,
+      ...filters,
+    });
+
+    if (format === "csv") {
+      const { csv } = await agent.exportCSV(req.user.id, filters);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${prefix}.csv"`
+      );
+      return res.send(csv);
+    }
+
+    if (format === "zoho") {
+      const { filePath } = await agent.exportZoho(req.user.id, filters);
+      return res.download(filePath, `${prefix}_zoho_bills.xlsx`, (err) => {
+        if (err) console.error("Zoho download error", err);
+        fs.unlink(filePath, () => {});
+      });
+    }
+
+    if (format === "quickbooks" || format === "qb") {
+      const { csv } = await agent.exportQuickBooks(req.user.id, filters);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${prefix}_quickbooks.csv"`
+      );
+      return res.send(csv);
+    }
+
+    if (format === "pdf") {
+      const { filePath } = await agent.exportPDF(req.user.id, filters);
+      return res.download(filePath, `${prefix}.pdf`, (err) => {
+        if (err) console.error("PDF download error", err);
+        fs.unlink(filePath, () => {});
+      });
+    }
+
+    if (format === "html" || format === "report") {
+      const reportFile = await agent.generateHTMLReport(
+        req.user.id,
+        filters.clientId,
+        undefined,
+        filters
+      );
+      const html = fs.readFileSync(reportFile, "utf8");
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${prefix}_report.html"`
+      );
+      return res.send(html);
+    }
+
+    // Default: excel
+    const file = await agent.saveToExcel(
+      req.user.id,
+      filters.clientId,
+      undefined,
+      filters
+    );
+
+    return res.download(file, `${prefix}.xlsx`);
+  } catch (err) {
+    console.error("EXPORT ERROR", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
 // Generate HTML report
 app.get("/api/report", authMiddleware, async (req, res) => {
 
   try {
+    const filters = getExportFilters(req.query);
 
-    const reportFile = await agent.generateHTMLReport(req.user.id);
+    const reportFile = await agent.generateHTMLReport(
+      req.user.id,
+      filters.clientId,
+      undefined,
+      filters
+    );
 
     const html = fs.readFileSync(reportFile, "utf8");
 
@@ -503,7 +642,7 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════════╗
-║   INVOICE AGENT - WEB VERSION             ║
+║   EazeeBooks - WEB VERSION             ║
 ║   http://localhost:${PORT}               ║
 ╚════════════════════════════════════════════╝
 
