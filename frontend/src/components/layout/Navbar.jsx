@@ -12,8 +12,8 @@ export default function Navbar() {
       <div className="mx-auto max-w-7xl px-8">
         <div className="mt-5 flex h-16 items-center justify-between rounded-full border border-slate-800 bg-slate-900/70 px-8 backdrop-blur-xl">
 
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 font-bold">
+          <Link to="/" className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 font-bold text-white">
               IP
             </div>
 
@@ -26,12 +26,14 @@ export default function Navbar() {
                 AI Accounting Platform
               </p>
             </div>
-          </div>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-10 text-sm text-slate-300">
             <a href="#">Features</a>
             <a href="#">Solutions</a>
-            <a href="#">Pricing</a>
+            <Link to="/price" className="transition hover:text-white">
+              Pricing
+            </Link>
             <a href="#">Resources</a>
           </nav>
 

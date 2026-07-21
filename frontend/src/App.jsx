@@ -17,6 +17,7 @@ import ClientDetails from "./pages/ClientDetails";
 import AddClient from "./pages/AddClient";
 import EditInvoice from "./pages/EditInvoice";
 import ExportCenter from "./pages/ExportCenter";
+import Price from "./pages/Price";
 function App() {
   return (
     <BrowserRouter basename="/">
@@ -24,6 +25,7 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/price" element={<Price />} />
 
         <Route
           path="/dashboard"
@@ -35,20 +37,17 @@ function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="upload" element={<Upload />} />
-            <Route path="invoices" element={<Invoices />} />
-            <Route path="reports" element={<Report />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="invoices/:id" element={<InvoiceDetails />} />
-            <Route path="clients" element={<Clients />} />
-            <Route path="clients/:id" element={<ClientDetails />} />
-            <Route path="clients/new" element={<AddClient />} />
-            <Route path="upload/:clientId" element={<Upload />} />
-            <Route path="export" element={<ExportCenter />} />
-                        <Route
-    path="invoices/:id/edit"
-    element={<EditInvoice />}
-/>
+          <Route path="invoices" element={<Invoices />} />
+          <Route path="reports" element={<Report />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="invoices/:id" element={<InvoiceDetails />} />
+          <Route path="clients" element={<Clients />} />
+          <Route path="clients/:id" element={<ClientDetails />} />
+          <Route path="clients/new" element={<AddClient />} />
+          <Route path="upload/:clientId" element={<Upload />} />
+          <Route path="export" element={<ExportCenter />} />
+          <Route path="invoices/:id/edit" element={<EditInvoice />} />
         </Route>
       </Routes>
     </BrowserRouter>
