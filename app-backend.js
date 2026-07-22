@@ -13,6 +13,9 @@ const authRoutes = require("./routes/authRoutes");
 const FreeInvoiceAgent = require('./free-invoice-agent');
 const authMiddleware = require("./middleware/authMiddleware");
 const clientRoutes = require("./routes/clientRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+const planRoutes = require("./routes/planRoutes");
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const app = express();
 
 
@@ -33,6 +36,9 @@ app.use((req, res, next) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/clients", clientRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/plans", planRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
 // Middleware
 app.use(cors());
 app.use(express.json());

@@ -1,109 +1,117 @@
 const db = require("../config/database");
 
+function formatUser(row) {
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    company_name: row.company_name,
+    role: row.role || "customer",
+    plan: row.plan || "starter",
+    status: row.status || "ACTIVE",
+    created_at: row.created_at,
+    deleted_at: row.deleted_at || null,
+  };
+}
+
 class UserRepository {
+  async create(user) {
+    const sql = `
+      INSERT INTO users (
+        name,
+        email,
+        company_name,
+        password,
+        role,
+        plan,
+        status
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
 
-    // Create new user
-    async create(user) {
+    const [result] = await db.execute(sql, [
+      user.name,
+      user.email,
+      user.company_name ?? null,
+      user.password,
+      user.role || "customer",
+      user.plan || "FREE",
+      user.status || "ACTIVE",
+    ]);
 
-        const sql = `
-            INSERT INTO users (
-                name,
-                email,
-                company_name,
-                password
-            )
-            VALUES (?, ?, ?, ?)
-        `;
+    return result.insertId;
+  }
 
-        const [result] = await db.execute(sql, [
-            user.name,
-            user.email,
-            user.company,
-            user.password,
-    
-        ]);
+  async findById(id) {
+    const [rows] = await db.execute(
+      `
+      SELECT
+        id,
+        name,
+        email,
+        company_name,
+        role,
+        plan,
+        status,
+        created_at,
+        deleted_at
+      FROM users
+      WHERE id = ?
+      `,
+      [id]
+    );
 
-        return result.insertId;
-    }
+    return formatUser(rows[0]);
+  }
 
-    // Find by ID
-    async findById(id) {
+  async findByEmail(email) {
+    const [rows] = await db.execute(
+      `
+      SELECT *
+      FROM users
+      WHERE email = ?
+      LIMIT 1
+      `,
+      [email]
+    );
 
-        const [rows] = await db.execute(
-            `
-            SELECT
-                id,
-                name,
-                email,
-                created_at
-            FROM users
-            WHERE id = ?
-            `,
-            [id]
-        );
+    return rows[0] || null;
+  }
 
-        return rows[0] || null;
-    }
+  async update(id, data) {
+    const sql = `
+      UPDATE users
+      SET
+        name = ?,
+        email = ?
+      WHERE id = ?
+    `;
 
-    // Find by Email
-    async findByEmail(email) {
+    await db.execute(sql, [data.name, data.email, id]);
+  }
 
-        const [rows] = await db.execute(
-            `
-            SELECT *
-            FROM users
-            WHERE email = ?
-            LIMIT 1
-            `,
-            [email]
-        );
+  async updatePassword(id, password) {
+    await db.execute(
+      `
+      UPDATE users
+      SET password = ?
+      WHERE id = ?
+      `,
+      [password, id]
+    );
+  }
 
-        return rows[0] || null;
-    }
-
-    // Update User
-    async update(id, data) {
-
-        const sql = `
-            UPDATE users
-            SET
-                name = ?,
-                email = ?
-            WHERE id = ?
-        `;
-
-        await db.execute(sql, [
-            data.name,
-            data.email,
-            id
-        ]);
-    }
-
-    // Update Password
-    async updatePassword(id, password) {
-
-        await db.execute(
-            `
-            UPDATE users
-            SET password = ?
-            WHERE id = ?
-            `,
-            [password, id]
-        );
-    }
-
-    // Delete User
-    async delete(id) {
-
-        await db.execute(
-            `
-            DELETE FROM users
-            WHERE id = ?
-            `,
-            [id]
-        );
-    }
-
+  async delete(id) {
+    await db.execute(
+      `
+      DELETE FROM users
+      WHERE id = ?
+      `,
+      [id]
+    );
+  }
 }
 
 module.exports = new UserRepository();

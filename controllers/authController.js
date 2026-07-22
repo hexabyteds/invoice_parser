@@ -12,6 +12,7 @@ class AuthController {
                 success: true,
                 message: "User registered successfully.",
                 user: result.user,
+                subscription: result.subscription,
                 token: result.token
             });
 

@@ -1,23 +1,37 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import Landing from "./pages/Landing";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
+import Landing from "./pages/landing/Landing";
+import Price from "./pages/landing/Price";
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
 import ProtectedRoute from "./routes/ProtectedRoute";
-import DashboardLayout from "./components/dashboard/DashboardLayout";
-import Upload from "./pages/Upload";
-import Dashboard from "./pages/Dashboard";
-import Invoices from "./pages/Invoices";
-import Report from "./pages/Report";
-import Analytics from "./pages/Analytics";
-import Settings from "./pages/Setting";
-import InvoiceDetails from "./pages/InvoiceDetails";
-import Clients from "./pages/Clients";
-import ClientDetails from "./pages/ClientDetails";
-import AddClient from "./pages/AddClient";
-import EditInvoice from "./pages/EditInvoice";
-import ExportCenter from "./pages/ExportCenter";
-import Price from "./pages/Price";
+import AdminRoute from "./routes/AdminRoute";
+import CustomerLayout from "./layouts/CustomerLayout";
+import AdminLayout from "./layouts/AdminLayout";
+
+import Upload from "./pages/customer/Upload";
+import Dashboard from "./pages/customer/Dashboard";
+import Invoices from "./pages/customer/Invoices";
+import Reports from "./pages/customer/Reports";
+import Analytics from "./pages/customer/Analytics";
+import Settings from "./pages/customer/Settings";
+import InvoiceDetails from "./pages/customer/InvoiceDetails";
+import Clients from "./pages/customer/Clients";
+import ClientDetails from "./pages/customer/ClientDetails";
+import AddClient from "./pages/customer/AddClient";
+import EditInvoice from "./pages/customer/EditInvoice";
+import ExportCenter from "./pages/customer/ExportCenter";
+
+import AdminDashboard from "./pages/admin/Dashboard";
+import Customers from "./pages/admin/Customers";
+import CustomerDetails from "./pages/admin/CustomerDetails";
+import Companies from "./pages/admin/Companies";
+import Plans from "./pages/admin/Plans";
+import Payments from "./pages/admin/Payments";
+import AuditLogs from "./pages/admin/AuditLogs";
+import AdminAnalytics from "./pages/admin/Analytics";
+import AdminSettings from "./pages/admin/Settings";
+
 function App() {
   return (
     <BrowserRouter basename="/">
@@ -31,14 +45,14 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <DashboardLayout />
+              <CustomerLayout />
             </ProtectedRoute>
           }
         >
           <Route index element={<Dashboard />} />
           <Route path="upload" element={<Upload />} />
           <Route path="invoices" element={<Invoices />} />
-          <Route path="reports" element={<Report />} />
+          <Route path="reports" element={<Reports />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="settings" element={<Settings />} />
           <Route path="invoices/:id" element={<InvoiceDetails />} />
@@ -48,6 +62,25 @@ function App() {
           <Route path="upload/:clientId" element={<Upload />} />
           <Route path="export" element={<ExportCenter />} />
           <Route path="invoices/:id/edit" element={<EditInvoice />} />
+        </Route>
+
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminLayout />
+            </AdminRoute>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="customers/:id" element={<CustomerDetails />} />
+          <Route path="companies" element={<Companies />} />
+          <Route path="plans" element={<Plans />} />
+          <Route path="payments" element={<Payments />} />
+          <Route path="audit-logs" element={<AuditLogs />} />
+          <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
       </Routes>
     </BrowserRouter>

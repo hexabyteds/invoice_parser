@@ -5,6 +5,7 @@
   "main": "app-backend.js",
   "scripts": {
     "start": "node app-backend.js",
+    "migrate:admin": "node scripts/migrate-admin.js",
     "tunnel": "bash scripts/tunnel.sh",
     "share": "bash scripts/start-with-tunnel.sh",
     "dev": "nodemon app-backend.js"

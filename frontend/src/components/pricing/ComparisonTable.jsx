@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Check, Minus } from "lucide-react";
 
 const features = [
@@ -257,12 +258,8 @@ export default function ComparisonTable() {
           <tbody>
 
             {features.map((group) => (
-
-              <>
-                <tr
-                  key={group.category}
-                  className="bg-slate-950"
-                >
+              <Fragment key={group.category}>
+                <tr className="bg-slate-950">
                   <td
                     colSpan={5}
                     className="px-8 py-5 text-lg font-bold text-blue-400"
@@ -272,12 +269,10 @@ export default function ComparisonTable() {
                 </tr>
 
                 {group.items.map((feature) => (
-
                   <tr
                     key={feature.name}
                     className="hover:bg-slate-800/40 transition"
                   >
-
                     <td className="px-8 py-5 border-b border-slate-800">
                       {feature.name}
                     </td>
@@ -286,13 +281,9 @@ export default function ComparisonTable() {
                     <Cell value={feature.growth} />
                     <Cell value={feature.business} />
                     <Cell value={feature.enterprise} />
-
                   </tr>
-
                 ))}
-
-              </>
-
+              </Fragment>
             ))}
 
           </tbody>
