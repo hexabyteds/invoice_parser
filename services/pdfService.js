@@ -4,6 +4,14 @@ const { PDFDocument } = require("pdf-lib");
 
 class PDFService {
 
+    async getPageCount(pdfPath) {
+
+        const pdfBytes = fs.readFileSync(pdfPath);
+        const pdf = await PDFDocument.load(pdfBytes);
+
+        return pdf.getPageCount();
+    }
+
     async split(pdfPath) {
 
         const pdfBytes = fs.readFileSync(pdfPath);

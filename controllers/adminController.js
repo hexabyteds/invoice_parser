@@ -167,6 +167,21 @@ class AdminController {
     }
   }
 
+  async getSubscriptions(req, res) {
+    try {
+      const subscriptions = await adminService.getSubscriptions();
+
+      res.json({
+        success: true,
+        subscriptions,
+      });
+    } catch (err) {
+      res.status(500).json({
+        success: false,
+        error: err.message,
+      });
+    }
+  }
 }
 
 module.exports = new AdminController();

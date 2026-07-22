@@ -8,6 +8,7 @@ const {
 const { hashPassword } = require("../utils/password");
 const { fromDbStatus } = require("../utils/userStatus");
 const subscriptionService = require("./subscriptionService");
+const subscriptionRepository = require("../repositories/subscriptionRepository");
 class AdminService {
   async getDashboardStats() {
     const platform = await adminRepository.getPlatformStats();
@@ -161,6 +162,32 @@ class AdminService {
 
     return "Customer deleted successfully.";
   }
+
+  async getSubscriptions() {
+    const rows = await subscriptionRepository.getAllSubscriptions();
+    return rows.map(formatSubscription);
+  }
+}
+
+function formatSubscription(row) {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    plan_id: row.plan_id,
+    customer_name: row.customer_name,
+    customer_email: row.customer_email,
+    company_name: row.company_name || "—",
+    plan_name: row.plan_name,
+    plan_slug: row.plan_slug,
+    billing_cycle: row.billing_cycle,
+    price: Number(row.price || 0),
+    status: row.status,
+    starts_at: row.starts_at,
+    expires_at: row.expires_at,
+    next_billing: row.next_billing,
+    cancelled_at: row.cancelled_at,
+    created_at: row.created_at,
+  };
 }
 
 function formatCustomer(row) {

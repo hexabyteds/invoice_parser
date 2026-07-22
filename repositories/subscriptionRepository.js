@@ -276,16 +276,28 @@ class SubscriptionRepository {
     const [rows] = await db.execute(
       `
       SELECT
-          s.*,
-          u.name,
-          u.email,
+          s.id,
+          s.user_id,
+          s.plan_id,
+          s.status,
+          s.billing_cycle,
+          s.price,
+          s.starts_at,
+          s.expires_at,
+          s.next_billing,
+          s.cancelled_at,
+          s.created_at,
+          u.name AS customer_name,
+          u.email AS customer_email,
+          u.company_name,
           p.name AS plan_name,
-          p.slug
+          p.slug AS plan_slug
       FROM subscriptions s
       INNER JOIN users u
-          ON s.user_id=u.id
+          ON s.user_id = u.id
       INNER JOIN plans p
-          ON s.plan_id=p.id
+          ON s.plan_id = p.id
+      WHERE u.deleted_at IS NULL
       ORDER BY s.created_at DESC
       `
     );

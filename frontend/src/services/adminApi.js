@@ -26,8 +26,16 @@ const adminApi = {
     return data;
   },
 
-  updateCustomerPlan: async (id, plan) => {
-    const { data } = await api.patch(`/admin/customers/${id}/plan`, { plan });
+  updateCustomerPlan: async (id, planId, billingCycle = "monthly") => {
+    const { data } = await api.patch(`/admin/customers/${id}/plan`, {
+      planId,
+      billingCycle,
+    });
+    return data;
+  },
+
+  getSubscriptions: async () => {
+    const { data } = await api.get("/admin/subscriptions");
     return data;
   },
 

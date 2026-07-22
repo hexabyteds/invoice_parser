@@ -27,6 +27,7 @@ import Customers from "./pages/admin/Customers";
 import CustomerDetails from "./pages/admin/CustomerDetails";
 import Companies from "./pages/admin/Companies";
 import Plans from "./pages/admin/Plans";
+import Subscriptions from "./pages/admin/Subscriptions";
 import Payments from "./pages/admin/Payments";
 import AuditLogs from "./pages/admin/AuditLogs";
 import AdminAnalytics from "./pages/admin/Analytics";
@@ -77,6 +78,7 @@ function App() {
           <Route path="customers/:id" element={<CustomerDetails />} />
           <Route path="companies" element={<Companies />} />
           <Route path="plans" element={<Plans />} />
+          <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="payments" element={<Payments />} />
           <Route path="audit-logs" element={<AuditLogs />} />
           <Route path="analytics" element={<AdminAnalytics />} />

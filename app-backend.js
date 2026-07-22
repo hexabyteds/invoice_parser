@@ -16,6 +16,9 @@ const clientRoutes = require("./routes/clientRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const planRoutes = require("./routes/planRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
+const usageRoutes = require("./routes/usageRoutes");
+const usageService = require("./services/usageService");
+
 const app = express();
 
 
@@ -39,6 +42,7 @@ app.use("/api/clients", clientRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
+app.use("/api/usage", require("./routes/usageRoutes"));
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -122,6 +126,9 @@ app.post(
           error: "Client is required.",
         });
       }
+
+      await usageService.checkStorageLimit(req.user.id, req.file.size);
+      await usageService.addStorage(req.user.id, req.file.size);
 
       console.log(`📸 Processing: ${req.file.filename}`);
 
@@ -213,7 +220,10 @@ app.post(
     } catch (error) {
       console.error("Upload error:", error);
 
-      return res.status(500).json({
+      const statusCode =
+        error.message?.includes("limit reached") ? 403 : 500;
+
+      return res.status(statusCode).json({
         success: false,
         error: error.message,
       });

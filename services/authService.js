@@ -1,5 +1,6 @@
 const userRepository = require("../repositories/userRepository");
 const subscriptionService = require("./subscriptionService");
+const usageService = require("./usageService");
 const { hashPassword, comparePassword } = require("../utils/password");
 const { generateToken } = require("../utils/jwt");
 const { fromDbStatus, isAccountActive } = require("../utils/userStatus");
@@ -60,6 +61,7 @@ class AuthService {
 
             try {
                 subscription = await subscriptionService.createFreeSubscription(id);
+                await usageService.ensureUsageRecord(id);
             } catch (subscriptionError) {
                 await userRepository.delete(id);
                 throw subscriptionError;

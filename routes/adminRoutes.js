@@ -24,6 +24,9 @@ router.patch("/customers/:id/plan", (req, res) =>
 router.post("/customers/:id/reset-password", (req, res) =>
   adminController.resetCustomerPassword(req, res)
 );
+router.get("/subscriptions", (req, res) =>
+  adminController.getSubscriptions(req, res)
+);
 router.delete("/customers/:id", (req, res) =>
   adminController.deleteCustomer(req, res)
 );

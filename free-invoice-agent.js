@@ -3,6 +3,8 @@ const excelService = require("./services/excelService");
 const reportService = require("./services/reportService");
 const exportFormatsService = require("./services/exportFormatsService");
 const invoiceNormalizer = require("./services/invoiceNormalizer");
+const usageService = require("./services/usageService");
+const pdfService = require("./services/pdfService");
 
 const invoiceRepository = require("./repositories/invoiceRepository");
 const invoiceItemRepository = require("./repositories/invoiceItemRepository");
@@ -15,6 +17,9 @@ class FreeInvoiceAgent {
 
     async processImage(imagePath, userId, clientId) {
 
+        await usageService.checkOCRLimit(userId, 1);
+        await usageService.checkInvoiceLimit(userId);
+
         const result = await invoiceService.extract(imagePath);
 
         if (!result.success) {
@@ -23,6 +28,8 @@ class FreeInvoiceAgent {
                 message: result.error,
             };
         }
+
+        await usageService.incrementOCR(userId, 1);
 
         result.invoice = invoiceNormalizer.normalize(result.invoice);
 
@@ -35,6 +42,8 @@ class FreeInvoiceAgent {
             invoiceId,
             result.invoice.lineItems
         );
+
+        await usageService.incrementInvoices(userId);
 
         return {
             status: "success",
@@ -49,6 +58,10 @@ class FreeInvoiceAgent {
 
     async processPDF(pdfPath, userId, clientId) {
 
+        const pageCount = await pdfService.getPageCount(pdfPath);
+
+        await usageService.checkOCRLimit(userId, pageCount);
+
         const result = await invoiceService.extractPDF(pdfPath);
 
         if (!result.success) {
@@ -58,9 +71,13 @@ class FreeInvoiceAgent {
             };
         }
 
+        await usageService.incrementOCR(userId, pageCount);
+
         const savedInvoices = [];
 
         for (const item of result.invoices) {
+
+            await usageService.checkInvoiceLimit(userId);
 
             const invoice = invoiceNormalizer.normalize(item.invoice);
 
@@ -73,6 +90,8 @@ class FreeInvoiceAgent {
                 invoiceId,
                 invoice.lineItems
             );
+
+            await usageService.incrementInvoices(userId);
 
             savedInvoices.push(invoice);
         }

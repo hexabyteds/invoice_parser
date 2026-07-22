@@ -11,6 +11,7 @@ import {
   Menu,
   UserCircle2,
   BadgeCheck,
+  Repeat,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -19,6 +20,7 @@ const menuItems = [
   { title: "Customers", icon: Users, path: "/admin/customers" },
   { title: "Companies", icon: Building2, path: "/admin/companies" },
   { title: "Plans", icon: BadgeCheck, path: "/admin/plans" },
+  { title: "Subscriptions", icon: Repeat, path: "/admin/subscriptions" },
   { title: "Payments", icon: CreditCard, path: "/admin/payments" },
   { title: "Audit Logs", icon: ScrollText, path: "/admin/audit-logs" },
   { title: "Analytics", icon: BarChart3, path: "/admin/analytics" },

@@ -1,10 +1,11 @@
 const clientRepository = require("../repositories/clientRepository");
+const usageService = require("./usageService");
 
 class ClientService {
 
     async create(userId, data) {
-        console.log("data", data);
-        console.log("userId", userId);
+        await usageService.checkClientLimit(userId);
+
         const id = await clientRepository.create({
             user_id: userId,
             company_name: data.company_name,
@@ -17,15 +18,10 @@ class ClientService {
             city: data.city || "",
             notes: data.notes || ""
         });
-        console.log("id", id);
-        try {
-            return await clientRepository.findById(id, userId);
-        } catch (error) {
-                
-                    console.log("error", error);
-            
-            return false;
-        }
+
+        await usageService.incrementClients(userId);
+
+        return await clientRepository.findById(id, userId);
     }
 
     async getAll(userId) {
