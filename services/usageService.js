@@ -1,4 +1,6 @@
 const usageRepository = require("../repositories/usageRepository");
+const clientRepository = require("../repositories/clientRepository");
+const invoiceRepository = require("../repositories/invoiceRepository");
 const subscriptionService = require("./subscriptionService");
 
 function planFromSubscription(subscription) {
@@ -39,6 +41,19 @@ class UsageService {
     }
 
     const plan = planFromSubscription(subscription);
+
+    const actualClients = await clientRepository.countByUser(userId);
+    const actualInvoices = await invoiceRepository.countByUser(userId);
+
+    if (usage.clients_used !== actualClients) {
+      await usageRepository.updateClients(userId, actualClients);
+      usage.clients_used = actualClients;
+    }
+
+    if (usage.invoices_used !== actualInvoices) {
+      await usageRepository.updateInvoices(userId, actualInvoices);
+      usage.invoices_used = actualInvoices;
+    }
 
     return {
 

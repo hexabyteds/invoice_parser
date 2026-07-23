@@ -102,7 +102,7 @@ class ClientController {
 
         try {
 
-            await clientService.delete(req.params.id);
+            await clientService.delete(req.params.id, req.user.id);
 
             res.json({
                 success: true,

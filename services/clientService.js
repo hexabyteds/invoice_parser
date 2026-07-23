@@ -35,13 +35,6 @@ class ClientService {
         return await clientRepository.findById(id);
     }
 
-    async delete(id) {
-
-        await clientRepository.delete(id);
-
-        return true;
-    }
-
     async get(id, userId) {
 
         const client = await clientRepository.findById(id, userId);
@@ -53,6 +46,7 @@ class ClientService {
         return client;
     
     }
+
     async delete(id, userId) {
 
         const client = await clientRepository.findById(id, userId);

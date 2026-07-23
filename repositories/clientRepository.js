@@ -55,6 +55,16 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
         return result;
     }
 
+    async countByUser(userId) {
+
+        const [rows] = await db.execute(
+            `SELECT COUNT(*) AS total FROM clients WHERE user_id = ?`,
+            [userId]
+        );
+
+        return Number(rows[0]?.total || 0);
+    }
+
     async findById(id) {
         console.log("id", id);
         const values = [id];

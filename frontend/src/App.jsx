@@ -21,6 +21,7 @@ import ClientDetails from "./pages/customer/ClientDetails";
 import AddClient from "./pages/customer/AddClient";
 import EditInvoice from "./pages/customer/EditInvoice";
 import ExportCenter from "./pages/customer/ExportCenter";
+import Usage from "./pages/customer/Usage";
 
 import AdminDashboard from "./pages/admin/Dashboard";
 import Customers from "./pages/admin/Customers";
@@ -62,6 +63,7 @@ function App() {
           <Route path="clients/new" element={<AddClient />} />
           <Route path="upload/:clientId" element={<Upload />} />
           <Route path="export" element={<ExportCenter />} />
+          <Route path="usage" element={<Usage />} />
           <Route path="invoices/:id/edit" element={<EditInvoice />} />
         </Route>
 

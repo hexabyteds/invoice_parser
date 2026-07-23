@@ -12,7 +12,8 @@ import {
   UserCircle2,
   Bell,
   FolderOpen,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Gauge,
 } from "lucide-react";
 
 const menuItems = [
@@ -50,6 +51,11 @@ const menuItems = [
     title: "Excel Export",
     icon: FileSpreadsheet,
     path: "/dashboard/export",
+  },
+  {
+    title: "Usage",
+    icon: Gauge,
+    path: "/dashboard/usage",
   },
   {
     title: "Settings",

@@ -85,6 +85,16 @@ class InvoiceRepository {
         return await this.mapInvoices(rows);
     }
 
+    async countByUser(userId) {
+
+        const [rows] = await db.execute(
+            `SELECT COUNT(*) AS total FROM invoices WHERE user_id = ?`,
+            [userId]
+        );
+
+        return Number(rows[0]?.total || 0);
+    }
+
     // Get invoice by ID
     async findById(id, userId) {
 
