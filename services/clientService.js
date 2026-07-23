@@ -53,7 +53,20 @@ class ClientService {
         return client;
     
     }
+    async delete(id, userId) {
 
+        const client = await clientRepository.findById(id, userId);
+    
+        if (!client) {
+            throw new Error("Client not found.");
+        }
+    
+        await clientRepository.delete(id);
+    
+        await usageService.decrementClients(userId);
+    
+        return true;
+    }
 }
 
 module.exports = new ClientService();

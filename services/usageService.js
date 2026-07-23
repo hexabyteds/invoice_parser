@@ -1,6 +1,19 @@
 const usageRepository = require("../repositories/usageRepository");
 const subscriptionService = require("./subscriptionService");
 
+function planFromSubscription(subscription) {
+  return {
+    id: subscription.plan_id,
+    name: subscription.name,
+    slug: subscription.slug,
+    invoice_limit: subscription.invoice_limit,
+    client_limit: subscription.client_limit,
+    ocr_limit: subscription.ocr_limit,
+    storage_limit: subscription.storage_limit,
+    user_limit: subscription.user_limit,
+  };
+}
+
 class UsageService {
 
   async getUsage(userId) {
@@ -13,14 +26,19 @@ class UsageService {
       usage = await usageRepository.getByUserId(userId);
     }
 
-    const subscription =
-      await subscriptionService.getActiveSubscription(userId);
+    let subscription;
 
-    if (!subscription) {
-      throw new Error("No active subscription found.");
+    try {
+      subscription = await subscriptionService.getCurrentSubscription(userId);
+    } catch (error) {
+      if (error.message === "No active subscription found.") {
+        subscription = await subscriptionService.createFreeSubscription(userId);
+      } else {
+        throw error;
+      }
     }
 
-    const plan = subscription.plan;
+    const plan = planFromSubscription(subscription);
 
     return {
 
@@ -165,69 +183,69 @@ class UsageService {
 
     return rows.map(row => ({
 
-        id: row.id,
+      id: row.id,
 
-        name: row.name,
+      name: row.name,
 
-        email: row.email,
+      email: row.email,
 
-        company_name: row.company_name,
+      company_name: row.company_name,
 
-        plan: row.plan_name,
+      plan: row.plan_name,
 
-        invoices: {
-            used: Number(row.invoices_used || 0),
-            limit: Number(row.invoice_limit || 0),
-            remaining: Math.max(
-                0,
-                Number(row.invoice_limit || 0) -
-                Number(row.invoices_used || 0)
-            )
-        },
+      invoices: {
+        used: Number(row.invoices_used || 0),
+        limit: Number(row.invoice_limit || 0),
+        remaining: Math.max(
+          0,
+          Number(row.invoice_limit || 0) -
+          Number(row.invoices_used || 0)
+        )
+      },
 
-        clients: {
-            used: Number(row.clients_used || 0),
-            limit: Number(row.client_limit || 0),
-            remaining: Math.max(
-                0,
-                Number(row.client_limit || 0) -
-                Number(row.clients_used || 0)
-            )
-        },
+      clients: {
+        used: Number(row.clients_used || 0),
+        limit: Number(row.client_limit || 0),
+        remaining: Math.max(
+          0,
+          Number(row.client_limit || 0) -
+          Number(row.clients_used || 0)
+        )
+      },
 
-        ocr: {
-            used: Number(row.ocr_pages_used || 0),
-            limit: Number(row.ocr_limit || 0),
-            remaining: Math.max(
-                0,
-                Number(row.ocr_limit || 0) -
-                Number(row.ocr_pages_used || 0)
-            )
-        },
+      ocr: {
+        used: Number(row.ocr_pages_used || 0),
+        limit: Number(row.ocr_limit || 0),
+        remaining: Math.max(
+          0,
+          Number(row.ocr_limit || 0) -
+          Number(row.ocr_pages_used || 0)
+        )
+      },
 
-        storage: {
-            used: Number(row.storage_used || 0),
-            limit: Number(row.storage_limit || 0),
-            remaining: Math.max(
-                0,
-                Number(row.storage_limit || 0) -
-                Number(row.storage_used || 0)
-            )
-        },
+      storage: {
+        used: Number(row.storage_used || 0),
+        limit: Number(row.storage_limit || 0),
+        remaining: Math.max(
+          0,
+          Number(row.storage_limit || 0) -
+          Number(row.storage_used || 0)
+        )
+      },
 
-        team: {
-            used: Number(row.team_members_used || 0),
-            limit: Number(row.user_limit || 0),
-            remaining: Math.max(
-                0,
-                Number(row.user_limit || 0) -
-                Number(row.team_members_used || 0)
-            )
-        }
+      team: {
+        used: Number(row.team_members_used || 0),
+        limit: Number(row.user_limit || 0),
+        remaining: Math.max(
+          0,
+          Number(row.user_limit || 0) -
+          Number(row.team_members_used || 0)
+        )
+      }
 
     }));
 
-}
+  }
 
   async incrementInvoices(userId) {
 
@@ -273,6 +291,60 @@ class UsageService {
 
     await usageRepository.removeStorage(userId, bytes);
 
+  }
+  async canCreateInvoice(userId) {
+
+    const data = await this.getUsage(userId);
+
+    if (data.usage.invoices.used >= data.usage.invoices.limit) {
+      throw new Error(
+        "Invoice limit reached. Please upgrade your subscription."
+      );
+    }
+
+    return true;
+  }
+  async canCreateClient(userId) {
+
+    const data = await this.getUsage(userId);
+
+    if (data.usage.clients.used >= data.usage.clients.limit) {
+      throw new Error(
+        "Client limit reached. Please upgrade your subscription."
+      );
+    }
+
+    return true;
+  }
+  async canUseOCR(userId, pages = 1) {
+
+    const data = await this.getUsage(userId);
+
+    if (
+      data.usage.ocr.used + pages >
+      data.usage.ocr.limit
+    ) {
+      throw new Error(
+        "OCR limit reached. Please upgrade your subscription."
+      );
+    }
+
+    return true;
+  }
+  async canUploadStorage(userId, bytes) {
+
+    const data = await this.getUsage(userId);
+
+    if (
+      data.usage.storage.used + bytes >
+      data.usage.storage.limit
+    ) {
+      throw new Error(
+        "Storage limit exceeded."
+      );
+    }
+
+    return true;
   }
 }
 
