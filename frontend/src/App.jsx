@@ -33,6 +33,7 @@ import Payments from "./pages/admin/Payments";
 import AuditLogs from "./pages/admin/AuditLogs";
 import AdminAnalytics from "./pages/admin/Analytics";
 import AdminSettings from "./pages/admin/Settings";
+import UsageDashboard from "./pages/admin/usage/UsageDashboard";
 
 function App() {
   return (
@@ -81,6 +82,7 @@ function App() {
           <Route path="companies" element={<Companies />} />
           <Route path="plans" element={<Plans />} />
           <Route path="subscriptions" element={<Subscriptions />} />
+          <Route path="usage" element={<UsageDashboard />} />
           <Route path="payments" element={<Payments />} />
           <Route path="audit-logs" element={<AuditLogs />} />
           <Route path="analytics" element={<AdminAnalytics />} />

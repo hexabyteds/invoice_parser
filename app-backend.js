@@ -102,6 +102,7 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+
 app.post(
   "/api/upload",
   authMiddleware,

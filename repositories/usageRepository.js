@@ -208,6 +208,55 @@ async removeStorage(userId,bytes){
   `,[bytes,userId]);
 
 }
+async getDashboardSummary() {
+
+  const [rows] = await db.execute(`
+      SELECT
+
+          COUNT(u.id) AS totalCustomers,
+
+          SUM(
+              CASE
+                  WHEN p.slug = 'free' THEN 1
+                  ELSE 0
+              END
+          ) AS freeUsers,
+
+          SUM(
+              CASE
+                  WHEN p.slug <> 'free' THEN 1
+                  ELSE 0
+              END
+          ) AS paidUsers,
+
+          COALESCE(SUM(us.invoices_used), 0) AS totalInvoices,
+
+          COALESCE(SUM(us.clients_used), 0) AS totalClients,
+
+          COALESCE(SUM(us.ocr_pages_used), 0) AS totalOCR,
+
+          COALESCE(SUM(us.storage_used), 0) AS totalStorage,
+
+          COALESCE(SUM(us.team_members_used), 0) AS totalTeamMembers
+
+      FROM users u
+
+      INNER JOIN subscriptions s
+          ON s.user_id = u.id
+          AND s.status = 'active'
+
+      INNER JOIN plans p
+          ON p.id = s.plan_id
+
+      LEFT JOIN usage_stats us
+          ON us.user_id = u.id
+
+      WHERE u.role = 'customer'
+  `);
+
+  return rows[0];
+
+}
 }
 
 module.exports = new UsageRepository();

@@ -24,4 +24,11 @@ router.get(
     usageController.getAllUsage
 );
 
+
+router.get(
+    "/admin/dashboard",
+    authMiddleware,
+    requireAdmin,
+    usageController.getAdminDashboard
+);
 module.exports = router;

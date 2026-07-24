@@ -50,7 +50,28 @@ class UsageController {
 
     }
 
+    async getAdminDashboard(req, res) {
 
+        try {
+    
+            const dashboard =
+                await usageService.getAdminDashboard();
+    
+            res.json({
+                success: true,
+                dashboard
+            });
+    
+        } catch (err) {
+    
+            res.status(500).json({
+                success: false,
+                error: err.message
+            });
+    
+        }
+    
+    }
  
 
 }

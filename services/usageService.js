@@ -3,6 +3,12 @@ const clientRepository = require("../repositories/clientRepository");
 const invoiceRepository = require("../repositories/invoiceRepository");
 const subscriptionService = require("./subscriptionService");
 
+const BYTES_PER_MB = 1024 * 1024;
+
+function storageLimitToBytes(limitMb) {
+  return Number(limitMb || 0) * BYTES_PER_MB;
+}
+
 function planFromSubscription(subscription) {
   return {
     id: subscription.plan_id,
@@ -93,11 +99,12 @@ class UsageService {
         },
 
         storage: {
-          used: usage.storage_used,
+          used: Number(usage.storage_used || 0),
           limit: plan.storage_limit,
           remaining: Math.max(
             0,
-            plan.storage_limit - usage.storage_used
+            storageLimitToBytes(plan.storage_limit) -
+              Number(usage.storage_used || 0)
           )
         },
 
@@ -157,8 +164,9 @@ class UsageService {
   async checkStorageLimit(userId, bytes) {
 
     const data = await this.getUsage(userId);
+    const limitBytes = storageLimitToBytes(data.usage.storage.limit);
 
-    if (data.usage.storage.used + bytes > data.usage.storage.limit) {
+    if (data.usage.storage.used + bytes > limitBytes) {
       throw new Error(
         "Storage limit reached. Please upgrade your subscription."
       );
@@ -243,8 +251,8 @@ class UsageService {
         limit: Number(row.storage_limit || 0),
         remaining: Math.max(
           0,
-          Number(row.storage_limit || 0) -
-          Number(row.storage_used || 0)
+          storageLimitToBytes(row.storage_limit || 0) -
+            Number(row.storage_used || 0)
         )
       },
 
@@ -349,11 +357,9 @@ class UsageService {
   async canUploadStorage(userId, bytes) {
 
     const data = await this.getUsage(userId);
+    const limitBytes = storageLimitToBytes(data.usage.storage.limit);
 
-    if (
-      data.usage.storage.used + bytes >
-      data.usage.storage.limit
-    ) {
+    if (data.usage.storage.used + bytes > limitBytes) {
       throw new Error(
         "Storage limit exceeded."
       );
@@ -361,6 +367,21 @@ class UsageService {
 
     return true;
   }
+
+  async getAdminDashboard() {
+
+    const summary =
+        await usageRepository.getDashboardSummary();
+
+    const customers =
+        await usageRepository.getAllCustomersUsage();
+
+    return {
+        summary,
+        customers
+    };
+
+}
 }
 
 module.exports = new UsageService();
