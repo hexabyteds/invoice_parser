@@ -77,12 +77,12 @@ ok "Frontend built (frontend/dist)"
 
 # ------------------------------------------------------------------
 # 4. Sync built frontend straight into the server's public/ folder
+#    (tar-over-SSH instead of rsync — rsync isn't installed on this host)
 # ------------------------------------------------------------------
 info "Uploading frontend build to server..."
-rsync -az --delete \
-  -e "ssh ${SSH_OPTS[*]}" \
-  "$ROOT/frontend/dist/" \
-  "${SSH_USER}@${SSH_HOST}:${APP_PATH}/public/"
+tar -czf - -C "$ROOT/frontend/dist" . | \
+  ssh "${SSH_OPTS[@]}" "${SSH_USER}@${SSH_HOST}" \
+    "mkdir -p '${APP_PATH}/public' && rm -rf '${APP_PATH}/public'/* && tar -xzf - -C '${APP_PATH}/public'"
 ok "Frontend synced to ${APP_PATH}/public"
 
 # ------------------------------------------------------------------
@@ -101,10 +101,16 @@ git pull origin "$BRANCH"
 
 if [[ "$REPO_PATH" != "$APP_PATH" ]]; then
   echo "--> Syncing repo into app root"
-  rsync -a --delete \
-    --exclude ".git" --exclude "node_modules" --exclude "uploads" \
-    --exclude "public" --exclude ".env" --exclude "tmp" \
-    "$REPO_PATH/" "$APP_PATH/"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete \
+      --exclude ".git" --exclude "node_modules" --exclude "uploads" \
+      --exclude "public" --exclude ".env" --exclude "tmp" \
+      "$REPO_PATH/" "$APP_PATH/"
+  else
+    tar -cf - -C "$REPO_PATH" --exclude=".git" --exclude="node_modules" \
+      --exclude="uploads" --exclude="public" --exclude=".env" --exclude="tmp" . \
+      | tar -xf - -C "$APP_PATH"
+  fi
 fi
 
 cd "$APP_PATH"
