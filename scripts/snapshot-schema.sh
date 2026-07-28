@@ -58,7 +58,8 @@ mkdir -p "$(dirname "$OUTPUT")"
 -- =============================================================
 HEADER
   mysqldump -h"$HOST" -P"${DB_PORT:-3306}" -u"$DB_USER" ${DB_PASSWORD:+-p"$DB_PASSWORD"} \
-    --no-data --routines --triggers --skip-comments --column-statistics=0 "$DB_NAME" \
+    --no-data --routines --triggers --skip-comments --column-statistics=0 \
+    --no-tablespaces "$DB_NAME" \
     | sed -E 's/ AUTO_INCREMENT=[0-9]+//g'
 } > "$OUTPUT"
 
