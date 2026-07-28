@@ -4,9 +4,10 @@
 # .env credentials. Used two ways:
 #   - Locally: npm run db:snapshot   -> writes db/schema.sql (git-tracked
 #     reference, regenerate after merging new migrations)
-#   - On the server (via .cpanel.yml, on every deploy): writes
-#     db/schema.production.sql (gitignored — a live artifact you fetch with
-#     npm run db:diff, never committed, never overwrites db/schema.sql)
+#   - On the server (via scripts/deploy.sh over SSH, on every deploy):
+#     writes db/schema.production.sql (gitignored — a live artifact you
+#     fetch with npm run db:diff, never committed, never overwrites
+#     db/schema.sql)
 #
 # Usage:
 #   bash scripts/snapshot-schema.sh [output-path]   # defaults to db/schema.sql
@@ -23,12 +24,20 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-set -a
-source .env
-set +a
+# Resolve DB_* the same way the app itself does (via dotenv/process.env)
+# rather than a plain bash `source .env` — on this host, cPanel injects
+# some env vars (DB_HOST/USER/PASSWORD/NAME) specifically when Node runs
+# through the app's venv wrapper, so they may not show up as plain shell
+# vars even though the app can see them fine via process.env.
+eval "$(node -e "
+require('dotenv').config();
+['DB_HOST','DB_PORT','DB_USER','DB_PASSWORD','DB_NAME'].forEach(k => {
+  console.log(k + '=' + JSON.stringify(process.env[k] || ''));
+});
+")"
 
 HOST="$DB_HOST"
-if [[ "$HOST" == "localhost" ]]; then HOST="127.0.0.1"; fi
+if [[ "$HOST" == "localhost" || -z "$HOST" ]]; then HOST="127.0.0.1"; fi
 
 mkdir -p "$(dirname "$OUTPUT")"
 {
