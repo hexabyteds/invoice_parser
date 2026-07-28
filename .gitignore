@@ -33,5 +33,8 @@ coverage/
 tmp/
 temp/
 
-# Deploy secrets (server hostnames/paths) — copy from deploy.config.example
+# Deploy secrets (server hostnames/paths/API token) — copy from deploy.config.example
 deploy.config
+
+# Live schema snapshot fetched from / written by production (see scripts/diff-schema.sh)
+db/schema.production.sql

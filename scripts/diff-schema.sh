@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 #
-# Compares your LIVE production DB schema against db/schema.sql (your local
-# dev DB snapshot), by SSHing into the server and running mysqldump there
-# using the server's own .env credentials (works even if the DB isn't
-# reachable directly from your laptop).
+# Compares production's DB schema against db/schema.sql (your local dev DB
+# snapshot) — no SSH required. Every deploy, .cpanel.yml dumps production's
+# current schema to db/schema.production.sql on the server; this script
+# just fetches that file's content via cPanel's UAPI (Fileman::get_file_content)
+# and diffs it locally.
 #
-# Use this once, before writing your first migration(s) in migrations/, to
-# see exactly what's different between local dev and production so you can
-# capture those differences as proper migration files.
+# Note: this reflects production's schema as of the LAST deploy, not this
+# exact second — that's fine, it updates every time you run `npm run deploy`.
 #
 # Usage:
-#   bash scripts/diff-schema.sh
+#   npm run db:diff
 #
 set -euo pipefail
 
@@ -25,30 +25,39 @@ fi
 # shellcheck disable=SC1090
 source "$CONFIG_FILE"
 
-: "${SSH_HOST:?Set SSH_HOST in deploy.config}"
-: "${SSH_USER:?Set SSH_USER in deploy.config}"
-: "${APP_PATH:?Set APP_PATH in deploy.config}"
-SSH_PORT="${SSH_PORT:-22}"
-SSH_KEY="${SSH_KEY:-}"
+: "${CPANEL_HOST:?Set CPANEL_HOST in deploy.config}"
+: "${CPANEL_USER:?Set CPANEL_USER in deploy.config}"
+: "${CPANEL_API_TOKEN:?Set CPANEL_API_TOKEN in deploy.config}"
+: "${REPO_PATH:?Set REPO_PATH in deploy.config}"
 
-SSH_OPTS=(-p "$SSH_PORT" -o StrictHostKeyChecking=accept-new)
-if [[ -n "$SSH_KEY" ]]; then
-  SSH_OPTS+=(-i "$SSH_KEY")
+API="https://${CPANEL_HOST}:2083/execute"
+AUTH_HEADER="Authorization: cpanel ${CPANEL_USER}:${CPANEL_API_TOKEN}"
+
+echo "==> Fetching db/schema.production.sql from the server via cPanel API..."
+RESPONSE="$(curl -sS -H "$AUTH_HEADER" \
+  --data-urlencode "dir=${REPO_PATH}/db" \
+  --data-urlencode "file=schema.production.sql" \
+  "${API}/Fileman/get_file_content")"
+
+if command -v jq >/dev/null 2>&1; then
+  CONTENT="$(echo "$RESPONSE" | jq -r '.result.data.content // .data.content // empty')"
+  STATUS="$(echo "$RESPONSE" | jq -r '.result.status // .status // empty')"
+  if [[ "$STATUS" == "0" || -z "$CONTENT" ]]; then
+    echo "Could not fetch the file. Raw response:"
+    echo "$RESPONSE"
+    echo ""
+    echo "Most likely cause: no deploy has run yet (db/schema.production.sql"
+    echo "is only created by .cpanel.yml during 'npm run deploy'). Run a"
+    echo "deploy first, then re-run this."
+    exit 1
+  fi
+  echo "$CONTENT" > /tmp/schema.production.sql
+else
+  echo "jq not found locally — install it (brew install jq) for reliable JSON parsing."
+  echo "Raw response saved to /tmp/schema.production.raw.json for manual inspection:"
+  echo "$RESPONSE" > /tmp/schema.production.raw.json
+  exit 1
 fi
-
-echo "==> Dumping production schema (structure only) via SSH..."
-ssh "${SSH_OPTS[@]}" "${SSH_USER}@${SSH_HOST}" bash -s <<REMOTE > /tmp/schema.production.sql
-set -euo pipefail
-cd "$APP_PATH"
-set -a
-source .env
-set +a
-HOST="\$DB_HOST"
-if [[ "\$HOST" == "localhost" ]]; then HOST="127.0.0.1"; fi
-mysqldump -h"\$HOST" -P"\${DB_PORT:-3306}" -u"\$DB_USER" \${DB_PASSWORD:+-p"\$DB_PASSWORD"} \\
-  --no-data --routines --triggers --skip-comments --column-statistics=0 "\$DB_NAME" \\
-  | sed -E 's/ AUTO_INCREMENT=[0-9]+//g'
-REMOTE
 
 echo ""
 echo "==> Diff (local db/schema.sql  vs  production):"

@@ -1,8 +1,7 @@
 -- =============================================================
 -- EazeeBooks / Invoice Parser — reference schema (structure only)
 --
--- Generated from local dev DB via:
---   mysqldump --no-data --routines --triggers <db> > db/schema.sql
+-- Generated from local dev DB via: npm run db:snapshot
 --
 -- WARNING: This file contains "DROP TABLE IF EXISTS" statements.
 -- It is a REFERENCE / fresh-install snapshot only.
@@ -12,8 +11,6 @@
 --     migrations/ instead (see migrations/README.md) and let
 --     `npm run migrate` (run automatically by scripts/deploy.sh)
 --     apply it safely, without touching existing data.
---   - Re-generate this file after merging new migrations with:
---     npm run db:snapshot
 -- =============================================================
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
@@ -150,6 +147,17 @@ CREATE TABLE `plans` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `schema_migrations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `schema_migrations` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `applied_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `subscriptions`;

@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 #
-# One-command deploy: push code -> pull on server -> build/sync frontend ->
-# install deps -> run DB migrations -> restart the Passenger (Node.js) app.
+# One-command deploy — no SSH required.
+#
+# Pushes your code to GitHub, then calls cPanel's UAPI (over HTTPS, port
+# 2083, authenticated with an API token) to pull the latest commit into the
+# cPanel-managed git repo AND run the deployment tasks defined in
+# .cpanel.yml (build frontend, install deps, run DB migrations, restart the
+# Passenger app) — all in one API call: VersionControlDeployment::create.
+#
+# Docs: https://docs.cpanel.net/knowledge-base/web-services/guide-to-git-deployment/
 #
 # Usage:
 #   cp deploy.config.example deploy.config   # one-time, then fill it in
@@ -21,23 +28,30 @@ fi
 # shellcheck disable=SC1090
 source "$CONFIG_FILE"
 
-: "${SSH_HOST:?Set SSH_HOST in deploy.config}"
-: "${SSH_USER:?Set SSH_USER in deploy.config}"
+: "${CPANEL_HOST:?Set CPANEL_HOST in deploy.config}"
+: "${CPANEL_USER:?Set CPANEL_USER in deploy.config}"
+: "${CPANEL_API_TOKEN:?Set CPANEL_API_TOKEN in deploy.config}"
 : "${REPO_PATH:?Set REPO_PATH in deploy.config}"
-: "${APP_PATH:?Set APP_PATH in deploy.config}"
-SSH_PORT="${SSH_PORT:-22}"
-SSH_KEY="${SSH_KEY:-}"
-NODE_VENV_ACTIVATE="${NODE_VENV_ACTIVATE:-}"
 BRANCH="${BRANCH:-main}"
 
-SSH_OPTS=(-p "$SSH_PORT" -o StrictHostKeyChecking=accept-new)
-if [[ -n "$SSH_KEY" ]]; then
-  SSH_OPTS+=(-i "$SSH_KEY")
-fi
+API="https://${CPANEL_HOST}:2083/execute"
+AUTH_HEADER="Authorization: cpanel ${CPANEL_USER}:${CPANEL_API_TOKEN}"
 
 info()  { echo -e "\033[1;34m==>\033[0m $1"; }
 ok()    { echo -e "\033[1;32m✓\033[0m $1"; }
 fail()  { echo -e "\033[1;31m✗\033[0m $1"; exit 1; }
+
+have_jq=false
+if command -v jq >/dev/null 2>&1; then have_jq=true; fi
+
+json_get() {
+  # json_get '<json>' '.result.status' — falls back to grep if no jq
+  if $have_jq; then
+    echo "$1" | jq -r "$2" 2>/dev/null
+  else
+    echo ""
+  fi
+}
 
 # ------------------------------------------------------------------
 # 1. Safety checks
@@ -58,74 +72,58 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 
 # ------------------------------------------------------------------
-# 2. Push source to GitHub (source of truth the server pulls from)
+# 2. Push source to GitHub (what cPanel's repo pulls from)
 # ------------------------------------------------------------------
 info "Pushing $BRANCH to origin..."
 git push origin "$BRANCH"
 ok "Pushed"
 
 # ------------------------------------------------------------------
-# 3. Build frontend locally
+# 3. Trigger pull + .cpanel.yml deployment tasks via cPanel UAPI
 # ------------------------------------------------------------------
-info "Building frontend..."
-(cd "$ROOT/frontend" && npm install --no-audit --no-fund && npm run build)
-ok "Frontend built (frontend/dist)"
+info "Triggering deployment on server (pull + build + migrate + restart)..."
+RESPONSE="$(curl -sS -H "$AUTH_HEADER" \
+  --data-urlencode "repository_root=${REPO_PATH}" \
+  "${API}/VersionControlDeployment/create")"
 
-# ------------------------------------------------------------------
-# 4. Sync built frontend straight into the server's public/ folder
-# ------------------------------------------------------------------
-info "Uploading frontend build to server..."
-rsync -az --delete \
-  -e "ssh ${SSH_OPTS[*]}" \
-  "$ROOT/frontend/dist/" \
-  "${SSH_USER}@${SSH_HOST}:${APP_PATH}/public/"
-ok "Frontend synced to ${APP_PATH}/public"
+echo "$RESPONSE"
 
-# ------------------------------------------------------------------
-# 5. Pull latest backend code on the server, install deps, migrate, restart
-# ------------------------------------------------------------------
-info "Deploying backend on server..."
-# shellcheck disable=SC2087
-ssh "${SSH_OPTS[@]}" "${SSH_USER}@${SSH_HOST}" bash -s <<REMOTE
-set -euo pipefail
-
-echo "--> Pulling latest code"
-cd "$REPO_PATH"
-git fetch origin
-git checkout "$BRANCH"
-git pull origin "$BRANCH"
-
-if [[ "$REPO_PATH" != "$APP_PATH" ]]; then
-  echo "--> Syncing repo into app root"
-  rsync -a --delete \
-    --exclude ".git" --exclude "node_modules" --exclude "uploads" \
-    --exclude "public" --exclude ".env" --exclude "tmp" \
-    "$REPO_PATH/" "$APP_PATH/"
+STATUS="$(json_get "$RESPONSE" '.result.status // .status')"
+if [[ "$STATUS" == "0" ]]; then
+  fail "cPanel rejected the deployment request — see errors above. Common causes: working tree not clean in the cPanel repo, or .cpanel.yml missing/invalid there yet (first deploy needs it pulled in — see DEPLOY.md)."
 fi
 
-cd "$APP_PATH"
+TASK_ID="$(json_get "$RESPONSE" '.result.data.task_id // .data.task_id')"
+ok "Deployment queued${TASK_ID:+ (task_id: $TASK_ID)}"
 
-if [[ -n "$NODE_VENV_ACTIVATE" && -f "$NODE_VENV_ACTIVATE" ]]; then
-  echo "--> Activating Node.js virtual environment"
-  source "$NODE_VENV_ACTIVATE"
-fi
+# ------------------------------------------------------------------
+# 4. Poll for completion
+# ------------------------------------------------------------------
+info "Waiting for deployment tasks to finish (this runs npm install + frontend build + migrations on the server, can take a minute)..."
+for i in $(seq 1 20); do
+  sleep 6
+  STATUS_RESPONSE="$(curl -sS -H "$AUTH_HEADER" \
+    --data-urlencode "repository_root=${REPO_PATH}" \
+    "${API}/VersionControlDeployment/retrieve")"
 
-echo "--> Installing backend dependencies"
-npm install --omit=dev --no-audit --no-fund
-
-echo "--> Running database migrations"
-node scripts/migrate.js
-
-echo "--> Restarting app (Passenger)"
-mkdir -p tmp
-touch tmp/restart.txt
-
-echo "--> Done on server"
-REMOTE
-
-ok "Backend deployed, migrated, and restarted"
+  if $have_jq; then
+    SUCCEEDED="$(echo "$STATUS_RESPONSE" | jq -r '.result.data[0].timestamps.succeeded // .data[0].timestamps.succeeded // empty' 2>/dev/null)"
+    DEPLOY_FAILED="$(echo "$STATUS_RESPONSE" | jq -r '.result.data[0].timestamps.failed // .data[0].timestamps.failed // empty' 2>/dev/null)"
+    if [[ -n "$SUCCEEDED" ]]; then
+      ok "Deployment finished successfully."
+      echo "$STATUS_RESPONSE"
+      exit 0
+    fi
+    if [[ -n "$DEPLOY_FAILED" ]]; then
+      fail "Deployment failed on the server. Full status:\n$STATUS_RESPONSE"
+    fi
+  else
+    echo "  (install 'jq' locally for cleaner status polling — showing raw response)"
+    echo "$STATUS_RESPONSE"
+  fi
+done
 
 echo ""
-ok "Deploy complete."
-echo "Check your live site to confirm, and tail logs if anything looks off:"
-echo "  ssh ${SSH_OPTS[*]} ${SSH_USER}@${SSH_HOST}"
+echo "Still running after ~2 minutes, or status is ambiguous (install jq for reliable polling)."
+echo "Check cPanel -> Git Version Control -> Manage -> Pull or Deploy tab for the final result,"
+echo "or run: npm run db:diff   (also confirms the app is responding with fresh data)"

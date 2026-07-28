@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 #
-# Regenerates db/schema.sql from your LOCAL dev database (structure only).
-# Run this after your local dev DB has the changes you also captured as a
-# migration in migrations/, so the reference snapshot stays up to date.
+# Dumps the current DB schema (structure only) using this machine's own
+# .env credentials. Used two ways:
+#   - Locally: npm run db:snapshot   -> writes db/schema.sql (git-tracked
+#     reference, regenerate after merging new migrations)
+#   - On the server (via .cpanel.yml, on every deploy): writes
+#     db/schema.production.sql (gitignored — a live artifact you fetch with
+#     npm run db:diff, never committed, never overwrites db/schema.sql)
 #
 # Usage:
-#   npm run db:snapshot
+#   bash scripts/snapshot-schema.sh [output-path]   # defaults to db/schema.sql
 #
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+OUTPUT="${1:-db/schema.sql}"
 
 if [[ ! -f .env ]]; then
   echo "Missing .env"
@@ -24,7 +30,7 @@ set +a
 HOST="$DB_HOST"
 if [[ "$HOST" == "localhost" ]]; then HOST="127.0.0.1"; fi
 
-mkdir -p db
+mkdir -p "$(dirname "$OUTPUT")"
 {
   cat <<'HEADER'
 -- =============================================================
@@ -45,6 +51,6 @@ HEADER
   mysqldump -h"$HOST" -P"${DB_PORT:-3306}" -u"$DB_USER" ${DB_PASSWORD:+-p"$DB_PASSWORD"} \
     --no-data --routines --triggers --skip-comments --column-statistics=0 "$DB_NAME" \
     | sed -E 's/ AUTO_INCREMENT=[0-9]+//g'
-} > db/schema.sql
+} > "$OUTPUT"
 
-echo "Wrote db/schema.sql"
+echo "Wrote $OUTPUT"

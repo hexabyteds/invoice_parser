@@ -1,34 +1,34 @@
-# Copy this file to `deploy.config` (gitignored — contains server details)
-# and fill in your HostNext / cPanel details. Then just run: npm run deploy
+# Copy this file to `deploy.config` (gitignored — contains secrets) and
+# fill in your HostNext / cPanel details. Then just run: npm run deploy
 #
-# How to find these values:
-#   SSH_HOST / SSH_PORT / SSH_USER — cPanel → "SSH Access" (or the info your
-#     host emailed you). HostNext cPanel SSH is usually port 21098 or 22.
-#   REPO_PATH — cPanel → "Git Version Control" → your repo → "Manage" shows
-#     the "Repository Path" (the bare/working repo git already pulls into),
-#     e.g. /home/username/repositories/invoice_parser
-#   APP_PATH — cPanel → "Setup Node.js App" → your app → "Application root",
-#     e.g. /home/username/invoice-app  (this is what Passenger actually serves)
-#   NODE_VENV_ACTIVATE — same "Setup Node.js App" page has a line like:
-#     source /home/username/nodevenv/invoice-app/20/bin/activate
-#     Copy that exact path here (without the word "source").
+# No SSH needed — deployment runs entirely over cPanel's HTTPS API (UAPI),
+# the same port (2083) you use to log into cPanel itself.
+#
+# How to find/create these values:
+#
+#   CPANEL_HOST — your domain or cPanel account's Shared IP Address
+#     (cPanel Home → "Server Information" / "General Information" card).
+#
+#   CPANEL_USER — your cPanel username (same "General Information" card,
+#     labelled "Current User").
+#
+#   CPANEL_API_TOKEN — cPanel search box → "Manage API Tokens" → "Create
+#     Token" → give it a name (e.g. "deploy") → copy the token value shown
+#     (it's only shown once!). Treat this exactly like a password — it
+#     grants the same access as logging in as you.
+#
+#   REPO_PATH — the absolute path to the git repo on the server. Find it in
+#     cPanel → "Git Version Control" → your repo → Manage → "Repository
+#     Path". (For this project it's the same folder the live app runs from.)
+#
+#   BRANCH — the git branch that's actually deployed on the server. Check
+#     in cPanel → "Git Version Control" → Manage → "Pull or Deploy" tab, or
+#     via cPanel Terminal: git -C REPO_PATH branch
 
-SSH_HOST=your-server-hostname-or-ip
-SSH_PORT=22
-SSH_USER=your-cpanel-username
-# Optional: path to a private key if you don't use ssh-agent/default key
-SSH_KEY=
+CPANEL_HOST=your-domain-or-ip
+CPANEL_USER=your-cpanel-username
+CPANEL_API_TOKEN=paste-your-api-token-here
 
-# Path to the git repo on the server (what `git pull` runs against)
-REPO_PATH=/home/username/repositories/invoice_parser
+REPO_PATH=/home/username/your-app-folder
 
-# Path Passenger actually serves the app from (Application root in
-# "Setup Node.js App"). Often the same as REPO_PATH, but not always —
-# check the cPanel Git "Deployment path" / Node app "Application root".
-APP_PATH=/home/username/invoice-app
-
-# Path to the cPanel Node.js virtual env "activate" script for this app
-NODE_VENV_ACTIVATE=/home/username/nodevenv/invoice-app/20/bin/activate
-
-# Git branch to deploy
 BRANCH=main
