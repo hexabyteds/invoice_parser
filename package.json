@@ -6,6 +6,10 @@
   "scripts": {
     "start": "node app-backend.js",
     "migrate:admin": "node scripts/migrate-admin.js",
+    "migrate": "node scripts/migrate.js",
+    "deploy": "bash scripts/deploy.sh",
+    "db:diff": "bash scripts/diff-schema.sh",
+    "db:snapshot": "bash scripts/snapshot-schema.sh",
     "tunnel": "bash scripts/tunnel.sh",
     "share": "bash scripts/start-with-tunnel.sh",
     "dev": "nodemon app-backend.js"

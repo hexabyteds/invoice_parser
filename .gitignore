@@ -32,3 +32,6 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+# Deploy secrets (server hostnames/paths) — copy from deploy.config.example
+deploy.config
