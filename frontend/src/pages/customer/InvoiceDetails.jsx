@@ -11,7 +11,7 @@ import {
   FileText,
   BadgeDollarSign,
 } from "lucide-react";
-import { getInvoice } from "../../services/invoiceApi";
+import { getInvoice, getInvoiceSource } from "../../services/invoiceApi";
 
 export default function InvoiceDetails() {
   const { id } = useParams();
@@ -21,6 +21,9 @@ export default function InvoiceDetails() {
   const [lineItems, setLineItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [sourceUrl, setSourceUrl] = useState(null);
+  const [sourceKind, setSourceKind] = useState(null);
+  const [sourceLoading, setSourceLoading] = useState(false);
 
 //   useEffect(() => {
 //     loadInvoice();
@@ -46,6 +49,40 @@ export default function InvoiceDetails() {
   
     loadInvoice();
   }, [id]);
+
+  useEffect(() => {
+    let objectUrl;
+
+    async function loadSource() {
+      if (!invoice?.hasSourceFile && !invoice?.image_path) {
+        setSourceUrl(null);
+        setSourceKind(null);
+        return;
+      }
+
+      setSourceLoading(true);
+      try {
+        const res = await getInvoiceSource(id);
+        const blob = res.data;
+        objectUrl = URL.createObjectURL(blob);
+        setSourceUrl(objectUrl);
+        setSourceKind((blob.type || "").includes("pdf") ? "pdf" : "image");
+      } catch {
+        setSourceUrl(null);
+        setSourceKind(null);
+      } finally {
+        setSourceLoading(false);
+      }
+    }
+
+    loadSource();
+
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [id, invoice?.hasSourceFile, invoice?.image_path]);
 
   if (loading) {
     return (
@@ -163,6 +200,40 @@ export default function InvoiceDetails() {
         </div>
 
       </div>
+
+      {(invoice?.hasSourceFile || invoice?.image_path) && (
+        <div className="bg-white rounded-3xl shadow border p-8">
+          <h2 className="text-xl font-semibold mb-4 text-black">
+            Original Document
+          </h2>
+
+          {sourceLoading && (
+            <p className="text-slate-500">Loading document...</p>
+          )}
+
+          {!sourceLoading && sourceUrl && sourceKind === "image" && (
+            <img
+              src={sourceUrl}
+              alt="Uploaded invoice"
+              className="max-w-full rounded-xl border"
+            />
+          )}
+
+          {!sourceLoading && sourceUrl && sourceKind === "pdf" && (
+            <iframe
+              title="Uploaded invoice PDF"
+              src={sourceUrl}
+              className="w-full min-h-[480px] rounded-xl border"
+            />
+          )}
+
+          {!sourceLoading && !sourceUrl && (
+            <p className="text-slate-500">
+              Original file is not available on the server.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Description */}
 

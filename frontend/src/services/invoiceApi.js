@@ -55,9 +55,19 @@ export const downloadExcel = () =>
   export const getInvoice = (id) =>
     API.get(`/invoices/${id}`);
 
+  export const getInvoiceSource = (id) =>
+    API.get(`/invoices/${id}/source`, {
+      responseType: "blob",
+    });
+
   export const updateInvoice = (id, data) =>
     API.put(`/invoices/${id}`, data);
 
+
+
+
+  export const deleteInvoices = (id) =>
+    API.delete(`/invoices/${id}`);
   
 // ==========================
 // HTML Report

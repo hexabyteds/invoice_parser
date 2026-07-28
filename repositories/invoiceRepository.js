@@ -48,13 +48,21 @@ class InvoiceRepository {
             invoice.totalAmount,
             invoice.currency,
             invoice.trn,
-            invoice.imagePath || null
+            invoice.image_path ?? invoice.imagePath ?? null
         ];
     
         const [result] = await db.execute(sql, values);
     
         return result.insertId;
     }
+
+    async updateImagePath(id, userId, imagePath) {
+        await db.execute(
+            `UPDATE invoices SET image_path = ? WHERE id = ? AND user_id = ?`,
+            [imagePath, id, userId]
+        );
+    }
+
     // Get all invoices
     async findAll() {
 
@@ -83,6 +91,16 @@ class InvoiceRepository {
         );
 
         return await this.mapInvoices(rows);
+    }
+
+    async countByUser(userId) {
+
+        const [rows] = await db.execute(
+            `SELECT COUNT(*) AS total FROM invoices WHERE user_id = ?`,
+            [userId]
+        );
+
+        return Number(rows[0]?.total || 0);
     }
 
     async countByUser(userId) {
@@ -159,7 +177,18 @@ class InvoiceRepository {
         return result.affectedRows;
     }
 
-    // Delete invoice
+    // Delete invoice (scoped to user)
+    async deleteById(id, userId) {
+
+        const [result] = await db.execute(
+            `DELETE FROM invoices WHERE id = ? AND user_id = ?`,
+            [id, userId]
+        );
+
+        return result.affectedRows;
+    }
+
+    // Delete invoice (legacy — prefer deleteById)
     async delete(id) {
 
         await db.execute(

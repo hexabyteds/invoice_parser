@@ -20,6 +20,7 @@ const usageRoutes = require("./routes/usageRoutes");
 const usageService = require("./services/usageService");
 
 const app = express();
+const UPLOADS_DIR = path.join(__dirname, "uploads");
 
 
 app.use(cors());
@@ -54,10 +55,10 @@ const agent = new FreeInvoiceAgent();
 // Upload storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    if (!fs.existsSync('uploads')) {
-      fs.mkdirSync('uploads');
+    if (!fs.existsSync(UPLOADS_DIR)) {
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
     }
-    cb(null, 'uploads/');
+    cb(null, UPLOADS_DIR);
   },
   filename: (req, file, cb) => {
     cb(null, `invoice_${Date.now()}${path.extname(file.originalname)}`);
@@ -144,7 +145,8 @@ app.post(
         result = await agent.processPDF(
           req.file.path,
           req.user.id,
-          clientId        // NEW
+          clientId,
+          req.file.path
         );
 
       } else {
@@ -152,7 +154,8 @@ app.post(
         result = await agent.processImage(
           req.file.path,
           req.user.id,
-          clientId        // NEW
+          clientId,
+          req.file.path
         );
 
       }
@@ -336,7 +339,10 @@ app.get(
 
       res.json({
         success: true,
-        invoice: data.invoice,
+        invoice: {
+          ...data.invoice,
+          hasSourceFile: Boolean(data.invoice?.image_path),
+        },
         lineItems: data.lineItems
       });
 
@@ -350,6 +356,44 @@ app.get(
     }
 
   });
+
+
+app.get(
+  "/api/invoices/:id/source",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const source = await agent.getInvoiceSourcePath(
+        req.params.id,
+        req.user.id
+      );
+
+      if (!source) {
+        return res.status(404).json({
+          success: false,
+          error: "Original document not found for this invoice.",
+        });
+      }
+
+      const ext = path.extname(source.absolutePath).toLowerCase();
+      const mimeByExt = {
+        ".pdf": "application/pdf",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+      };
+
+      res.type(mimeByExt[ext] || "application/octet-stream");
+      res.sendFile(source.absolutePath);
+    } catch (err) {
+      res.status(500).json({
+        success: false,
+        error: err.message,
+      });
+    }
+  }
+);
 
 
 // Update an invoice
@@ -389,6 +433,39 @@ app.put(
     }
 
   });
+
+
+app.delete(
+  "/api/invoices/:id",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      console.log("DELETE INVOICE", req.params.id);
+      console.log("USER ID", req.user.id);
+      const deleted = await agent.deleteInvoice(
+        req.params.id,
+        req.user.id
+      );
+
+      if (!deleted) {
+        return res.status(404).json({
+          success: false,
+          error: "Invoice not found.",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Invoice deleted.",
+      });
+    } catch (err) {
+      res.status(500).json({
+        success: false,
+        error: err.message,
+      });
+    }
+  }
+);
 
 
 app.get(

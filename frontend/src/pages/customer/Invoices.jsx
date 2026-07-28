@@ -10,6 +10,7 @@ import {
 import {
     getInvoices,
     getInvoicesByClient,
+    deleteInvoices,
 } from "../../services/invoiceApi";
 import clientApi from "../../services/clientApi";
 import { useNavigate } from "react-router-dom";
@@ -79,10 +80,14 @@ export default function Invoices() {
         if (!ok) return;
 
         try {
-            // await deleteInvoice(id);
-            loadInvoices(clientId);
+            await deleteInvoices(id);
+            await loadInvoices(clientId);
         } catch (err) {
             console.error(err);
+            window.alert(
+                err.response?.data?.error ||
+                    "Could not delete invoice. Please try again."
+            );
         }
     }
 

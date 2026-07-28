@@ -8,14 +8,37 @@ const pdfService = require("./services/pdfService");
 
 const invoiceRepository = require("./repositories/invoiceRepository");
 const invoiceItemRepository = require("./repositories/invoiceItemRepository");
+const { toStoredSourcePath, resolveUploadPath } = require("./utils/uploadPaths");
 
 class FreeInvoiceAgent {
+
+    persistSourceOnInvoice(invoice, absoluteOrRelativePath) {
+        const stored = toStoredSourcePath(absoluteOrRelativePath);
+        invoice.imagePath = stored;
+        invoice.image_path = stored;
+        return stored;
+    }
+
+    async saveSourceForInvoices(sourceFilePath, pdfPath, extractedItems) {
+        const count = extractedItems.length;
+
+        if (count <= 1) {
+            return extractedItems.map(() => sourceFilePath);
+        }
+
+        const pageFiles = await pdfService.split(pdfPath);
+
+        return extractedItems.map((item, i) => {
+            const pageIndex = item.pageIndex ?? i;
+            return pdfService.pageFileAt(pageFiles, pageIndex) || sourceFilePath;
+        });
+    }
 
     // =========================
     // IMAGE
     // =========================
 
-    async processImage(imagePath, userId, clientId) {
+    async processImage(imagePath, userId, clientId, sourceFilePath = imagePath) {
 
         await usageService.checkOCRLimit(userId, 1);
         await usageService.checkInvoiceLimit(userId);
@@ -36,7 +59,10 @@ class FreeInvoiceAgent {
         result.invoice.user_id = userId;
         result.invoice.client_id = clientId;
 
+        const stored = this.persistSourceOnInvoice(result.invoice, sourceFilePath);
+
         const invoiceId = await invoiceRepository.create(result.invoice);
+        await invoiceRepository.updateImagePath(invoiceId, userId, stored);
 
         await invoiceItemRepository.createMany(
             invoiceId,
@@ -44,6 +70,8 @@ class FreeInvoiceAgent {
         );
 
         await usageService.incrementInvoices(userId);
+
+        result.invoice.id = invoiceId;
 
         return {
             status: "success",
@@ -56,7 +84,7 @@ class FreeInvoiceAgent {
     // PDF
     // =========================
 
-    async processPDF(pdfPath, userId, clientId) {
+    async processPDF(pdfPath, userId, clientId, sourceFilePath = pdfPath) {
 
         const pageCount = await pdfService.getPageCount(pdfPath);
 
@@ -73,9 +101,16 @@ class FreeInvoiceAgent {
 
         await usageService.incrementOCR(userId, pageCount);
 
+        const sourcePaths = await this.saveSourceForInvoices(
+            sourceFilePath,
+            pdfPath,
+            result.invoices
+        );
+
         const savedInvoices = [];
 
-        for (const item of result.invoices) {
+        for (let i = 0; i < result.invoices.length; i++) {
+            const item = result.invoices[i];
 
             await usageService.checkInvoiceLimit(userId);
 
@@ -84,7 +119,13 @@ class FreeInvoiceAgent {
             invoice.user_id = userId;
             invoice.client_id = clientId;
 
+            const stored = this.persistSourceOnInvoice(
+                invoice,
+                sourcePaths[i]
+            );
+
             const invoiceId = await invoiceRepository.create(invoice);
+            await invoiceRepository.updateImagePath(invoiceId, userId, stored);
 
             await invoiceItemRepository.createMany(
                 invoiceId,
@@ -93,6 +134,7 @@ class FreeInvoiceAgent {
 
             await usageService.incrementInvoices(userId);
 
+            invoice.id = invoiceId;
             savedInvoices.push(invoice);
         }
 
@@ -143,6 +185,41 @@ class FreeInvoiceAgent {
             invoice,
             lineItems,
         };
+    }
+
+    async getInvoiceSourcePath(invoiceId, userId) {
+        const invoice = await invoiceRepository.findById(invoiceId, userId);
+        if (!invoice?.image_path) {
+            return null;
+        }
+
+        const fs = require("fs");
+        const absolutePath = resolveUploadPath(invoice.image_path);
+
+        if (!absolutePath || !fs.existsSync(absolutePath)) {
+            return null;
+        }
+
+        return { absolutePath, storedPath: invoice.image_path };
+    }
+
+    async deleteInvoice(invoiceId, userId) {
+        const existing = await invoiceRepository.findById(
+            invoiceId,
+            userId
+        );
+
+        if (!existing) {
+            return false;
+        }
+
+        await invoiceItemRepository.delete(invoiceId);
+        const removed = await invoiceRepository.deleteById(
+            invoiceId,
+            userId
+        );
+
+        return removed > 0;
     }
 
     // =========================
