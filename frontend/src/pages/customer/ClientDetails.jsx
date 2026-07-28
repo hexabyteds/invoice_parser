@@ -1,22 +1,28 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import clientApi from "../../services/clientApi.js";
 import { useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 
 import {
     getInvoicesByClient,
   } from "../../services/invoiceApi";
+
+const ROWS_PER_PAGE = 10;
+
 export default function ClientDetails() {
 
     const { id } = useParams();
 
     const [client, setClient] = useState(null);
     const [invoices, setInvoices] = useState([]);
+    const [page, setPage] = useState(1);
     const [downloading, setDownloading] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
+        setPage(1);
         load();
     }, [id]);
 
@@ -27,6 +33,14 @@ export default function ClientDetails() {
         setClient(clientRes.client);
         setInvoices(invoiceRes?.data?.invoices || []);
     }
+
+    const totalPages = Math.max(1, Math.ceil(invoices.length / ROWS_PER_PAGE));
+    const safePage = Math.min(page, totalPages);
+
+    const paginatedInvoices = useMemo(() => {
+        const start = (safePage - 1) * ROWS_PER_PAGE;
+        return invoices.slice(start, start + ROWS_PER_PAGE);
+    }, [invoices, safePage]);
 
     // Client-wise Excel: /api/download-excel?client_id={id}
     async function handleDownloadExcel() {
@@ -243,9 +257,7 @@ export default function ClientDetails() {
 
                     <tbody>
 
-                        {
-
-                            invoices.map(invoice => (
+                        {paginatedInvoices.map((invoice) => (
 
                                 <tr
                                     key={invoice.id}
@@ -282,13 +294,57 @@ export default function ClientDetails() {
 
                                 </tr>
 
-                            ))
-
-                        }
+                            ))}
 
                     </tbody>
 
                 </table>
+
+                {invoices.length > 0 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-slate-700">
+                        <p className="text-sm text-gray-400">
+                            Showing{" "}
+                            {(safePage - 1) * ROWS_PER_PAGE + 1}–
+                            {Math.min(
+                                safePage * ROWS_PER_PAGE,
+                                invoices.length
+                            )}{" "}
+                            of {invoices.length} invoices
+                        </p>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setPage((p) => Math.max(1, p - 1))
+                                }
+                                disabled={safePage <= 1}
+                                className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-600 bg-slate-800 text-sm font-medium text-gray-200 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none transition"
+                            >
+                                <ChevronLeft size={18} />
+                                Previous
+                            </button>
+
+                            <span className="text-sm text-gray-400 px-2">
+                                Page {safePage} of {totalPages}
+                            </span>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setPage((p) =>
+                                        Math.min(totalPages, p + 1)
+                                    )
+                                }
+                                disabled={safePage >= totalPages}
+                                className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-600 bg-slate-800 text-sm font-medium text-gray-200 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none transition"
+                            >
+                                Next
+                                <ChevronRight size={18} />
+                            </button>
+                        </div>
+                    </div>
+                )}
 
             </div>
 

@@ -6,6 +6,8 @@ import {
     Trash2,
     FileText,
     Loader2,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 import {
     getInvoices,
@@ -15,12 +17,15 @@ import {
 import clientApi from "../../services/clientApi";
 import { useNavigate } from "react-router-dom";
 
+const ROWS_PER_PAGE = 10;
+
 export default function Invoices() {
     const [invoices, setInvoices] = useState([]);
     const [clients, setClients] = useState([]);
     const [clientId, setClientId] = useState("");
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
     const navigate = useNavigate();
 
     async function loadClients() {
@@ -55,7 +60,12 @@ export default function Invoices() {
 
     useEffect(() => {
         loadInvoices(clientId);
+        setPage(1);
     }, [clientId]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [search]);
 
     const selectedClient = clients.find(
         (c) => String(c.id) === String(clientId)
@@ -74,6 +84,18 @@ export default function Invoices() {
             );
         });
     }, [search, invoices]);
+
+    const totalPages = Math.max(
+        1,
+        Math.ceil(filteredInvoices.length / ROWS_PER_PAGE)
+    );
+
+    const safePage = Math.min(page, totalPages);
+
+    const paginatedInvoices = useMemo(() => {
+        const start = (safePage - 1) * ROWS_PER_PAGE;
+        return filteredInvoices.slice(start, start + ROWS_PER_PAGE);
+    }, [filteredInvoices, safePage]);
 
     async function handleDelete(id) {
         const ok = window.confirm("Delete this invoice?");
@@ -195,7 +217,7 @@ export default function Invoices() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredInvoices.map((invoice) => (
+                                {paginatedInvoices.map((invoice) => (
                                     <tr
                                         key={invoice.id}
                                         className="border-b hover:bg-slate-50 transition"
@@ -260,6 +282,50 @@ export default function Invoices() {
                                 ))}
                             </tbody>
                         </table>
+
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t bg-slate-50">
+                            <p className="text-sm text-slate-600">
+                                Showing{" "}
+                                {(safePage - 1) * ROWS_PER_PAGE + 1}–
+                                {Math.min(
+                                    safePage * ROWS_PER_PAGE,
+                                    filteredInvoices.length
+                                )}{" "}
+                                of {filteredInvoices.length} invoices
+                            </p>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setPage((p) => Math.max(1, p - 1))
+                                    }
+                                    disabled={safePage <= 1}
+                                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition"
+                                >
+                                    <ChevronLeft size={18} />
+                                    Previous
+                                </button>
+
+                                <span className="text-sm text-slate-600 px-2">
+                                    Page {safePage} of {totalPages}
+                                </span>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setPage((p) =>
+                                            Math.min(totalPages, p + 1)
+                                        )
+                                    }
+                                    disabled={safePage >= totalPages}
+                                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition"
+                                >
+                                    Next
+                                    <ChevronRight size={18} />
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
