@@ -8,7 +8,9 @@ npm run deploy
 
 **No SSH required.** HostNext doesn't disclose the SSH port on shared
 hosting, so this deploy pipeline uses cPanel's official HTTPS API (UAPI)
-instead — the same port (`2083`) you already use to log into cPanel. It:
+instead — the same port (`2083`) you already use to log into cPanel,
+authenticated with your cPanel username + password (HTTP Basic Auth),
+since "Manage API Tokens" isn't available on this plan either. It:
 
 1. Pushes your code to GitHub.
 2. Calls cPanel's `VersionControlDeployment::create` API, which pulls the
@@ -25,14 +27,7 @@ just triggered remotely via API instead of clicking "Deploy" in the UI.
 
 ## One-time setup (do this once)
 
-### 1. Create a cPanel API Token
-
-cPanel → search box → **"Manage API Tokens"** → **Create Token** → give it
-a name (e.g. `deploy`) → copy the token value shown (**it's only shown
-once** — if you lose it, just revoke it and create a new one). Treat it
-exactly like a password: it grants the same access as logging in as you.
-
-### 2. Fill in `deploy.config`
+### 1. Fill in `deploy.config`
 
 ```bash
 cp deploy.config.example deploy.config
@@ -44,14 +39,19 @@ Terminal):
 ```
 CPANEL_HOST=apexhometutors.com
 CPANEL_USER=apexhome
-CPANEL_API_TOKEN=<paste your token here>
+CPANEL_PASSWORD=<your actual cPanel login password>
 REPO_PATH=/home/apexhome/eazeebooks.com
 BRANCH=AdminPortal
 ```
 
-`deploy.config` is gitignored — it never leaves your machine.
+`deploy.config` is gitignored — it never leaves your machine. Since this
+plan doesn't offer "Manage API Tokens", authentication uses your real
+cPanel password via HTTP Basic Auth (cPanel's own supported [Username and
+Password Authentication](https://api.docs.cpanel.net/guides/guide-to-api-authentication/guide-to-api-authentication-username-and-password-authentication)
+method) — still only ever sent over HTTPS (port 2083). Treat this file
+with the same care as any password on disk.
 
-### 3. Confirm the branch cPanel's repo is actually tracking
+### 2. Confirm the branch cPanel's repo is actually tracking
 
 In cPanel → **Git Version Control** → your repo → **Manage** → **"Pull or
 Deploy"** tab, or via cPanel's browser Terminal:
@@ -67,13 +67,13 @@ Make sure it matches `BRANCH` in `deploy.config`. If not, either update
 git -C /home/apexhome/eazeebooks.com checkout AdminPortal
 ```
 
-### 4. Confirm the server's `.env` is production-ready
+### 3. Confirm the server's `.env` is production-ready
 
 The server needs its own `.env` (DB creds, `GEMINI_API_KEY`, `JWT_SECRET`,
 etc.) at `REPO_PATH/.env` — already confirmed present. It's gitignored, so
 `npm run deploy` never touches or overwrites it.
 
-### 5. First deploy
+### 4. First deploy
 
 ```bash
 npm run deploy
@@ -139,7 +139,7 @@ One command ships backend + frontend + DB migrations and restarts the app.
 
 - **Check deployment status/logs without re-deploying**:
   ```bash
-  curl -s -H "Authorization: cpanel apexhome:$CPANEL_API_TOKEN" \
+  curl -s -u "apexhome:$CPANEL_PASSWORD" \
     --data-urlencode "repository_root=/home/apexhome/eazeebooks.com" \
     "https://apexhometutors.com:2083/execute/VersionControlDeployment/retrieve" | jq
   ```
@@ -151,6 +151,15 @@ One command ships backend + frontend + DB migrations and restarts the app.
   recurring issue, the fallback is building `frontend/dist` locally and
   uploading it via cPanel's Fileman API instead of building on-server —
   ask for this if you hit that wall.
-- **API calls return an auth error** — token may have been revoked/expired,
-  or `CPANEL_USER`/`CPANEL_HOST` don't match. Re-check in cPanel → Manage
-  API Tokens.
+- **API calls return an auth error** — double-check `CPANEL_PASSWORD` in
+  `deploy.config` matches your current cPanel login password (if you
+  change your cPanel password later, update it here too).
+- **API calls are rejected entirely / "permission denied" for the whole
+  module** — some hosts disable UAPI access outright at the account level
+  as an extra security measure (similar to hiding the SSH port). If every
+  call fails the same way regardless of credentials, ask HostNext support:
+  "Is UAPI/cPanel API access enabled for my account?" — if it's disabled,
+  the fallback is doing deploys manually via cPanel's Git Version Control
+  UI ("Update from Remote" then "Deploy HEAD Commit" buttons) instead of
+  the one-command script; the migration/build/restart automation in
+  `.cpanel.yml` still runs the same either way.

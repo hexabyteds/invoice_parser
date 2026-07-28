@@ -3,10 +3,11 @@
 # One-command deploy — no SSH required.
 #
 # Pushes your code to GitHub, then calls cPanel's UAPI (over HTTPS, port
-# 2083, authenticated with an API token) to pull the latest commit into the
-# cPanel-managed git repo AND run the deployment tasks defined in
-# .cpanel.yml (build frontend, install deps, run DB migrations, restart the
-# Passenger app) — all in one API call: VersionControlDeployment::create.
+# 2083, authenticated with your cPanel username/password via HTTP Basic
+# Auth) to pull the latest commit into the cPanel-managed git repo AND run
+# the deployment tasks defined in .cpanel.yml (build frontend, install
+# deps, run DB migrations, restart the Passenger app) — all in one API
+# call: VersionControlDeployment::create.
 #
 # Docs: https://docs.cpanel.net/knowledge-base/web-services/guide-to-git-deployment/
 #
@@ -30,12 +31,12 @@ source "$CONFIG_FILE"
 
 : "${CPANEL_HOST:?Set CPANEL_HOST in deploy.config}"
 : "${CPANEL_USER:?Set CPANEL_USER in deploy.config}"
-: "${CPANEL_API_TOKEN:?Set CPANEL_API_TOKEN in deploy.config}"
+: "${CPANEL_PASSWORD:?Set CPANEL_PASSWORD in deploy.config}"
 : "${REPO_PATH:?Set REPO_PATH in deploy.config}"
 BRANCH="${BRANCH:-main}"
 
 API="https://${CPANEL_HOST}:2083/execute"
-AUTH_HEADER="Authorization: cpanel ${CPANEL_USER}:${CPANEL_API_TOKEN}"
+CURL_AUTH=(-u "${CPANEL_USER}:${CPANEL_PASSWORD}")
 
 info()  { echo -e "\033[1;34m==>\033[0m $1"; }
 ok()    { echo -e "\033[1;32m✓\033[0m $1"; }
@@ -82,7 +83,7 @@ ok "Pushed"
 # 3. Trigger pull + .cpanel.yml deployment tasks via cPanel UAPI
 # ------------------------------------------------------------------
 info "Triggering deployment on server (pull + build + migrate + restart)..."
-RESPONSE="$(curl -sS -H "$AUTH_HEADER" \
+RESPONSE="$(curl -sS "${CURL_AUTH[@]}" \
   --data-urlencode "repository_root=${REPO_PATH}" \
   "${API}/VersionControlDeployment/create")"
 
@@ -102,7 +103,7 @@ ok "Deployment queued${TASK_ID:+ (task_id: $TASK_ID)}"
 info "Waiting for deployment tasks to finish (this runs npm install + frontend build + migrations on the server, can take a minute)..."
 for i in $(seq 1 20); do
   sleep 6
-  STATUS_RESPONSE="$(curl -sS -H "$AUTH_HEADER" \
+  STATUS_RESPONSE="$(curl -sS "${CURL_AUTH[@]}" \
     --data-urlencode "repository_root=${REPO_PATH}" \
     "${API}/VersionControlDeployment/retrieve")"
 

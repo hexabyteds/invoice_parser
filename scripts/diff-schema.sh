@@ -27,14 +27,14 @@ source "$CONFIG_FILE"
 
 : "${CPANEL_HOST:?Set CPANEL_HOST in deploy.config}"
 : "${CPANEL_USER:?Set CPANEL_USER in deploy.config}"
-: "${CPANEL_API_TOKEN:?Set CPANEL_API_TOKEN in deploy.config}"
+: "${CPANEL_PASSWORD:?Set CPANEL_PASSWORD in deploy.config}"
 : "${REPO_PATH:?Set REPO_PATH in deploy.config}"
 
 API="https://${CPANEL_HOST}:2083/execute"
-AUTH_HEADER="Authorization: cpanel ${CPANEL_USER}:${CPANEL_API_TOKEN}"
+CURL_AUTH=(-u "${CPANEL_USER}:${CPANEL_PASSWORD}")
 
 echo "==> Fetching db/schema.production.sql from the server via cPanel API..."
-RESPONSE="$(curl -sS -H "$AUTH_HEADER" \
+RESPONSE="$(curl -sS "${CURL_AUTH[@]}" \
   --data-urlencode "dir=${REPO_PATH}/db" \
   --data-urlencode "file=schema.production.sql" \
   "${API}/Fileman/get_file_content")"

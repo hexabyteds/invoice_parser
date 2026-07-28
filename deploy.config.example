@@ -2,9 +2,16 @@
 # fill in your HostNext / cPanel details. Then just run: npm run deploy
 #
 # No SSH needed — deployment runs entirely over cPanel's HTTPS API (UAPI),
-# the same port (2083) you use to log into cPanel itself.
+# the same port (2083) you use to log into cPanel itself, authenticated
+# with your cPanel username + password (HTTP Basic Auth) since "Manage API
+# Tokens" isn't available on this hosting plan.
 #
-# How to find/create these values:
+# IMPORTANT: this means your actual cPanel login password lives in this
+# file. It's gitignored and never committed, but treat it with the same
+# care as any other password on disk (don't share this file, consider a
+# dedicated/rotatable password if you're worried about reuse elsewhere).
+#
+# How to find these values:
 #
 #   CPANEL_HOST — your domain or cPanel account's Shared IP Address
 #     (cPanel Home → "Server Information" / "General Information" card).
@@ -12,10 +19,7 @@
 #   CPANEL_USER — your cPanel username (same "General Information" card,
 #     labelled "Current User").
 #
-#   CPANEL_API_TOKEN — cPanel search box → "Manage API Tokens" → "Create
-#     Token" → give it a name (e.g. "deploy") → copy the token value shown
-#     (it's only shown once!). Treat this exactly like a password — it
-#     grants the same access as logging in as you.
+#   CPANEL_PASSWORD — your actual cPanel login password.
 #
 #   REPO_PATH — the absolute path to the git repo on the server. Find it in
 #     cPanel → "Git Version Control" → your repo → Manage → "Repository
@@ -27,7 +31,7 @@
 
 CPANEL_HOST=your-domain-or-ip
 CPANEL_USER=your-cpanel-username
-CPANEL_API_TOKEN=paste-your-api-token-here
+CPANEL_PASSWORD=your-cpanel-login-password
 
 REPO_PATH=/home/username/your-app-folder
 
