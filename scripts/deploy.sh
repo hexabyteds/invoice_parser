@@ -116,8 +116,12 @@ fi
 cd "$APP_PATH"
 
 if [[ -n "$NODE_VENV_ACTIVATE" && -f "$NODE_VENV_ACTIVATE" ]]; then
-  echo "--> Activating Node.js virtual environment"
-  source "$NODE_VENV_ACTIVATE"
+  echo "--> Adding Node.js virtual environment to PATH"
+  # Don't 'source' this script — cPanel's activate script isn't
+  # compatible with 'set -u' (references unset vars). Just prepend its
+  # bin/ directory to PATH directly instead, which is all sourcing it
+  # would have done anyway.
+  export PATH="$(dirname "$NODE_VENV_ACTIVATE"):\$PATH"
 fi
 
 echo "--> Installing backend dependencies"
