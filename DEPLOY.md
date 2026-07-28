@@ -6,94 +6,81 @@ Once set up, deploying is **one command**:
 npm run deploy
 ```
 
-**No SSH required.** HostNext doesn't disclose the SSH port on shared
-hosting, so this deploy pipeline uses cPanel's official HTTPS API (UAPI)
-instead — the same port (`2083`) you already use to log into cPanel,
-authenticated with your cPanel username + password (HTTP Basic Auth),
-since "Manage API Tokens" isn't available on this plan either. It:
-
-1. Pushes your code to GitHub.
-2. Calls cPanel's `VersionControlDeployment::create` API, which pulls the
-   latest commit into the server's git repo and runs the deployment tasks
-   defined in `.cpanel.yml` — build the React frontend, install backend
-   deps, run pending DB migrations, and restart the Passenger app.
-3. Polls until it's done and reports success/failure.
-
-This is cPanel's own supported deployment mechanism (see [Guide to Git —
-Deployment](https://docs.cpanel.net/knowledge-base/web-services/guide-to-git-deployment/)),
-just triggered remotely via API instead of clicking "Deploy" in the UI.
+This pushes your code to GitHub, builds the React frontend, uploads it to
+the server, pulls the backend code on the server over SSH, installs
+dependencies, runs any pending database migrations, and restarts the app —
+all from your laptop.
 
 ---
 
 ## One-time setup (do this once)
 
-### 1. Fill in `deploy.config`
+### 1. The SSH port
+
+HostNext doesn't disclose the SSH port through cPanel's normal UI or
+support (they'll tell you to just use the browser Terminal instead). The
+way around this: cPanel's own **Git™ Version Control** feature generates a
+real SSH clone URL for any repo it tracks, and that URL contains the true
+port:
+
+1. cPanel → **Git™ Version Control** → create or view any repo
+2. Look at the **Clone URL** — it looks like
+   `ssh://username@yourdomain.com:PORT/home/username/repositories/reponame`
+3. That `PORT` is your real SSH port (for this project: `1978`)
+
+Full interactive SSH works on this port (not restricted to git-only
+commands) — confirmed by testing.
+
+### 2. SSH key login
+
+You already have a dedicated key for this
+(`~/.ssh/id_ed25519_hostnext`), imported and authorized via cPanel → **SSH
+Access → Manage SSH Keys**. Test it:
+
+```bash
+ssh -i ~/.ssh/id_ed25519_hostnext -p 1978 apexhome@apexhometutors.com echo ok
+```
+
+You should see `ok` with no password prompt.
+
+### 3. Fill in `deploy.config`
 
 ```bash
 cp deploy.config.example deploy.config
 ```
 
-For this project, this is already mostly filled in (confirmed via cPanel
-Terminal):
+For this project it's already filled in:
 
 ```
-CPANEL_HOST=apexhometutors.com
-CPANEL_USER=apexhome
-CPANEL_PASSWORD=<your actual cPanel login password>
+SSH_HOST=apexhometutors.com
+SSH_PORT=1978
+SSH_USER=apexhome
+SSH_KEY=/Users/fast/.ssh/id_ed25519_hostnext
 REPO_PATH=/home/apexhome/eazeebooks.com
+APP_PATH=/home/apexhome/eazeebooks.com
+NODE_VENV_ACTIVATE=/home/apexhome/nodevenv/eazeebooks.com/20/bin/activate
 BRANCH=AdminPortal
 ```
 
-`deploy.config` is gitignored — it never leaves your machine. Since this
-plan doesn't offer "Manage API Tokens", authentication uses your real
-cPanel password via HTTP Basic Auth (cPanel's own supported [Username and
-Password Authentication](https://api.docs.cpanel.net/guides/guide-to-api-authentication/guide-to-api-authentication-username-and-password-authentication)
-method) — still only ever sent over HTTPS (port 2083). Treat this file
-with the same care as any password on disk.
+`deploy.config` is gitignored — it never leaves your machine.
 
-### 2. Confirm the branch cPanel's repo is actually tracking
+### 4. Confirm the server's `.env` / environment variables
 
-In cPanel → **Git Version Control** → your repo → **Manage** → **"Pull or
-Deploy"** tab, or via cPanel's browser Terminal:
+The server needs `GEMINI_API_KEY`, DB credentials, `JWT_SECRET`, etc.
+already available to the running process. For this app: `.env` on the
+server has `PORT` and `GEMINI_API_KEY`; DB credentials appear to be
+configured separately via cPanel → **Setup Node.js App → Environment
+Variables** rather than the `.env` file. Either way, `npm run deploy`
+never touches or overwrites `.env`.
 
-```bash
-git -C /home/apexhome/eazeebooks.com branch
-```
-
-Make sure it matches `BRANCH` in `deploy.config`. If not, either update
-`BRANCH` to match, or switch the server's checkout:
-
-```bash
-git -C /home/apexhome/eazeebooks.com checkout AdminPortal
-```
-
-### 3. Confirm the server's `.env` is production-ready
-
-The server needs its own `.env` (DB creds, `GEMINI_API_KEY`, `JWT_SECRET`,
-etc.) at `REPO_PATH/.env` — already confirmed present. It's gitignored, so
-`npm run deploy` never touches or overwrites it.
-
-### 4. First deploy
+### 5. First deploy
 
 ```bash
 npm run deploy
 ```
 
-Watch the output. First-time gotchas:
-
-- **"working tree not clean"** — the cPanel-managed repo must have no
-  uncommitted changes. Since we never edit files directly there, this
-  should be clean; if not, SSH-free option is to fix it via cPanel's
-  browser Terminal (`git -C REPO_PATH status` / `git -C REPO_PATH checkout -- .`).
-- **`.cpanel.yml` missing on first run** — the very first `npm run deploy`
-  after adding `.cpanel.yml` should work fine (the pull happens before
-  tasks run, bringing `.cpanel.yml` in along with everything else). If it
-  doesn't, do one manual "Update from Remote" click in the Git Version
-  Control UI first, then re-run `npm run deploy`.
-- Full deployment logs live on the server at
-  `~/.cpanel/logs/vc_<timestamp>_git_deploy.log` — viewable via cPanel's
-  browser Terminal (`cat`/`less`) or the Git Version Control UI's "Pull or
-  Deploy" tab.
+Watch the output — it'll tell you exactly which step fails if something
+isn't configured yet.
 
 ---
 
@@ -106,22 +93,18 @@ full schema dump against it. Instead:
 2. Add a migration file describing that exact change under `migrations/`
    (see `migrations/README.md` for examples).
 3. Commit it, then `npm run deploy` as usual — `scripts/migrate.js` runs
-   automatically as one of the `.cpanel.yml` tasks and applies only what's
-   new, tracked in a `schema_migrations` table. Safe to deploy repeatedly.
+   automatically on the server and applies only what's new, tracked in a
+   `schema_migrations` table. Safe to deploy repeatedly.
 
 ### Checking what's different in production
 
-Every deploy, `.cpanel.yml` also dumps production's current schema to
-`db/schema.production.sql` on the server (gitignored, never committed).
-Fetch and diff it against your local `db/schema.sql` with:
+Every deploy, the server also dumps its current schema to
+`db/schema.production.sql` (gitignored, never committed). Fetch and diff
+it against your local `db/schema.sql` with:
 
 ```bash
 npm run db:diff
 ```
-
-(This works over the same HTTPS API — no SSH needed. It requires at least
-one successful deploy to have run first, since that's what creates the
-file.)
 
 ---
 
@@ -133,33 +116,19 @@ git commit -m "Add X"
 npm run deploy
 ```
 
-One command ships backend + frontend + DB migrations and restarts the app.
-
 ## Troubleshooting
 
-- **Check deployment status/logs without re-deploying**:
-  ```bash
-  curl -s -u "apexhome:$CPANEL_PASSWORD" \
-    --data-urlencode "repository_root=/home/apexhome/eazeebooks.com" \
-    "https://apexhometutors.com:2083/execute/VersionControlDeployment/retrieve" | jq
-  ```
+- **`npm run deploy` fails at "Pulling latest code"** — check `REPO_PATH`;
+  SSH in and run `git -C REPO_PATH remote -v` to confirm it points at this
+  GitHub repo, and `git -C REPO_PATH status` to check for uncommitted
+  local changes on the server that might block a pull (if so, review them
+  before discarding — see git history in this project for an example of a
+  hardcoded-secret hotfix that needed careful handling, not a blind
+  overwrite).
 - **App doesn't pick up changes after deploy** — Passenger restarts via
-  `touch tmp/restart.txt`, which is the last `.cpanel.yml` task. If an
-  earlier task failed, this never runs — check the deploy log.
-- **Frontend build fails on the server (memory/CPU limits)** — shared
-  hosting can be tight on resources for a Vite build. If this becomes a
-  recurring issue, the fallback is building `frontend/dist` locally and
-  uploading it via cPanel's Fileman API instead of building on-server —
-  ask for this if you hit that wall.
-- **API calls return an auth error** — double-check `CPANEL_PASSWORD` in
-  `deploy.config` matches your current cPanel login password (if you
-  change your cPanel password later, update it here too).
-- **API calls are rejected entirely / "permission denied" for the whole
-  module** — some hosts disable UAPI access outright at the account level
-  as an extra security measure (similar to hiding the SSH port). If every
-  call fails the same way regardless of credentials, ask HostNext support:
-  "Is UAPI/cPanel API access enabled for my account?" — if it's disabled,
-  the fallback is doing deploys manually via cPanel's Git Version Control
-  UI ("Update from Remote" then "Deploy HEAD Commit" buttons) instead of
-  the one-command script; the migration/build/restart automation in
-  `.cpanel.yml` still runs the same either way.
+  `touch tmp/restart.txt` inside `APP_PATH`.
+- **`node scripts/migrate.js` fails on the server** — SSH in, `cd APP_PATH`,
+  activate the node venv (see `NODE_VENV_ACTIVATE`), and run
+  `node scripts/migrate.js` manually to see the full error.
+- **SSH port stops working** — HostNext could change it; re-check via the
+  Git Version Control clone URL trick above.

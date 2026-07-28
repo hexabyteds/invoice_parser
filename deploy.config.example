@@ -1,38 +1,28 @@
-# Copy this file to `deploy.config` (gitignored — contains secrets) and
-# fill in your HostNext / cPanel details. Then just run: npm run deploy
-#
-# No SSH needed — deployment runs entirely over cPanel's HTTPS API (UAPI),
-# the same port (2083) you use to log into cPanel itself, authenticated
-# with your cPanel username + password (HTTP Basic Auth) since "Manage API
-# Tokens" isn't available on this hosting plan.
-#
-# IMPORTANT: this means your actual cPanel login password lives in this
-# file. It's gitignored and never committed, but treat it with the same
-# care as any other password on disk (don't share this file, consider a
-# dedicated/rotatable password if you're worried about reuse elsewhere).
+# Copy this file to `deploy.config` (gitignored — contains server details)
+# and fill in your HostNext / cPanel details. Then just run: npm run deploy
 #
 # How to find these values:
-#
-#   CPANEL_HOST — your domain or cPanel account's Shared IP Address
-#     (cPanel Home → "Server Information" / "General Information" card).
-#
-#   CPANEL_USER — your cPanel username (same "General Information" card,
-#     labelled "Current User").
-#
-#   CPANEL_PASSWORD — your actual cPanel login password.
-#
-#   REPO_PATH — the absolute path to the git repo on the server. Find it in
-#     cPanel → "Git Version Control" → your repo → Manage → "Repository
-#     Path". (For this project it's the same folder the live app runs from.)
-#
-#   BRANCH — the git branch that's actually deployed on the server. Check
-#     in cPanel → "Git Version Control" → Manage → "Pull or Deploy" tab, or
-#     via cPanel Terminal: git -C REPO_PATH branch
+#   SSH_HOST / SSH_USER — cPanel → "SSH Access", or your General
+#     Information card (Current User = SSH_USER).
+#   SSH_PORT — HostNext doesn't disclose this directly, but cPanel's Git
+#     Version Control feature reveals it: create/view a repo there and
+#     look at the "Clone URL" (ssh://user@host:PORT/...) — the port in
+#     that URL is your real SSH port.
+#   REPO_PATH / APP_PATH — the live app's git checkout and Passenger app
+#     root. Often the same folder (confirm via cPanel Terminal: does
+#     `ls -la <folder>` show a `.git` directory directly inside it?).
+#   NODE_VENV_ACTIVATE — cPanel → "Setup Node.js App" → your app → the
+#     `source /home/.../nodevenv/.../bin/activate` line shown there.
 
-CPANEL_HOST=your-domain-or-ip
-CPANEL_USER=your-cpanel-username
-CPANEL_PASSWORD=your-cpanel-login-password
+SSH_HOST=your-server-hostname-or-ip
+SSH_PORT=22
+SSH_USER=your-cpanel-username
+# Optional: path to a private key if you don't use ssh-agent/default key
+SSH_KEY=
 
 REPO_PATH=/home/username/your-app-folder
+APP_PATH=/home/username/your-app-folder
+
+NODE_VENV_ACTIVATE=/home/username/nodevenv/your-app-folder/20/bin/activate
 
 BRANCH=main
