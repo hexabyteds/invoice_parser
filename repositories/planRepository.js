@@ -13,7 +13,30 @@ class PlanRepository {
     return rows;
 
   }
+  async getActivePlans() {
 
+    const [rows] = await db.execute(`
+        SELECT
+            id,
+            name,
+            slug,
+            monthly_price,
+            yearly_price,
+            invoice_limit,
+            client_limit,
+            user_limit,
+            storage_limit,
+            ocr_limit,
+            api_access,
+            priority_support,
+            featured
+        FROM plans
+        WHERE active = 1
+        ORDER BY monthly_price ASC
+    `);
+
+    return rows;
+}
   async getPlanById(id) {
 
     const [rows] = await db.execute(
@@ -158,15 +181,16 @@ class PlanRepository {
 
     const [rows] = await db.execute(
       `
-      SELECT COUNT(*) AS total
-      FROM subscriptions
-      WHERE plan_id = ?
-      AND status IN ('active','trial')
+      SELECT EXISTS (
+        SELECT 1
+        FROM subscriptions
+        WHERE plan_id = ?
+      ) AS in_use
       `,
       [id]
     );
   
-    return Number(rows[0].total) > 0;
+    return Boolean(rows[0].in_use);
   
   }
 

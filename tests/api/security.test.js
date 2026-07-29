@@ -100,16 +100,10 @@ describe("Security — JWT validation across protected routes", () => {
   });
 });
 
-describe("Security — known gap: POST /api/clear has no auth middleware", () => {
-  it("current behavior: an unauthenticated request 500s instead of a clean 401 (regression trap — see QA report)", async () => {
+describe("Security — POST /api/clear requires authentication", () => {
+  it("rejects an unauthenticated request with a clean 401", async () => {
     const res = await request(app).post("/api/clear");
 
-    // This is NOT the desired behavior — /api/clear is missing
-    // authMiddleware entirely, so req.user is undefined and the handler
-    // throws reading req.user.id. It happens to fail closed (500, no
-    // data touched) rather than open, but it should be a clean 401.
-    // This test pins current behavior so a future change to this route
-    // is a deliberate decision, not a silent regression either way.
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(401);
   });
 });

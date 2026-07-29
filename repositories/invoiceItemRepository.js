@@ -35,10 +35,34 @@ class InvoiceItemRepository {
 
     async findByInvoice(invoiceId) {
 
-        const [rows] = await db.execute(
-            `SELECT * FROM invoice_items WHERE invoice_id = ?`,
-            [invoiceId]
-        );
+        const sql = `
+            SELECT *
+            FROM invoice_items
+            WHERE invoice_id = ?
+            ORDER BY id ASC
+        `;
+
+        const [rows] = await db.execute(sql, [invoiceId]);
+
+        return rows;
+    }
+
+    // Batch fetch for N invoices in a single query — callers group by
+    // invoice_id in memory. See invoiceRepository.mapInvoices.
+    async findByInvoiceIds(invoiceIds) {
+
+        if (!invoiceIds.length) {
+            return [];
+        }
+
+        const sql = `
+            SELECT *
+            FROM invoice_items
+            WHERE invoice_id IN (?)
+            ORDER BY invoice_id ASC, id ASC
+        `;
+
+        const [rows] = await db.query(sql, [invoiceIds]);
 
         return rows;
     }
@@ -49,19 +73,6 @@ class InvoiceItemRepository {
             `DELETE FROM invoice_items WHERE invoice_id = ?`,
             [invoiceId]
         );
-    }
-    async findByInvoice(invoiceId) {
-
-        const sql = `
-            SELECT *
-            FROM invoice_items
-            WHERE invoice_id = ?
-            ORDER BY id ASC
-        `;
-    
-        const [rows] = await db.execute(sql, [invoiceId]);
-    
-        return rows;
     }
 }
 

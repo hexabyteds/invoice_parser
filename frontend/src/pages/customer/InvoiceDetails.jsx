@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import {
   ArrowLeft,
   Building2,
@@ -12,6 +13,7 @@ import {
   BadgeDollarSign,
 } from "lucide-react";
 import { getInvoice, getInvoiceSource } from "../../services/invoiceApi";
+import ExtractionQualityCard from "../../components/invoices/ExtractionQualityCard";
 
 export default function InvoiceDetails() {
   const { id } = useParams();
@@ -19,34 +21,32 @@ export default function InvoiceDetails() {
 
   const [invoice, setInvoice] = useState(null);
   const [lineItems, setLineItems] = useState([]);
+  const [validation, setValidation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sourceUrl, setSourceUrl] = useState(null);
   const [sourceKind, setSourceKind] = useState(null);
   const [sourceLoading, setSourceLoading] = useState(false);
 
-//   useEffect(() => {
-//     loadInvoice();
-//   }, [id]);
-
   useEffect(() => {
     async function loadInvoice() {
       try {
         const res = await getInvoice(id);
-  
-        console.log("API RESPONSE");
-        console.log(res.data);
-  
+
         setInvoice(res.data.invoice);
         setLineItems(res.data.lineItems || []);
-  
+        setValidation(res.data.validation || null);
+
       } catch (err) {
-        console.log(err);
+        const message =
+          err.response?.data?.error || "Unable to load invoice.";
+        setError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }
     }
-  
+
     loadInvoice();
   }, [id]);
 
@@ -200,6 +200,8 @@ export default function InvoiceDetails() {
         </div>
 
       </div>
+
+      {validation && <ExtractionQualityCard validation={validation} />}
 
       {(invoice?.hasSourceFile || invoice?.image_path) && (
         <div className="bg-white rounded-3xl shadow border p-8">

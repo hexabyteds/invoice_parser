@@ -8,6 +8,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 const authRoutes = require("./routes/authRoutes");
 const FreeInvoiceAgent = require('./free-invoice-agent');
@@ -18,6 +19,8 @@ const planRoutes = require("./routes/planRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const usageRoutes = require("./routes/usageRoutes");
 const usageService = require("./services/usageService");
+const validationService = require("./services/validationService");
+const db = require("./config/database");
 
 const app = express();
 const UPLOADS_DIR = path.join(__dirname, "uploads");
@@ -65,16 +68,51 @@ const storage = multer.diskStorage({
   },
 });
 
+const MAX_UPLOAD_SIZE_MB = 20;
+
 const upload = multer({
-  storage,
+  storage: storage,
+
+  limits: {
+      fileSize: MAX_UPLOAD_SIZE_MB * 1024 * 1024
+  },
+
   fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|pdf/;
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.test(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files allowed'), false);
-    }
+
+      const allowed = [
+          "application/pdf",
+          "image/jpeg",
+          "image/png",
+          "image/jpg"
+      ];
+
+      if (allowed.includes(file.mimetype)) {
+          cb(null, true);
+      } else {
+          const err = new Error(
+              "Only PDF, JPG, JPEG and PNG files are allowed."
+          );
+          err.status = 400;
+          cb(err);
+      }
+  }
+});
+
+// One shared GEMINI_API_KEY serves every tenant, so a single user hammering
+// /api/upload can burn through the app-wide Gemini quota for everyone else.
+// Keyed on the authenticated user (this middleware always runs after
+// authMiddleware), not IP, so it can't be dodged by rotating networks.
+const uploadRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.user.id),
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      error: "Too many uploads. Please wait a minute and try again.",
+    });
   },
 });
 
@@ -86,17 +124,17 @@ const upload = multer({
 app.get('/api/health', async (req, res) => {
   try {
 
-    const stats = await agent.getStats(1);
+    await db.query("SELECT 1");
 
     res.json({
       status: "healthy",
-      message: "EazeeBooks API",
-      totalInvoices: stats.totalInvoices
+      message: "EazeeBooks API"
     });
 
   } catch (err) {
 
     res.status(500).json({
+      status: "unhealthy",
       error: err.message
     });
 
@@ -107,6 +145,7 @@ app.get('/api/health', async (req, res) => {
 app.post(
   "/api/upload",
   authMiddleware,
+  uploadRateLimiter,
   upload.single("image"),
   async (req, res) => {
     try {
@@ -286,25 +325,67 @@ app.post(
 // });
 
 
+const DEFAULT_INVOICE_LIMIT = 20;
+const MAX_INVOICE_LIMIT = 100;
+
 app.get("/api/invoices", authMiddleware, async (req, res) => {
   try {
-
     const clientId = req.query.client_id;
+    const limit = req.query.limit === undefined
+      ? DEFAULT_INVOICE_LIMIT
+      : Number(req.query.limit);
+    const offset = req.query.offset === undefined
+      ? 0
+      : Number(req.query.offset);
 
-    let invoices;
+    if (
+      !Number.isSafeInteger(limit) ||
+      limit < 1 ||
+      limit > MAX_INVOICE_LIMIT
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: `limit must be an integer between 1 and ${MAX_INVOICE_LIMIT}`,
+      });
+    }
+
+    if (!Number.isSafeInteger(offset) || offset < 0) {
+      return res.status(400).json({
+        success: false,
+        error: "offset must be a non-negative integer",
+      });
+    }
+
+    let result;
 
     if (clientId) {
-      invoices = await agent.getInvoicesByClient(
+      const parsedClientId = Number(clientId);
+
+      if (!Number.isSafeInteger(parsedClientId) || parsedClientId < 1) {
+        return res.status(400).json({
+          success: false,
+          error: "client_id must be a positive integer",
+        });
+      }
+
+      result = await agent.getInvoicesByClient(
         req.user.id,
-        Number(clientId)
+        parsedClientId,
+        { limit, offset }
       );
     } else {
-      invoices = await agent.getInvoices(req.user.id);
+      result = await agent.getInvoices(req.user.id, { limit, offset });
     }
 
     res.json({
       success: true,
-      invoices,
+      invoices: result.invoices,
+      pagination: {
+        total: result.total,
+        limit,
+        offset,
+        hasMore: offset + result.invoices.length < result.total,
+      },
     });
 
   } catch (err) {
@@ -315,6 +396,27 @@ app.get("/api/invoices", authMiddleware, async (req, res) => {
   }
 });
 
+
+// Re-runs the same completeness check used right after Gemini extraction,
+// against the invoice's CURRENT stored/edited fields — so the confidence
+// score on the detail view reflects what's actually saved now, not a
+// stale snapshot from whenever it was first uploaded.
+function validateStoredInvoice(invoiceRow, lineItems) {
+  return validationService.validate({
+    clientName: invoiceRow.client_name,
+    invoiceNo: invoiceRow.invoice_no,
+    invoiceDate: invoiceRow.invoice_date,
+    dueDate: invoiceRow.due_date,
+    phoneNumber: invoiceRow.phone_number,
+    location: invoiceRow.location,
+    subtotal: invoiceRow.subtotal,
+    vatAmount: invoiceRow.vat_amount,
+    totalAmount: invoiceRow.total_amount,
+    description: invoiceRow.description,
+    trn: invoiceRow.trn,
+    lineItems,
+  });
+}
 
 app.get(
   "/api/invoices/:id",
@@ -343,7 +445,8 @@ app.get(
           ...data.invoice,
           hasSourceFile: Boolean(data.invoice?.image_path),
         },
-        lineItems: data.lineItems
+        lineItems: data.lineItems,
+        validation: validateStoredInvoice(data.invoice, data.lineItems)
       });
 
     } catch (err) {
@@ -420,7 +523,8 @@ app.put(
       res.json({
         success: true,
         invoice: updated.invoice,
-        lineItems: updated.lineItems
+        lineItems: updated.lineItems,
+        validation: validateStoredInvoice(updated.invoice, updated.lineItems)
       });
 
     } catch (err) {
@@ -690,7 +794,7 @@ app.get("/api/report", authMiddleware, async (req, res) => {
 });
 
 // Clear all data
-app.post('/api/clear', async (req, res) => {
+app.post('/api/clear', authMiddleware, async (req, res) => {
 
   try {
 
@@ -725,6 +829,43 @@ app.get('*', (req, res) => {
   if (!req.url.startsWith('/api')) {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
   }
+});
+
+/**
+ * ==================== ERROR HANDLING ====================
+ * Multer rejects a bad file (fileFilter) or an oversized one (limits.fileSize)
+ * from inside its own middleware, before the route handler's try/catch ever
+ * runs — those errors reach Express only via next(err), so they need to be
+ * caught here instead. This must be registered after every route.
+ */
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({
+        success: false,
+        error: `File is too large. Maximum size is ${MAX_UPLOAD_SIZE_MB} MB.`,
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      error: err.message,
+    });
+  }
+
+  if (err && err.status) {
+    return res.status(err.status).json({
+      success: false,
+      error: err.message,
+    });
+  }
+
+  console.error("Unhandled error:", err);
+
+  res.status(500).json({
+    success: false,
+    error: "Something went wrong. Please try again.",
+  });
 });
 
 /**

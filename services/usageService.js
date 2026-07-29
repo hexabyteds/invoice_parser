@@ -24,15 +24,11 @@ function planFromSubscription(subscription) {
 
 class UsageService {
 
-  async getUsage(userId) {
-
-    let usage = await usageRepository.getByUserId(userId);
-
-    // Create usage record automatically if missing
-    if (!usage) {
-      await usageRepository.create(userId);
-      usage = await usageRepository.getByUserId(userId);
-    }
+  // Just the plan's limit numbers — no usage_stats reads/writes. Used by
+  // the atomic reserve* methods below, which must NOT go through getUsage's
+  // reconciliation (see reserveInvoiceSlot for why that combination is
+  // unsafe under concurrency).
+  async getPlanLimits(userId) {
 
     let subscription;
 
@@ -46,7 +42,21 @@ class UsageService {
       }
     }
 
-    const plan = planFromSubscription(subscription);
+    return planFromSubscription(subscription);
+
+  }
+
+  async getUsage(userId) {
+
+    let usage = await usageRepository.getByUserId(userId);
+
+    // Create usage record automatically if missing
+    if (!usage) {
+      await usageRepository.create(userId);
+      usage = await usageRepository.getByUserId(userId);
+    }
+
+    const plan = await this.getPlanLimits(userId);
 
     const actualClients = await clientRepository.countByUser(userId);
     const actualInvoices = await invoiceRepository.countByUser(userId);
@@ -123,22 +133,38 @@ class UsageService {
 
   }
 
-  async checkInvoiceLimit(userId) {
+  // Atomically checks the invoice limit AND increments usage in one DB call,
+  // replacing the old check-then-increment-later pair (see reserveOCRPages
+  // for the full explanation of why that was racy and how this fixes it).
+  // Throws the same error as before if the plan is full; callers that need
+  // to undo a successful reservation (e.g. extraction failed afterward)
+  // call decrementInvoices to release it.
+  //
+  // Deliberately uses getPlanLimits, NOT getUsage: getUsage also
+  // reconciles usage_stats.invoices_used to match the live COUNT(*) of
+  // persisted invoices, which assumes the counter only ever moves *after*
+  // a row is actually saved. Reservations here happen *before* the invoice
+  // is persisted, so a concurrent getUsage() call would see the reserved
+  // count as "drift" and reset it back down mid-race — silently undoing
+  // other requests' reservations and letting more through than the limit
+  // allows. Skipping the reconciliation avoids that entirely; the atomic
+  // UPDATE below is the only thing that needs to see the live row.
+  async reserveInvoiceSlot(userId) {
 
-    const data = await this.getUsage(userId);
+    await this.ensureUsageRecord(userId);
 
-    if (
-      data.usage.invoices.used >=
-      data.usage.invoices.limit
-    ) {
+    const plan = await this.getPlanLimits(userId);
 
+    const reserved = await usageRepository.incrementInvoicesIfUnderLimit(
+      userId,
+      plan.invoice_limit
+    );
+
+    if (!reserved) {
       throw new Error(
         "Invoice limit reached. Please upgrade your subscription."
       );
-
     }
-
-    return true;
 
   }
 
@@ -176,17 +202,41 @@ class UsageService {
 
   }
 
-  async checkOCRLimit(userId, pages = 1) {
+  // Atomically checks-and-increments OCR page usage in one DB call.
+  //
+  // The old flow was check(); ...slow Gemini call...; increment() — two
+  // separate statements with a multi-second network call between them.
+  // Every concurrent request read the same pre-upload usage snapshot and
+  // passed the check before any of them had incremented, so N concurrent
+  // uploads near the limit could all pass and push usage arbitrarily past
+  // it (this is PERF-02). Folding the check and the increment into a
+  // single `UPDATE ... WHERE ocr_pages_used + ? <= limit` closes that
+  // window: MySQL takes a row lock for the duration of the UPDATE, so
+  // concurrent reservations for the same user are forced to execute one
+  // at a time, and each one evaluates the limit against the row's true,
+  // just-updated value rather than a stale value read earlier. Whichever
+  // requests still fit end up incremented; the rest see affectedRows = 0
+  // and get the same error as before, atomically and without any
+  // explicit transaction or SELECT ... FOR UPDATE needed.
+  // See reserveInvoiceSlot for why this uses getPlanLimits rather than
+  // getUsage — same reconciliation-vs-reservation conflict applies here.
+  async reserveOCRPages(userId, pages = 1) {
 
-    const data = await this.getUsage(userId);
+    await this.ensureUsageRecord(userId);
 
-    if (data.usage.ocr.used + pages > data.usage.ocr.limit) {
+    const plan = await this.getPlanLimits(userId);
+
+    const reserved = await usageRepository.incrementOCRIfUnderLimit(
+      userId,
+      pages,
+      plan.ocr_limit
+    );
+
+    if (!reserved) {
       throw new Error(
         "OCR page limit reached. Please upgrade your subscription."
       );
     }
-
-    return true;
 
   }
 
@@ -270,13 +320,6 @@ class UsageService {
 
   }
 
-  async incrementInvoices(userId) {
-
-    await this.ensureUsageRecord(userId);
-    await usageRepository.incrementInvoices(userId);
-
-  }
-
   async decrementInvoices(userId) {
 
     await usageRepository.decrementInvoices(userId);
@@ -296,10 +339,9 @@ class UsageService {
 
   }
 
-  async incrementOCR(userId, pages = 1) {
+  async decrementOCR(userId, pages = 1) {
 
-    await this.ensureUsageRecord(userId);
-    await usageRepository.incrementOCR(userId, pages);
+    await usageRepository.decrementOCR(userId, pages);
 
   }
 

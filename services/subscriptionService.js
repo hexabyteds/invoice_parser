@@ -320,13 +320,30 @@ class SubscriptionService {
     const subscription =
       await this.validateActiveSubscription(userId);
 
+    // Resolved before cancelling: if the Free plan is missing we must fail
+    // without having already left the user with no active subscription.
+    const freePlan =
+      await subscriptionRepository.getFreePlan();
+
+    if (!freePlan) {
+      throw new Error("Free plan not found.");
+    }
+
     await subscriptionRepository.cancelSubscription(
       subscription.id
     );
 
+    // Free is the floor, so drop straight to it instead of leaving the user
+    // with nothing active. Also resyncs users.plan, which cancelling alone
+    // left pointing at the paid plan.
+    const freeSubscription =
+      await this.createFreeSubscription(userId);
+
     return {
       success: true,
-      message: "Subscription cancelled successfully."
+      message:
+        "Subscription cancelled successfully. You are now on the Free plan.",
+      subscription: freeSubscription
     };
 
   }

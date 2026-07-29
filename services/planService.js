@@ -16,7 +16,11 @@ class PlanService {
 
     return plan;
   }
+  async getActivePlans() {
 
+    return await planRepository.getActivePlans();
+
+}
   async createPlan(data) {
 
     const existing = await planRepository.getPlanBySlug(data.slug);

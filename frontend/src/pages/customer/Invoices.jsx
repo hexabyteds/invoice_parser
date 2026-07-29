@@ -33,7 +33,6 @@ export default function Invoices() {
             const res = await clientApi.getAll();
             setClients(res.clients || []);
         } catch (err) {
-            console.error(err);
         }
     }
 
@@ -47,7 +46,6 @@ export default function Invoices() {
 
             setInvoices(res.data.invoices || []);
         } catch (err) {
-            console.error(err);
         } finally {
             setLoading(false);
         }
@@ -105,7 +103,6 @@ export default function Invoices() {
             await deleteInvoices(id);
             await loadInvoices(clientId);
         } catch (err) {
-            console.error(err);
             window.alert(
                 err.response?.data?.error ||
                     "Could not delete invoice. Please try again."

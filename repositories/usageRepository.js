@@ -134,13 +134,20 @@ class UsageRepository {
     return rows;
 
 }
-async incrementInvoices(userId) {
+// Atomically checks-and-increments in one statement: the WHERE clause is
+// evaluated against the row's live value at the moment MySQL applies this
+// UPDATE (under the row's write lock), not against a value read earlier by
+// the caller — so two concurrent calls for the same user can never both
+// succeed past `limit`. Returns whether the increment actually happened.
+async incrementInvoicesIfUnderLimit(userId, limit) {
 
-  await db.execute(`
+  const [result] = await db.execute(`
       UPDATE usage_stats
       SET invoices_used = invoices_used + 1
-      WHERE user_id = ?
-  `,[userId]);
+      WHERE user_id = ? AND invoices_used < ?
+  `,[userId, limit]);
+
+  return result.affectedRows > 0;
 
 }
 
@@ -171,22 +178,28 @@ async decrementClients(userId) {
     `,[userId]);
 
 }
-async incrementOCR(userId, pages = 1) {
+// Same atomic check-and-increment pattern as incrementInvoicesIfUnderLimit,
+// sized in pages (a multi-page PDF reserves its whole page count in one
+// statement rather than page-by-page).
+async incrementOCRIfUnderLimit(userId, pages, limit) {
 
-    await db.execute(`
+    const [result] = await db.execute(`
         UPDATE usage_stats
         SET ocr_pages_used = ocr_pages_used + ?
-        WHERE user_id = ?
-    `,[pages, userId]);
+        WHERE user_id = ? AND ocr_pages_used + ? <= ?
+    `,[pages, userId, pages, limit]);
+
+    return result.affectedRows > 0;
 
 }
-async decrementOCR(userId) {
+
+async decrementOCR(userId, pages = 1) {
 
     await db.execute(`
         UPDATE usage_stats
-        SET ocr_pages_used = GREATEST(ocr_pages_used-1,0)
+        SET ocr_pages_used = GREATEST(ocr_pages_used - ?, 0)
         WHERE user_id = ?
-    `,[userId]);
+    `,[pages, userId]);
 
 }
 async addStorage(userId,bytes){

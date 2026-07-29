@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   Upload,
@@ -15,6 +15,7 @@ import {
   FileSpreadsheet,
   Gauge,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 const menuItems = [
   {
@@ -69,13 +70,7 @@ export default function Sidebar({
   collapsed,
   closeSidebar,
 }) {
-  const navigate = useNavigate();
-
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
-  };
+  const { user, logout } = useAuth();
 
   const sidebarWidth = collapsed ? "w-24" : "w-72";
 
@@ -391,7 +386,7 @@ export default function Sidebar({
                       font-semibold
                     "
                   >
-                    Toqeer Arif
+                    {user?.name || "User"}
                   </h4>
 
                   <p

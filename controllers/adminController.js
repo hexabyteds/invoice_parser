@@ -1,5 +1,8 @@
 const adminService = require("../services/adminService");
 
+const DEFAULT_CUSTOMER_LIMIT = 20;
+const MAX_CUSTOMER_LIMIT = 100;
+
 class AdminController {
   async getStats(req, res) {
     try {
@@ -19,11 +22,45 @@ class AdminController {
 
   async getCustomers(req, res) {
     try {
-      const customers = await adminService.getCustomers();
+      const limit =
+        req.query.limit === undefined
+          ? DEFAULT_CUSTOMER_LIMIT
+          : Number(req.query.limit);
+      const offset =
+        req.query.offset === undefined ? 0 : Number(req.query.offset);
+
+      if (
+        !Number.isSafeInteger(limit) ||
+        limit < 1 ||
+        limit > MAX_CUSTOMER_LIMIT
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: `limit must be an integer between 1 and ${MAX_CUSTOMER_LIMIT}`,
+        });
+      }
+
+      if (!Number.isSafeInteger(offset) || offset < 0) {
+        return res.status(400).json({
+          success: false,
+          error: "offset must be a non-negative integer",
+        });
+      }
+
+      const { customers, total } = await adminService.getCustomers({
+        limit,
+        offset,
+      });
 
       res.json({
         success: true,
         customers,
+        pagination: {
+          total,
+          limit,
+          offset,
+          hasMore: offset + customers.length < total,
+        },
       });
     } catch (err) {
       res.status(500).json({
@@ -104,7 +141,7 @@ class AdminController {
   }
 
   async updateCustomerPlan(req, res) {
-    console.log(req.body); // <-- add this
+     
 
     try {
       const subscription =

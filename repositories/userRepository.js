@@ -72,11 +72,12 @@ class UserRepository {
       SELECT *
       FROM users
       WHERE email = ?
+        AND deleted_at IS NULL
       LIMIT 1
       `,
       [email]
     );
-
+  
     return rows[0] || null;
   }
 

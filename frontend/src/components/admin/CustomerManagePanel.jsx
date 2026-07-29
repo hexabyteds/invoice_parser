@@ -10,14 +10,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import adminApi from "../../services/adminApi";
-
-const PLAN_OPTIONS = [
-  { value: "free", label: "Free" },
-  { value: "starter", label: "Starter" },
-  { value: "growth", label: "Growth" },
-  { value: "business", label: "Business" },
-  { value: "enterprise", label: "Enterprise" },
-];
+import ChangePlanForm from "./ChangePlanForm";
 
 const COUNTRY_OPTIONS = [
   { value: "Pakistan", label: "Pakistan" },
@@ -34,7 +27,6 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
     phone: customer.phone || "",
     country: customer.country || "",
   });
-  const [plan, setPlan] = useState((customer.plan || "starter").toLowerCase());
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState("");
 
@@ -46,7 +38,6 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
       phone: customer.phone || "",
       country: customer.country || "",
     });
-    setPlan((customer.plan || "starter").toLowerCase());
   }, [customer]);
 
   const isActive = String(customer.status || "").toLowerCase() === "active";
@@ -69,13 +60,6 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
       "profile",
       () => adminApi.updateCustomer(customer.id, form),
       "Customer updated successfully"
-    );
-
-  const handleChangePlan = () =>
-    runAction(
-      "plan",
-      () => adminApi.updateCustomerPlan(customer.id, plan),
-      "Plan updated successfully"
     );
 
   const handleToggleStatus = () =>
@@ -206,26 +190,12 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
             Change Plan
           </h2>
 
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <select
-              value={plan}
-              onChange={(e) => setPlan(e.target.value)}
-              className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 capitalize text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
-            >
-              {PLAN_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            <button
-              onClick={handleChangePlan}
-              disabled={busy === "plan"}
-              className="rounded-xl border border-violet-200 bg-violet-50 px-5 py-3 font-medium text-violet-700 transition hover:bg-violet-100 disabled:opacity-60"
-            >
-              {busy === "plan" ? "Updating..." : "Update Plan"}
-            </button>
+          <div className="mt-4">
+            <ChangePlanForm
+              userId={customer.id}
+              initialPlanSlug={customer.plan}
+              onSaved={onUpdated}
+            />
           </div>
         </div>
 

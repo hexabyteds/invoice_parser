@@ -80,27 +80,18 @@ class InvoiceRepository {
     // Get invoice by ID
 
     // Get invoices of one user
-    async findByUser(userId) {
+    async findByUser(userId, { limit = 20, offset = 0 } = {}) {
 
-        const [rows] = await db.execute(
+        const [rows] = await db.query(
             `SELECT *
              FROM invoices
              WHERE user_id = ?
-             ORDER BY created_at DESC`,
-            [userId]
+             ORDER BY created_at DESC, id DESC
+             LIMIT ? OFFSET ?`,
+            [userId, limit, offset]
         );
 
         return await this.mapInvoices(rows);
-    }
-
-    async countByUser(userId) {
-
-        const [rows] = await db.execute(
-            `SELECT COUNT(*) AS total FROM invoices WHERE user_id = ?`,
-            [userId]
-        );
-
-        return Number(rows[0]?.total || 0);
     }
 
     async countByUser(userId) {
@@ -252,20 +243,33 @@ class InvoiceRepository {
 
         return rows[0];
     }
-    async findByClient(userId, clientId) {
+    async findByClient(userId, clientId, { limit = 20, offset = 0 } = {}) {
 
-        const [rows] = await db.execute(
+        const [rows] = await db.query(
             `
             SELECT *
             FROM invoices
             WHERE user_id = ?
             AND client_id = ?
-            ORDER BY created_at DESC
+            ORDER BY created_at DESC, id DESC
+            LIMIT ? OFFSET ?
             `,
-            [userId, clientId]
+            [userId, clientId, limit, offset]
         );
     
         return await this.mapInvoices(rows);
+    }
+
+    async countByClient(userId, clientId) {
+
+        const [rows] = await db.execute(
+            `SELECT COUNT(*) AS total
+             FROM invoices
+             WHERE user_id = ? AND client_id = ?`,
+            [userId, clientId]
+        );
+
+        return Number(rows[0]?.total || 0);
     }
 
     // Export filter: optional client + optional date range on invoice_date
@@ -321,42 +325,56 @@ class InvoiceRepository {
 
     async mapInvoices(rows) {
 
-        const invoices = [];
-    
-        for (const row of rows) {
-    
-            const items =
-                await invoiceItemRepository.findByInvoice(row.id);
-    
-            invoices.push({
-    
+        if (!rows.length) {
+            return [];
+        }
+
+        const allItems = await invoiceItemRepository.findByInvoiceIds(
+            rows.map(row => row.id)
+        );
+
+        const itemsByInvoiceId = new Map();
+
+        for (const item of allItems) {
+            if (!itemsByInvoiceId.has(item.invoice_id)) {
+                itemsByInvoiceId.set(item.invoice_id, []);
+            }
+            itemsByInvoiceId.get(item.invoice_id).push(item);
+        }
+
+        return rows.map(row => {
+
+            const items = itemsByInvoiceId.get(row.id) || [];
+
+            return {
+
                 id: row.id,
                 userId: row.user_id,
                 clientId: row.client_id,
-    
+
                 invoiceType: row.invoice_type,
                 invoiceNo: row.invoice_no,
                 clientName: row.client_name,
-    
+
                 invoiceDate: row.invoice_date,
                 dueDate: row.due_date,
-    
+
                 phoneNumber: row.phone_number,
                 location: row.location,
                 description: row.description,
-    
+
                 subtotal: Number(row.subtotal),
                 vatRate: Number(row.vat_rate),
                 vatAmount: Number(row.vat_amount),
                 totalAmount: Number(row.total_amount),
-    
+
                 currency: row.currency,
                 trn: row.trn,
                 imagePath: row.image_path,
-    
+
                 createdAt: row.created_at,
                 updatedAt: row.updated_at,
-    
+
                 lineItems: items.map(item => ({
                     id: item.id,
                     description: item.description,
@@ -364,10 +382,8 @@ class InvoiceRepository {
                     unitPrice: Number(item.unit_price),
                     totalPrice: Number(item.total_price)
                 }))
-            });
-        }
-    
-        return invoices;
+            };
+        });
     }
 }
 

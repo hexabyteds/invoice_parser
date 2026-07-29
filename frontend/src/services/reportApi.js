@@ -1,18 +1,6 @@
-import axios from "axios";
+// src/services/reportApi.js
 
-const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
-});
-
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  return config;
-});
+import api from "./api";
 
 function buildExportParams({ clientId, from, to, format } = {}) {
   const params = {};
@@ -25,28 +13,62 @@ function buildExportParams({ clientId, from, to, format } = {}) {
   return params;
 }
 
+// ==========================
+// Download Excel
+// ==========================
+
 export const downloadExcel = (filters = {}) =>
-  API.get("/download-excel", {
+  api.get("/download-excel", {
     params: buildExportParams(filters),
     responseType: "blob",
   });
+
+// ==========================
+// Export Invoices
+// ==========================
 
 export const exportInvoices = (filters = {}) =>
-  API.get("/export", {
+  api.get("/export", {
     params: buildExportParams(filters),
     responseType: "blob",
   });
 
+// ==========================
+// Open HTML Report
+// ==========================
+
+// Fetches the report through the normal header-authenticated client
+// instead of putting the JWT in the URL (AUTH-04/FE-09 — a URL token
+// leaks into browser history and any server/proxy access logs).
+// window.open() is called synchronously, before the await, so the
+// browser still treats it as a direct result of the click and doesn't
+// block it as a popup; once the report is fetched we just redirect
+// that already-open tab to a local blob URL.
 export const openHtmlReport = (filters = {}) => {
-  const token = localStorage.getItem("token");
-  const params = new URLSearchParams(buildExportParams(filters));
+  const reportWindow = window.open("", "_blank");
 
-  if (token) {
-    params.set("token", token);
-  }
+  api
+    .get("/report", {
+      params: buildExportParams(filters),
+      responseType: "blob",
+    })
+    .then((response) => {
+      const blobUrl = URL.createObjectURL(
+        new Blob([response.data], { type: "text/html" })
+      );
 
-  window.open(
-    `${import.meta.env.VITE_API_URL}/report?${params.toString()}`,
-    "_blank"
-  );
+      if (reportWindow) {
+        reportWindow.location.href = blobUrl;
+      }
+
+      // Give the tab time to load the blob before revoking it.
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    })
+    .catch((err) => {
+      if (reportWindow) {
+        reportWindow.close();
+      }
+
+      throw err;
+    });
 };

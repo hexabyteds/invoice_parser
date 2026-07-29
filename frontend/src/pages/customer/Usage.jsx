@@ -10,7 +10,6 @@ export default function Usage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    console.log("loadUsage");
     loadUsage();
   }, []);
 
@@ -19,7 +18,6 @@ export default function Usage() {
       setLoading(true);
       setError("");
       const response = await getUsage();
-      console.log("response==>", response);
       setUsage(response.usage);
     } catch (err) {
       setError(
@@ -70,7 +68,6 @@ export default function Usage() {
     },
   ];
   
-  console.log("usage", usage);
 
   return (
     <div className="space-y-8">

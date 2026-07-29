@@ -1,6 +1,5 @@
 const adminRepository = require("../repositories/adminRepository");
 const {
-  calculateMonthlyRevenue,
   normalizePlan,
   VALID_PLANS,
   VALID_STATUSES,
@@ -20,7 +19,7 @@ class AdminService {
         totalCustomers: platform.totalCustomers,
         activeSubscriptions: platform.activeSubscriptions,
         totalInvoices: platform.totalInvoices,
-        monthlyRevenue: calculateMonthlyRevenue(platform.activeUsers),
+        monthlyRevenue: platform.monthlyRevenue,
         invoiceVolume: platform.invoiceVolume,
       },
       recentCustomers: recentCustomers.map(formatCustomer),
@@ -28,9 +27,16 @@ class AdminService {
     };
   }
 
-  async getCustomers() {
-    const customers = await adminRepository.getAllCustomers();
-    return customers.map(formatCustomer);
+  async getCustomers({ limit, offset } = {}) {
+    const [rows, total] = await Promise.all([
+      adminRepository.getAllCustomers({ limit, offset }),
+      adminRepository.countAllCustomers(),
+    ]);
+
+    return {
+      customers: rows.map(formatCustomer),
+      total,
+    };
   }
 
   async getCustomerDetails(id) {

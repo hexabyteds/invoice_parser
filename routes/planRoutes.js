@@ -7,18 +7,63 @@ const requireAdmin = require("../middleware/requireAdmin");
 
 const planController = require("../controllers/planController");
 
-router.use(authMiddleware, requireAdmin);
+// ==========================================
+// CUSTOMER / PUBLIC
+// ==========================================
 
-router.get("/", planController.getPlans);
+// Active plans only
+router.get(
+    "/",
+    planController.getActivePlans
+);
 
-router.get("/:id", planController.getPlan);
 
-router.post("/", planController.createPlan);
+// ==========================================
+// ADMIN ONLY
+// ==========================================
 
-router.put("/:id", planController.updatePlan);
+// All plans including inactive
+router.get(
+    "/admin",
+    authMiddleware,
+    requireAdmin,
+    planController.getPlans
+);
 
-router.patch("/:id/status", planController.changeStatus);
+// Single plan
+router.get(
+    "/:id",
+    authMiddleware,
+    requireAdmin,
+    planController.getPlan
+);
 
-router.delete("/:id", planController.deletePlan);
+router.post(
+    "/",
+    authMiddleware,
+    requireAdmin,
+    planController.createPlan
+);
+
+router.put(
+    "/:id",
+    authMiddleware,
+    requireAdmin,
+    planController.updatePlan
+);
+
+router.patch(
+    "/:id/status",
+    authMiddleware,
+    requireAdmin,
+    planController.changeStatus
+);
+
+router.delete(
+    "/:id",
+    authMiddleware,
+    requireAdmin,
+    planController.deletePlan
+);
 
 module.exports = router;
