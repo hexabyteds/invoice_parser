@@ -29,8 +29,8 @@ export default function Navbar() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-10 text-sm text-slate-300">
-            <a href="#">Features</a>
-            <a href="#">Solutions</a>
+          <Link to="/features" className="transition hover:text-white">Features</Link>
+            <Link to="/solutions">Solutions</Link>
             <Link to="/price" className="transition hover:text-white">
               Pricing
             </Link>

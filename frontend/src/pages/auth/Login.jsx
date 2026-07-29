@@ -256,6 +256,7 @@ export default function Login() {
 
                             <button
                                 type="button"
+                                onClick={() => navigate("/forgot-password")}
                                 className="text-sm text-blue-500"
                             >
                                 Forgot Password?

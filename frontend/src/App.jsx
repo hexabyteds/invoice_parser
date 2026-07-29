@@ -4,6 +4,8 @@ import Landing from "./pages/landing/Landing";
 import Price from "./pages/landing/Price";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AdminRoute from "./routes/AdminRoute";
 import CustomerLayout from "./layouts/CustomerLayout";
@@ -34,7 +36,7 @@ import AuditLogs from "./pages/admin/AuditLogs";
 import AdminAnalytics from "./pages/admin/Analytics";
 import AdminSettings from "./pages/admin/Settings";
 import UsageDashboard from "./pages/admin/usage/UsageDashboard";
-
+import Features from "./components/landing/Features";
 function App() {
   
   return (
@@ -42,8 +44,10 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/price" element={<Price />} />
-
+        <Route path="/features" element={<Features />} />
         <Route
           path="/dashboard"
           element={

@@ -76,6 +76,62 @@ class AuthController {
 
     }
 
+    async forgotPassword(req, res) {
+
+        try {
+
+            if (!req.body.email || typeof req.body.email !== "string") {
+                return res.status(400).json({
+                    success: false,
+                    error: "Email is required."
+                });
+            }
+
+            await authService.forgotPassword(req.body.email);
+
+            // Same response whether or not the email is registered.
+            res.json({
+                success: true,
+                message:
+                    "If an account exists for that email, we've sent a password reset link."
+            });
+
+        } catch (err) {
+
+            res.status(400).json({
+                success: false,
+                error: err.message
+            });
+
+        }
+
+    }
+
+    async resetPassword(req, res) {
+
+        try {
+
+            await authService.resetPassword(
+                req.body.token,
+                req.body.password
+            );
+
+            res.json({
+                success: true,
+                message: "Password reset successfully. You can now log in."
+            });
+
+        } catch (err) {
+
+            res.status(400).json({
+                success: false,
+                error: err.message
+            });
+
+        }
+
+    }
+
 }
 
 module.exports = new AuthController();

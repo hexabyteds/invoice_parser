@@ -157,17 +157,91 @@
     
 // })();
 
+// require("dotenv").config();
+// const invoiceService = require("./services/invoiceService");
+
+// (async()=>{
+
+//     const result = await invoiceService.extractPDF(
+//         "./uploads/sample.pdf"
+//     );
+
+//     console.log(
+//         JSON.stringify(result,null,2)
+//     );
+
+// })();
+
+
 require("dotenv").config();
-const invoiceService = require("./services/invoiceService");
 
-(async()=>{
+const emailService = require("./services/emailService");
 
-    const result = await invoiceService.extractPDF(
-        "./uploads/sample.pdf"
-    );
+async function test() {
+    try {
+        console.log("Testing SMTP...");
+        
+        console.log({
+            host: process.env.SMTP_HOST,
+            port: process.env.SMTP_PORT,
+            secure: process.env.SMTP_SECURE,
+            user: process.env.SMTP_USER,
+            password:
+                process.env.SMTP_PASSWORD
+                    ? "SET"
+                    : "MISSING",
+        });
 
-    console.log(
-        JSON.stringify(result,null,2)
-    );
+        // 1. Test SMTP connection
+        await emailService.verifyConnection();
 
-})();
+        // 2. Send test email
+        const result = await emailService.sendEmail({
+            to: "toqeer.arif786@gmail.com",
+
+            subject: "EazeeBooks SMTP Test",
+
+            text: `
+Hello,
+
+This is a test email from EazeeBooks.
+
+SMTP configuration is working correctly.
+
+Regards,
+EazeeBooks
+            `,
+
+            html: `
+                <div style="
+                    font-family: Arial, sans-serif;
+                    padding: 20px;
+                ">
+                    <h2>EazeeBooks SMTP Test</h2>
+
+                    <p>
+                        This is a test email from EazeeBooks.
+                    </p>
+
+                    <p>
+                        SMTP configuration is working correctly.
+                    </p>
+
+                    <p>
+                        Regards,<br>
+                        <strong>EazeeBooks</strong>
+                    </p>
+                </div>
+            `,
+        });
+
+        console.log("✅ Email sent successfully");
+        console.log("Message ID:", result.messageId);
+
+    } catch (error) {
+        console.error("❌ Email test failed:");
+        console.error(error);
+    }
+}
+
+test();

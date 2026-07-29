@@ -113,6 +113,44 @@ class UserRepository {
       [id]
     );
   }
+
+  async setResetToken(userId, tokenHash, expiresAt) {
+    await db.execute(
+      `
+      UPDATE users
+      SET reset_token_hash = ?, reset_token_expires = ?
+      WHERE id = ?
+      `,
+      [tokenHash, expiresAt, userId]
+    );
+  }
+
+  async findByResetTokenHash(tokenHash) {
+    const [rows] = await db.execute(
+      `
+      SELECT *
+      FROM users
+      WHERE reset_token_hash = ?
+        AND reset_token_expires > NOW()
+        AND deleted_at IS NULL
+      LIMIT 1
+      `,
+      [tokenHash]
+    );
+
+    return rows[0] || null;
+  }
+
+  async clearResetToken(userId) {
+    await db.execute(
+      `
+      UPDATE users
+      SET reset_token_hash = NULL, reset_token_expires = NULL
+      WHERE id = ?
+      `,
+      [userId]
+    );
+  }
 }
 
 module.exports = new UserRepository();
