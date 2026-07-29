@@ -28,11 +28,29 @@ class ClientService {
         return await clientRepository.findByUser(userId);
     }
 
-    async update(id, data) {
+    async update(id, userId, data) {
 
-        await clientRepository.update(id, data);
+        const existing = await clientRepository.findById(id, userId);
 
-        return await clientRepository.findById(id);
+        if (!existing) {
+            throw new Error("Client not found.");
+        }
+
+        const merged = {
+            company_name: data.company_name ?? existing.company_name,
+            contact_person: data.contact_person ?? existing.contact_person,
+            email: data.email ?? existing.email,
+            phone: data.phone ?? existing.phone,
+            trn: data.trn ?? existing.trn,
+            address: data.address ?? existing.address,
+            country: data.country ?? existing.country,
+            city: data.city ?? existing.city,
+            notes: data.notes ?? existing.notes,
+        };
+
+        await clientRepository.update(id, userId, merged);
+
+        return await clientRepository.findById(id, userId);
     }
 
     async get(id, userId) {
@@ -55,7 +73,7 @@ class ClientService {
             throw new Error("Client not found.");
         }
     
-        await clientRepository.delete(id);
+        await clientRepository.delete(id, userId);
     
         await usageService.decrementClients(userId);
     

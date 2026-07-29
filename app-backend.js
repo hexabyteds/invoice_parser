@@ -733,8 +733,9 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, () => {
-  console.log(`
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    console.log(`
 ╔════════════════════════════════════════════╗
 ║   EazeeBooks - WEB VERSION             ║
 ║   http://localhost:${PORT}               ║
@@ -749,6 +750,7 @@ Available:
 
 Ready to process invoices! 🚀
   `);
-});
+  });
+}
 
 module.exports = app;

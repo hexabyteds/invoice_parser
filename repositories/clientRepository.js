@@ -12,12 +12,12 @@ class ClientRepository {
     user_id,
     company_name,
     contact_person,
-    email, 
+    email,
     phone,
-    country,
-    city,
     trn,
     address,
+    country,
+    city,
     notes
 )
 VALUES (?,?,?,?,?,?,?,?,?,?)
@@ -65,51 +65,47 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
         return Number(rows[0]?.total || 0);
     }
 
-    async findById(id) {
-        console.log("id", id);
-        const values = [id];
-        console.log("values", values);
-        const [rows] = await db.execute(
-            `SELECT *
-             FROM clients
-             WHERE id=?`,
-            [id]
-        );
+    async update(id, userId, client) {
 
-        return rows[0];
-    }
-
-    async update(id, client) {
-
-        await db.execute(`
+        const [result] = await db.execute(`
             UPDATE clients
             SET
                 company_name=?,
                 contact_person=?,
                 email=?,
                 phone=?,
+                trn=?,
+                address=?,
                 country=?,
-                vat_number=?,
-                address=?
+                city=?,
+                notes=?
             WHERE id=?
+            AND user_id=?
         `, [
             client.company_name,
             client.contact_person,
             client.email,
             client.phone,
-            client.country,
-            client.vat_number,
+            client.trn,
             client.address,
-            id
+            client.country,
+            client.city,
+            client.notes,
+            id,
+            userId
         ]);
+
+        return result.affectedRows;
     }
 
-    async delete(id) {
+    async delete(id, userId) {
 
-        await db.execute(
-            `DELETE FROM clients WHERE id=?`,
-            [id]
+        const [result] = await db.execute(
+            `DELETE FROM clients WHERE id=? AND user_id=?`,
+            [id, userId]
         );
+
+        return result.affectedRows;
 
     }
 

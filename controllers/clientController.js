@@ -54,6 +54,7 @@ class ClientController {
 
             const client = await clientService.update(
                 req.params.id,
+                req.user.id,
                 req.body
             );
 
@@ -64,7 +65,9 @@ class ClientController {
 
         } catch (err) {
 
-            res.status(500).json({
+            const status = err.message === "Client not found." ? 404 : 500;
+
+            res.status(status).json({
                 success: false,
                 error: err.message
             });
