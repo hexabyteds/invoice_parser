@@ -2,6 +2,11 @@ const { GoogleGenAI, Type } = require("@google/genai");
 const fs = require("fs");
 const path = require("path");
 
+// How long to wait for one Gemini call before aborting it (GEM-04) —
+// referenced by callGeminiWithRetry via AbortController/setTimeout.
+const GEMINI_TIMEOUT_MS =
+    Number(process.env.GEMINI_TIMEOUT_MS) || 60000;
+
 class GeminiService {
     constructor() {
         if (!process.env.GEMINI_API_KEY) {
@@ -13,6 +18,16 @@ class GeminiService {
         });
 
         this.model = "gemini-2.5-flash";
+
+        // gemini-2.5-flash's documented output ceiling is 65,536 tokens.
+        // The old hardcoded 8192 was well below that and could silently
+        // truncate a densely-packed multi-invoice PDF chunk's JSON output
+        // (see the finishReason === "MAX_TOKENS" check in
+        // callGeminiWithRetry for how a truncation that still happens is
+        // now surfaced distinctly instead of looking like a parse error).
+        // Configurable in case a future model's limit differs.
+        this.maxOutputTokens =
+            Number(process.env.GEMINI_MAX_OUTPUT_TOKENS) || 65536;
 
         // Retry configuration
         this.maxRetries = 4;
@@ -422,79 +437,133 @@ Do not invent, estimate, or infer values that are not visible.
      */
     async callGeminiWithRetry(contents) {
         let lastError = null;
-
+    
         for (
             let attempt = 1;
             attempt <= this.maxRetries + 1;
             attempt++
         ) {
             const startTime = Date.now();
-
+    
+            // Abort Gemini request if it takes too long
+            const controller = new AbortController();
+    
+            const timeoutId = setTimeout(() => {
+                controller.abort();
+            }, GEMINI_TIMEOUT_MS);
+    
             try {
                 console.log(
                     `[Gemini] Request attempt ${attempt}/${this.maxRetries + 1}`
                 );
-
+    
                 const response =
                     await this.ai.models.generateContent({
-
+    
                         model: this.model,
-
+    
                         contents,
-
+    
                         config: {
                             responseMimeType: "application/json",
-
+    
                             responseSchema:
                                 this.getResponseSchema(),
-
+    
                             temperature: 0,
-
-                            maxOutputTokens: 8192
-                        }
+    
+                            maxOutputTokens:
+                                this.maxOutputTokens
+                        },
+    
+                        // Abort the underlying request on timeout
+                        signal: controller.signal
                     });
-
+    
                 const duration =
                     Date.now() - startTime;
-
+    
+                // A response can come back successfully but still be
+                // truncated because it hit maxOutputTokens.
+                const finishReason =
+                    response.candidates?.[0]?.finishReason;
+    
+                if (finishReason === "MAX_TOKENS") {
+    
+                    const truncationError =
+                        new Error(
+                            `Gemini's response was cut off after hitting the ` +
+                            `${this.maxOutputTokens}-token output limit ` +
+                            `(likely too many invoices/line items in one ` +
+                            `request). Try a smaller PDF chunk size ` +
+                            `(GEMINI_PDF_CHUNK_PAGES) or a higher ` +
+                            `GEMINI_MAX_OUTPUT_TOKENS.`
+                        );
+    
+                    truncationError.code = "MAX_TOKENS";
+    
+                    throw truncationError;
+                }
+    
                 const usage =
                     response.usageMetadata || {};
-
+    
                 const cost =
                     this.logUsage(
                         usage,
                         duration,
                         attempt
                     );
-
+    
                 return {
                     response,
                     usage,
                     cost
                 };
-
+    
             } catch (error) {
-
+    
                 lastError = error;
-
+    
+                // Convert AbortController timeout into a clean application error
+                if (
+                    error?.name === "AbortError" ||
+                    controller.signal.aborted
+                ) {
+                    const timeoutError = new Error(
+                        `Gemini request timed out after ` +
+                        `${GEMINI_TIMEOUT_MS / 1000} seconds.`
+                    );
+    
+                    timeoutError.code = "GEMINI_TIMEOUT";
+    
+                    lastError = timeoutError;
+                    error = timeoutError;
+    
+                    console.error(
+                        `[Gemini] Request timeout after ` +
+                        `${GEMINI_TIMEOUT_MS / 1000} seconds.`
+                    );
+                }
+    
                 const status =
                     error?.status ||
                     error?.code ||
                     "UNKNOWN";
-
+    
                 console.error(
                     `[Gemini] Attempt ${attempt} failed. Status: ${status}`
                 );
-
+    
                 console.error(
                     `[Gemini] ${error?.message || error}`
                 );
-
+    
                 // Do not retry permanent errors
                 if (!this.isRetryableError(error)) {
                     throw error;
                 }
-
+    
                 // No retries left
                 if (
                     attempt >
@@ -503,10 +572,10 @@ Do not invent, estimate, or infer values that are not visible.
                     console.error(
                         "[Gemini] Maximum retry attempts reached."
                     );
-
+    
                     throw error;
                 }
-
+    
                 /**
                  * If Google tells us exactly how long
                  * to wait, use that value.
@@ -515,7 +584,7 @@ Do not invent, estimate, or infer values that are not visible.
                     this.getRetryDelayFromError(
                         error
                     );
-
+    
                 /**
                  * Otherwise use exponential backoff:
                  *
@@ -528,9 +597,9 @@ Do not invent, estimate, or infer values that are not visible.
                  */
                 let delay =
                     serverRetryDelay;
-
+    
                 if (!delay) {
-
+    
                     const exponentialDelay =
                         Math.min(
                             this.initialRetryDelay *
@@ -540,32 +609,37 @@ Do not invent, estimate, or infer values that are not visible.
                                 ),
                             this.maxRetryDelay
                         );
-
+    
                     const jitter =
                         Math.floor(
                             Math.random() * 1000
                         );
-
+    
                     delay =
                         exponentialDelay +
                         jitter;
                 }
-
+    
                 delay = Math.min(
                     delay,
                     this.maxRetryDelay
                 );
-
+    
                 console.log(
                     `[Gemini] Retrying in ${(
                         delay / 1000
                     ).toFixed(1)} seconds...`
                 );
-
+    
                 await this.sleep(delay);
+    
+            } finally {
+    
+                // Always clear timeout, including successful requests
+                clearTimeout(timeoutId);
             }
         }
-
+    
         throw lastError;
     }
 

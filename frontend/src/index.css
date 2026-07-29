@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Manual dark mode: toggled via a `dark` class on <html> (see
+   src/utils/theme.js / src/hooks/useTheme.js), not just OS preference. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 html {
   scroll-behavior: smooth;
 }
@@ -9,6 +13,47 @@ body {
   font-family: Inter, system-ui, sans-serif;
   background: #020617;
   color: white;
+}
+
+/*
+  The customer dashboard's light-theme pages hardcode Tailwind utility
+  classes (bg-white, text-black, ...) instead of dark: variants, so a
+  per-page reskin isn't practical here. These overrides retrofit the
+  toggle onto the shared dashboard chrome and the most common surface/
+  text utilities, so switching it genuinely changes how the app looks
+  rather than just flipping the sun/moon icon.
+*/
+.dark body {
+  background: #0b1120;
+  color: #e2e8f0;
+}
+
+.dark .bg-white,
+.dark .bg-white\/90 {
+  background-color: #111827;
+}
+
+.dark .bg-slate-50 {
+  background-color: #0f172a;
+}
+
+.dark .bg-slate-100 {
+  background-color: #1e293b;
+}
+
+.dark .text-black,
+.dark .text-slate-800,
+.dark .text-slate-700 {
+  color: #e2e8f0;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: #94a3b8;
+}
+
+.dark .border-slate-200 {
+  border-color: #1f2937;
 }
 
 * {

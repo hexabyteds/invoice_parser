@@ -130,7 +130,9 @@ class SubscriptionController {
 
         success: true,
 
-        message: result.message
+        message: result.message,
+
+        subscription: result.subscription
 
       });
 

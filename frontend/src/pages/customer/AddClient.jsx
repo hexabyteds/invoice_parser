@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import clientApi from "../../services/clientApi";
 
 export default function AddClient() {
@@ -30,7 +31,7 @@ export default function AddClient() {
     e.preventDefault();
 
     if (!form.company_name.trim()) {
-      alert("Company Name is required.");
+      toast.error("Company Name is required.");
       return;
     }
 
@@ -39,18 +40,10 @@ export default function AddClient() {
 
       const res = await clientApi.create(form);
 
-      
-      // alert("Client added successfully.");
-
-
+      toast.success("Client added successfully.");
       navigate(`/dashboard/clients/${res?.client?.id}`);
     } catch (err) {
-      // alert(
-      //   err.response?.data?.error ||
-      //     "Unable to create client."
-      // );
       toast.error(err.response?.data?.error || "Unable to create client.");
-    
     } finally {
       setLoading(false);
     }

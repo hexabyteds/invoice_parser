@@ -1,8 +1,9 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { getToken } from "../utils/authStorage";
 
 export default function AdminRoute({ children }) {
-  const token = localStorage.getItem("token");
+  const token = getToken();
   const { isAdmin } = useAuth();
 
   if (!token) {

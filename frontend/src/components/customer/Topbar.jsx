@@ -12,6 +12,9 @@ import {
     PanelLeftClose,
     PanelLeftOpen,
 } from "lucide-react";
+import { useTheme } from "../../hooks/useTheme";
+import { useAuth } from "../../context/AuthContext";
+import { getStoredUser } from "../../utils/authStorage";
 
 export default function Topbar({
     toggleSidebar,
@@ -19,13 +22,17 @@ export default function Topbar({
     collapsed,
 }) {
     const [search, setSearch] = useState("");
-    const [darkMode, setDarkMode] = useState(false);
+    const { isDark, toggleTheme } = useTheme();
     const [profileOpen, setProfileOpen] = useState(false);
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
 
     const dropdownRef = useRef(null);
+    const notificationsRef = useRef(null);
+
+    const { logout } = useAuth();
 
     const user =
-        JSON.parse(localStorage.getItem("user")) || {
+        getStoredUser() || {
             name: "User",
             email: "user@email.com",
         };
@@ -38,6 +45,13 @@ export default function Topbar({
             ) {
                 setProfileOpen(false);
             }
+
+            if (
+                notificationsRef.current &&
+                !notificationsRef.current.contains(e.target)
+            ) {
+                setNotificationsOpen(false);
+            }
         }
 
         window.addEventListener("click", handleClick);
@@ -48,13 +62,6 @@ export default function Topbar({
                 handleClick
             );
     }, []);
-
-    function logout() {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-
-        window.location.href = "/login";
-    }
 
     return (
         <header
@@ -208,7 +215,8 @@ export default function Topbar({
                 {/* Dark Mode */}
 
                 <button
-                    onClick={() => setDarkMode(!darkMode)}
+                    onClick={toggleTheme}
+                    title={isDark ? "Switch to light mode" : "Switch to dark mode"}
                     className="
     w-11
     h-11
@@ -223,7 +231,7 @@ export default function Topbar({
     justify-center
   "
                 >
-                    {darkMode ? (
+                    {isDark ? (
                         <Sun size={18} />
                     ) : (
                         <Moon size={18} />
@@ -232,8 +240,11 @@ export default function Topbar({
 
                 {/* Notifications */}
 
-                <button
-                    className="
+                <div className="relative" ref={notificationsRef}>
+
+                    <button
+                        onClick={() => setNotificationsOpen(!notificationsOpen)}
+                        className="
     relative
     w-11
     h-11
@@ -247,27 +258,39 @@ export default function Topbar({
     items-center
     justify-center
   "
-                >
-                    <Bell size={18} />
-                    <span
-                        className="
-    absolute
-    -top-1
-    -right-1
-    w-5
-    h-5
-    rounded-full
-    bg-red-500
-    text-white
-    text-[10px]
-    flex
-    items-center
-    justify-center
-  "
                     >
-                        3
-                    </span>
-                </button>
+                        <Bell size={18} />
+                    </button>
+
+                    {notificationsOpen && (
+                        <div
+                            className="
+    absolute
+    right-0
+    mt-3
+    w-72
+    rounded-2xl
+    bg-white
+    border
+    border-slate-200
+    shadow-2xl
+    text-black
+    overflow-hidden
+  "
+                        >
+                            <div className="px-5 py-4 border-b border-slate-200">
+                                <h4 className="font-semibold text-slate-800">
+                                    Notifications
+                                </h4>
+                            </div>
+
+                            <div className="px-5 py-8 text-center text-sm text-slate-500">
+                                You're all caught up — no new notifications.
+                            </div>
+                        </div>
+                    )}
+
+                </div>
 
                 {/* ============================
               Profile Dropdown

@@ -240,32 +240,33 @@ class SubscriptionRepository {
     return Number(row.total);
   }
 
+  // invoices has no file_size/ocr_status columns — storage and OCR usage
+  // are tracked in usage_stats (maintained by usageService on every
+  // upload), not derivable per-invoice. Read from there instead.
   async getStorageUsed(userId) {
     const [[row]] = await db.execute(
       `
-      SELECT
-      COALESCE(SUM(file_size),0) total
-      FROM invoices
+      SELECT storage_used total
+      FROM usage_stats
       WHERE user_id=?
       `,
       [userId]
     );
 
-    return Number(row.total);
+    return Number(row?.total || 0);
   }
 
   async getOCRUsed(userId) {
     const [[row]] = await db.execute(
       `
-      SELECT COUNT(*) total
-      FROM invoices
+      SELECT ocr_pages_used total
+      FROM usage_stats
       WHERE user_id=?
-      AND ocr_status='completed'
       `,
       [userId]
     );
 
-    return Number(row.total);
+    return Number(row?.total || 0);
   }
 
   // ===========================

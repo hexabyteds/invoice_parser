@@ -181,15 +181,16 @@ class PlanRepository {
 
     const [rows] = await db.execute(
       `
-      SELECT COUNT(*) AS total
-      FROM subscriptions
-      WHERE plan_id = ?
-      AND status IN ('active','trial')
+      SELECT EXISTS (
+        SELECT 1
+        FROM subscriptions
+        WHERE plan_id = ?
+      ) AS in_use
       `,
       [id]
     );
   
-    return Number(rows[0].total) > 0;
+    return Boolean(rows[0].in_use);
   
   }
 

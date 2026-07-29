@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { uploadInvoice } from "../../services/invoiceApi";
 import clientApi from "../../services/clientApi";
 import { useParams, useNavigate } from "react-router-dom";
+import ExtractionQualityCard from "../../components/invoices/ExtractionQualityCard";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
 const MAX_FILE_SIZE_MB = 15;
@@ -267,49 +268,53 @@ export default function Upload() {
       </div>
 
       {result && (
-        <div className="bg-white rounded-3xl shadow border p-8 grid md:grid-cols-2 gap-6">
-          <div>
-            <label className="text-slate-500">Invoice Number</label>
-            <p className="font-semibold text-black">
-              {result.invoice?.invoiceNo}
-            </p>
+        <>
+          <div className="bg-white rounded-3xl shadow border p-8 grid md:grid-cols-2 gap-6">
+            <div>
+              <label className="text-slate-500">Invoice Number</label>
+              <p className="font-semibold text-black">
+                {result.invoice?.invoiceNo}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-slate-500">Client</label>
+              <p className="font-semibold text-black">
+                {result.invoice?.clientName || selectedClient?.company_name}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-slate-500">Invoice Date</label>
+              <p className="font-semibold text-black">
+                {result.invoice?.invoiceDate}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-slate-500">Total Amount</label>
+              <p className="font-semibold text-black">
+                {result.invoice?.currency} {result.invoice?.totalAmount}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-slate-500">VAT Amount</label>
+              <p className="font-semibold text-black">
+                {result.invoice?.vatAmount}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-slate-500">TRN</label>
+              <p className="font-semibold text-black">
+                {result.invoice?.trn}
+              </p>
+            </div>
           </div>
 
-          <div>
-            <label className="text-slate-500">Client</label>
-            <p className="font-semibold text-black">
-              {result.invoice?.clientName || selectedClient?.company_name}
-            </p>
-          </div>
-
-          <div>
-            <label className="text-slate-500">Invoice Date</label>
-            <p className="font-semibold text-black">
-              {result.invoice?.invoiceDate}
-            </p>
-          </div>
-
-          <div>
-            <label className="text-slate-500">Total Amount</label>
-            <p className="font-semibold text-black">
-              {result.invoice?.currency} {result.invoice?.totalAmount}
-            </p>
-          </div>
-
-          <div>
-            <label className="text-slate-500">VAT Amount</label>
-            <p className="font-semibold text-black">
-              {result.invoice?.vatAmount}
-            </p>
-          </div>
-
-          <div>
-            <label className="text-slate-500">TRN</label>
-            <p className="font-semibold text-black">
-              {result.invoice?.trn}
-            </p>
-          </div>
-        </div>
+          <ExtractionQualityCard validation={result.validation} />
+        </>
       )}
 
     </div>

@@ -1,11 +1,4 @@
-export function getStoredUser() {
-  try {
-    const raw = localStorage.getItem("user");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
+export { getStoredUser } from "./authStorage";
 
 export function isAdmin(user) {
   if (!user) return false;

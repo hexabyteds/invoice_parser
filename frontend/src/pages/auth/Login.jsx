@@ -33,6 +33,7 @@ const loginSchema = z.object({
 
 export default function Login() {
     const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(true);
     const navigate = useNavigate();
     const { login } = useAuth();
 
@@ -59,7 +60,7 @@ export default function Login() {
             if (response.data.success) {
                 const { user, token } = response.data;
 
-                login(user, token);
+                login(user, token, rememberMe);
 
                 toast.success("Welcome back!");
 
@@ -241,7 +242,13 @@ export default function Login() {
 
                             <label className="flex items-center gap-2 text-sm text-slate-400">
 
-                                <input type="checkbox" />
+                                <input
+                                    type="checkbox"
+                                    checked={rememberMe}
+                                    onChange={(e) =>
+                                        setRememberMe(e.target.checked)
+                                    }
+                                />
 
                                 Remember Me
 

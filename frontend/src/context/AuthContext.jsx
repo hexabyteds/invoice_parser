@@ -9,10 +9,14 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import api from "../services/api";
+import { isAdmin as checkIsAdmin } from "../utils/roles";
 import {
+  getToken,
   getStoredUser,
-  isAdmin as checkIsAdmin
-} from "../utils/roles";
+  saveSession,
+  updateStoredUser,
+  clearSession,
+} from "../utils/authStorage";
 
 const AuthContext = createContext(null);
 
@@ -24,7 +28,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
 
-    const token = localStorage.getItem("token");
+    const token = getToken();
 
     if (!token) return;
 
@@ -35,11 +39,7 @@ export function AuthProvider({ children }) {
         if (response.data.success) {
 
           setUser(response.data.user);
-
-          localStorage.setItem(
-            "user",
-            JSON.stringify(response.data.user)
-          );
+          updateStoredUser(response.data.user);
 
         }
 
@@ -55,14 +55,9 @@ export function AuthProvider({ children }) {
 
       isAdmin: checkIsAdmin(user),
 
-      login(userData, token) {
+      login(userData, token, remember = true) {
 
-        localStorage.setItem("token", token);
-
-        localStorage.setItem(
-          "user",
-          JSON.stringify(userData)
-        );
+        saveSession(token, userData, remember);
 
         setUser(userData);
 
@@ -70,9 +65,7 @@ export function AuthProvider({ children }) {
 
       logout() {
 
-        localStorage.removeItem("token");
-
-        localStorage.removeItem("user");
+        clearSession();
 
         setUser(null);
 

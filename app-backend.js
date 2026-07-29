@@ -19,6 +19,7 @@ const planRoutes = require("./routes/planRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const usageRoutes = require("./routes/usageRoutes");
 const usageService = require("./services/usageService");
+const validationService = require("./services/validationService");
 const db = require("./config/database");
 
 const app = express();
@@ -396,6 +397,27 @@ app.get("/api/invoices", authMiddleware, async (req, res) => {
 });
 
 
+// Re-runs the same completeness check used right after Gemini extraction,
+// against the invoice's CURRENT stored/edited fields — so the confidence
+// score on the detail view reflects what's actually saved now, not a
+// stale snapshot from whenever it was first uploaded.
+function validateStoredInvoice(invoiceRow, lineItems) {
+  return validationService.validate({
+    clientName: invoiceRow.client_name,
+    invoiceNo: invoiceRow.invoice_no,
+    invoiceDate: invoiceRow.invoice_date,
+    dueDate: invoiceRow.due_date,
+    phoneNumber: invoiceRow.phone_number,
+    location: invoiceRow.location,
+    subtotal: invoiceRow.subtotal,
+    vatAmount: invoiceRow.vat_amount,
+    totalAmount: invoiceRow.total_amount,
+    description: invoiceRow.description,
+    trn: invoiceRow.trn,
+    lineItems,
+  });
+}
+
 app.get(
   "/api/invoices/:id",
   authMiddleware,
@@ -423,7 +445,8 @@ app.get(
           ...data.invoice,
           hasSourceFile: Boolean(data.invoice?.image_path),
         },
-        lineItems: data.lineItems
+        lineItems: data.lineItems,
+        validation: validateStoredInvoice(data.invoice, data.lineItems)
       });
 
     } catch (err) {
@@ -500,7 +523,8 @@ app.put(
       res.json({
         success: true,
         invoice: updated.invoice,
-        lineItems: updated.lineItems
+        lineItems: updated.lineItems,
+        validation: validateStoredInvoice(updated.invoice, updated.lineItems)
       });
 
     } catch (err) {

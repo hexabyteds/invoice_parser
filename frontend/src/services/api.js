@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getToken, clearSession } from "../utils/authStorage";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -14,7 +15,7 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
 
-    const token = localStorage.getItem("token");
+    const token = getToken();
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -52,10 +53,8 @@ api.interceptors.response.use(
 
       isLoggingOut = true;
 
- 
       // Clear authentication
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      clearSession();
 
       // Redirect to login
       window.location.replace("/login");

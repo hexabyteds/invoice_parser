@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 
 import Landing from "./pages/landing/Landing";
 import Price from "./pages/landing/Price";
@@ -36,9 +36,9 @@ import AdminSettings from "./pages/admin/Settings";
 import UsageDashboard from "./pages/admin/usage/UsageDashboard";
 
 function App() {
+  
   return (
-    <BrowserRouter basename="/">
-      <Routes>
+    <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -88,8 +88,7 @@ function App() {
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
-      </Routes>
-    </BrowserRouter>
+    </Routes>
   );
 }
 
