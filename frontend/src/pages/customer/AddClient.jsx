@@ -37,13 +37,11 @@ export default function AddClient() {
     try {
       setLoading(true);
 
-      console.log("form", form);
       const res = await clientApi.create(form);
 
       
       // alert("Client added successfully.");
 
-      console.log("res", res?.client?.id);
 
       navigate(`/dashboard/clients/${res?.client?.id}`);
     } catch (err) {
@@ -51,7 +49,8 @@ export default function AddClient() {
       //   err.response?.data?.error ||
       //     "Unable to create client."
       // );
-      console.log("error", err);
+      toast.error(err.response?.data?.error || "Unable to create client.");
+    
     } finally {
       setLoading(false);
     }

@@ -49,7 +49,7 @@ export default function Dashboard() {
       setAnalytics(analyticsRes.data.analytics || {});
       setClients(clientRes.clients || []);
     } catch (err) {
-      console.error(err);
+   
     } finally {
       setLoading(false);
     }

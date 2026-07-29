@@ -40,19 +40,32 @@ class FreeInvoiceAgent {
 
     async processImage(imagePath, userId, clientId, sourceFilePath = imagePath) {
 
-        await usageService.checkOCRLimit(userId, 1);
-        await usageService.checkInvoiceLimit(userId);
+        // Both quotas are reserved (atomically checked-and-incremented) up
+        // front, before the slow Gemini call, then released again on any
+        // failure below — this preserves the original behaviour (nothing is
+        // charged for a failed extraction) while closing the race where two
+        // concurrent uploads could both pass a check before either had
+        // incremented. See usageService.reserveOCRPages for the full
+        // explanation of why this is safe under concurrency.
+        await usageService.reserveOCRPages(userId, 1);
+
+        try {
+            await usageService.reserveInvoiceSlot(userId);
+        } catch (err) {
+            await usageService.decrementOCR(userId, 1);
+            throw err;
+        }
 
         const result = await invoiceService.extract(imagePath);
 
         if (!result.success) {
+            await usageService.decrementOCR(userId, 1);
+            await usageService.decrementInvoices(userId);
             return {
                 status: "error",
                 message: result.error,
             };
         }
-
-        await usageService.incrementOCR(userId, 1);
 
         result.invoice = invoiceNormalizer.normalize(result.invoice);
 
@@ -61,17 +74,25 @@ class FreeInvoiceAgent {
 
         const stored = this.persistSourceOnInvoice(result.invoice, sourceFilePath);
 
-        const invoiceId = await invoiceRepository.create(result.invoice);
-        await invoiceRepository.updateImagePath(invoiceId, userId, stored);
+        try {
+            const invoiceId = await invoiceRepository.create(result.invoice);
+            await invoiceRepository.updateImagePath(invoiceId, userId, stored);
 
-        await invoiceItemRepository.createMany(
-            invoiceId,
-            result.invoice.lineItems
-        );
+            await invoiceItemRepository.createMany(
+                invoiceId,
+                result.invoice.lineItems
+            );
 
-        await usageService.incrementInvoices(userId);
-
-        result.invoice.id = invoiceId;
+            result.invoice.id = invoiceId;
+        } catch (err) {
+            // Extraction succeeded (the OCR page was genuinely spent calling
+            // Gemini) but persisting it failed — release only the invoice
+            // reservation, matching the original ordering where the OCR
+            // increment happened unconditionally on extraction success and
+            // the invoice increment happened only after a successful save.
+            await usageService.decrementInvoices(userId);
+            throw err;
+        }
 
         return {
             status: "success",
@@ -88,18 +109,20 @@ class FreeInvoiceAgent {
 
         const pageCount = await pdfService.getPageCount(pdfPath);
 
-        await usageService.checkOCRLimit(userId, pageCount);
+        // Reserve the whole page count atomically before the slow Gemini
+        // call (same reasoning as processImage above); released again if
+        // extraction fails, so a failed PDF still costs nothing.
+        await usageService.reserveOCRPages(userId, pageCount);
 
         const result = await invoiceService.extractPDF(pdfPath);
 
         if (!result.success) {
+            await usageService.decrementOCR(userId, pageCount);
             return {
                 status: "error",
                 message: result.error,
             };
         }
-
-        await usageService.incrementOCR(userId, pageCount);
 
         const sourcePaths = await this.saveSourceForInvoices(
             sourceFilePath,
@@ -112,7 +135,10 @@ class FreeInvoiceAgent {
         for (let i = 0; i < result.invoices.length; i++) {
             const item = result.invoices[i];
 
-            await usageService.checkInvoiceLimit(userId);
+            // Atomically reserves this one invoice slot; throws (same error
+            // and same "stop processing further pages" behaviour as before)
+            // if the plan is already full by this iteration.
+            await usageService.reserveInvoiceSlot(userId);
 
             const invoice = invoiceNormalizer.normalize(item.invoice);
 
@@ -124,18 +150,24 @@ class FreeInvoiceAgent {
                 sourcePaths[i]
             );
 
-            const invoiceId = await invoiceRepository.create(invoice);
-            await invoiceRepository.updateImagePath(invoiceId, userId, stored);
+            try {
+                const invoiceId = await invoiceRepository.create(invoice);
+                await invoiceRepository.updateImagePath(invoiceId, userId, stored);
 
-            await invoiceItemRepository.createMany(
-                invoiceId,
-                invoice.lineItems
-            );
+                await invoiceItemRepository.createMany(
+                    invoiceId,
+                    invoice.lineItems
+                );
 
-            await usageService.incrementInvoices(userId);
-
-            invoice.id = invoiceId;
-            savedInvoices.push(invoice);
+                invoice.id = invoiceId;
+                savedInvoices.push(invoice);
+            } catch (err) {
+                // Only this iteration's reservation is released — invoices
+                // already saved earlier in the loop keep their increments,
+                // matching the original per-iteration increment behaviour.
+                await usageService.decrementInvoices(userId);
+                throw err;
+            }
         }
 
         return {
@@ -149,16 +181,13 @@ class FreeInvoiceAgent {
     // GET ALL INVOICES
     // =========================
 
-    async getInvoices(userId, clientId = null) {
+    async getInvoices(userId, { limit = 20, offset = 0 } = {}) {
+        const [invoices, total] = await Promise.all([
+            invoiceRepository.findByUser(userId, { limit, offset }),
+            invoiceRepository.countByUser(userId),
+        ]);
 
-        if (clientId) {
-            return await invoiceRepository.findByClient(
-                userId,
-                clientId
-            );
-        }
-
-        return await invoiceRepository.findByUser(userId);
+        return { invoices, total };
     }
 
     // =========================
@@ -402,11 +431,13 @@ class FreeInvoiceAgent {
     async getAnalytics(userId, clientId = null) {
         return await invoiceRepository.getAnalytics(userId, clientId);
     }
-    async getInvoicesByClient(userId, clientId) {
-        return await invoiceRepository.findByClient(
-            userId,
-            clientId
-        );
+    async getInvoicesByClient(userId, clientId, { limit = 20, offset = 0 } = {}) {
+        const [invoices, total] = await Promise.all([
+            invoiceRepository.findByClient(userId, clientId, { limit, offset }),
+            invoiceRepository.countByClient(userId, clientId),
+        ]);
+
+        return { invoices, total };
      }
 }
 

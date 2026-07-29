@@ -66,7 +66,7 @@ export default function UsageCard({ title, used, limit, remaining }) {
   const Icon = ICONS[title] || FileText;
   const accent = ACCENTS[title] || ACCENTS.Invoices;
 
-  console.log(used, limit);
+ 
   const percentage =
     limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
 

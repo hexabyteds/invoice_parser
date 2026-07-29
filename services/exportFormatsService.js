@@ -24,6 +24,21 @@ function formatDateDisplay(value) {
     return d.toLocaleDateString("en-GB");
 }
 
+function formatMoney(value) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return "0.00";
+
+    const rounded =
+        Math.sign(amount) *
+        (Math.round((Math.abs(amount) + Number.EPSILON) * 100) / 100);
+
+    return rounded.toFixed(2);
+}
+
+function roundMoney(value) {
+    return Number(formatMoney(value));
+}
+
 function rowsToCsv(headers, rows) {
     return [
         headers.map(escapeCsv).join(","),
@@ -76,10 +91,10 @@ class ExportFormatsService {
                     invoice.clientName,
                     formatDate(invoice.invoiceDate),
                     formatDate(invoice.dueDate),
-                    invoice.subtotal,
+                    formatMoney(invoice.subtotal),
                     invoice.vatRate,
-                    invoice.vatAmount,
-                    invoice.totalAmount,
+                    formatMoney(invoice.vatAmount),
+                    formatMoney(invoice.totalAmount),
                     invoice.currency,
                     invoice.trn,
                     invoice.phoneNumber,
@@ -87,8 +102,8 @@ class ExportFormatsService {
                     invoice.description,
                     item.description,
                     item.quantity,
-                    item.unitPrice,
-                    item.totalPrice,
+                    formatMoney(item.unitPrice),
+                    formatMoney(item.totalPrice),
                 ]);
             }
         }
@@ -199,8 +214,8 @@ class ExportFormatsService {
                     "", // PurchaseOrder
                     val(invoice.currency), // Currency Code
                     "", // Exchange Rate
-                    val(invoice.subtotal), // SubTotal
-                    val(invoice.totalAmount), // Total
+                    roundMoney(invoice.subtotal), // SubTotal
+                    roundMoney(invoice.totalAmount), // Total
                     "", // Balance
                     "", // TotalRetentionAmountFCY
                     "", // TotalRetentionAmountBCY
@@ -226,12 +241,12 @@ class ExportFormatsService {
                     val(item.description), // Description
                     val(item.quantity), // Quantity
                     "", // Tax Amount (per-item tax not stored)
-                    val(item.totalPrice), // Item Total
+                    roundMoney(item.totalPrice), // Item Total
                     "", // Is Billable
                     "", // VAT Treatment
                     val(invoice.location), // Place Of Supply
                     val(invoice.trn), // Tax Registration Number
-                    val(item.unitPrice), // Rate
+                    roundMoney(item.unitPrice), // Rate
                     "", // Discount Type
                     "", // Is Discount Before Tax
                     "", // Discount
@@ -266,6 +281,11 @@ class ExportFormatsService {
                 Math.max(String(headers[i]).length + 2, 12),
                 28
             );
+        });
+
+        // Keep monetary cells numeric while displaying exactly two decimals.
+        [12, 13, 39, 44].forEach((column) => {
+            sheet.getColumn(column).numFmt = "0.00";
         });
 
         const outPath =
@@ -372,8 +392,8 @@ class ExportFormatsService {
                     "",
                     val(invoice.currency),
                     "",
-                    val(invoice.subtotal),
-                    val(invoice.totalAmount),
+                    formatMoney(invoice.subtotal),
+                    formatMoney(invoice.totalAmount),
                     "",
                     "",
                     "",
@@ -399,12 +419,12 @@ class ExportFormatsService {
                     val(item.description),
                     val(item.quantity),
                     "",
-                    val(item.totalPrice),
+                    formatMoney(item.totalPrice),
                     "",
                     "",
                     val(invoice.location),
                     val(invoice.trn),
-                    val(item.unitPrice),
+                    formatMoney(item.unitPrice),
                     "",
                     "",
                     "",
@@ -484,11 +504,11 @@ class ExportFormatsService {
                     item.description || "Services",
                     item.description || "",
                     qty,
-                    rate,
-                    amount,
+                    formatMoney(rate),
+                    formatMoney(amount),
                     Number(invoice.vatRate) > 0 ? "Y" : "N",
                     invoice.vatRate ?? 0,
-                    Number(lineVat.toFixed(2)),
+                    formatMoney(lineVat),
                     formatDate(invoice.invoiceDate),
                     invoice.currency || "AED",
                 ]);
@@ -582,7 +602,7 @@ class ExportFormatsService {
             );
 
             draw(
-                `Subtotal: ${Number(invoice.subtotal || 0).toFixed(2)}   VAT (${invoice.vatRate || 0}%): ${Number(invoice.vatAmount || 0).toFixed(2)}   Total: ${Number(invoice.totalAmount || 0).toFixed(2)}`,
+                `Subtotal: ${formatMoney(invoice.subtotal)}   VAT (${invoice.vatRate || 0}%): ${formatMoney(invoice.vatAmount)}   Total: ${formatMoney(invoice.totalAmount)}`,
                 { size: 10, font: bold, gap: 16 }
             );
 
@@ -594,7 +614,7 @@ class ExportFormatsService {
 
             for (const item of items) {
                 draw(
-                    `• ${item.description || "Item"}  |  Qty ${item.quantity ?? 0}  |  ${Number(item.unitPrice || 0).toFixed(2)}  |  ${Number(item.totalPrice || 0).toFixed(2)}`,
+                    `• ${item.description || "Item"}  |  Qty ${item.quantity ?? 0}  |  ${formatMoney(item.unitPrice)}  |  ${formatMoney(item.totalPrice)}`,
                     { size: 9, color: rgb(0.25, 0.25, 0.25), gap: 13, x: margin + 8 }
                 );
             }

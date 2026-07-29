@@ -5,9 +5,34 @@ import {
   X,
   Loader2,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { uploadInvoice } from "../../services/invoiceApi";
 import clientApi from "../../services/clientApi";
 import { useParams, useNavigate } from "react-router-dom";
+
+const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
+const MAX_FILE_SIZE_MB = 15;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
+function validateFile(file) {
+  const ext = file.name
+    .slice(file.name.lastIndexOf("."))
+    .toLowerCase();
+
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    return "Unsupported file type. Please upload a PDF, JPG, or PNG.";
+  }
+
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return `File is too large. Maximum size is ${MAX_FILE_SIZE_MB} MB.`;
+  }
+
+  if (file.size === 0) {
+    return "This file is empty.";
+  }
+
+  return null;
+}
 
 export default function Upload() {
   const { clientId: routeClientId } = useParams();
@@ -28,11 +53,24 @@ export default function Upload() {
     (c) => String(c.id) === String(clientId)
   );
 
+  const acceptFile = (candidate) => {
+    const validationError = validateFile(candidate);
+
+    if (validationError) {
+      setFile(null);
+      setError(validationError);
+      setResult(null);
+      return;
+    }
+
+    setFile(candidate);
+    setError("");
+    setResult(null);
+  };
+
   const chooseFile = (e) => {
     if (e.target.files.length > 0) {
-      setFile(e.target.files[0]);
-      setError("");
-      setResult(null);
+      acceptFile(e.target.files[0]);
     }
   };
 
@@ -41,9 +79,7 @@ export default function Upload() {
     setDragging(false);
 
     if (e.dataTransfer.files.length > 0) {
-      setFile(e.dataTransfer.files[0]);
-      setError("");
-      setResult(null);
+      acceptFile(e.dataTransfer.files[0]);
     }
   };
 
@@ -63,8 +99,7 @@ export default function Upload() {
       const res = await clientApi.getAll();
       setClients(res.clients || []);
     } catch (err) {
-      console.log(err);
-    }
+     }
   };
 
   const upload = async () => {
@@ -90,9 +125,7 @@ export default function Upload() {
 
       if (response.data.invoices) {
         setResult(null);
-        alert(
-          `${response.data.totalInvoices} invoice(s) imported successfully.`
-        );
+        toast.success(`Successfully uploaded ${response.data.totalInvoices} invoices.`);
 
         if (isClientLocked) {
           navigate(`/dashboard/clients/${clientId}`);
@@ -172,7 +205,7 @@ export default function Upload() {
           </h2>
 
           <p className="text-slate-500 mt-2">
-            PDF, JPG, PNG supported
+            PDF, JPG, PNG supported — up to {MAX_FILE_SIZE_MB} MB
           </p>
 
           <label className="inline-block mt-6">

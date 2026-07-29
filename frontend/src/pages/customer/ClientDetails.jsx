@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import clientApi from "../../services/clientApi.js";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 
 import {
@@ -18,6 +18,8 @@ export default function ClientDetails() {
     const [client, setClient] = useState(null);
     const [invoices, setInvoices] = useState([]);
     const [page, setPage] = useState(1);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [downloading, setDownloading] = useState(false);
     const navigate = useNavigate();
 
@@ -27,11 +29,33 @@ export default function ClientDetails() {
     }, [id]);
 
     async function load() {
-        const clientRes = await clientApi.get(id);
-        const invoiceRes = await getInvoicesByClient(id);
 
-        setClient(clientRes.client);
-        setInvoices(invoiceRes?.data?.invoices || []);
+        setLoading(true);
+        setError(null);
+
+        try {
+
+            const clientRes = await clientApi.get(id);
+            const invoiceRes = await getInvoicesByClient(id);
+
+            setClient(clientRes.client);
+            setInvoices(invoiceRes?.data?.invoices || []);
+
+        } catch (err) {
+
+            setClient(null);
+            setInvoices([]);
+            setError(
+                err.response?.data?.error ||
+                    "Could not load this client. Please try again."
+            );
+
+        } finally {
+
+            setLoading(false);
+
+        }
+
     }
 
     const totalPages = Math.max(1, Math.ceil(invoices.length / ROWS_PER_PAGE));
@@ -78,7 +102,6 @@ export default function ClientDetails() {
     
         } catch (err) {
     
-            console.error(err);
     
             alert(err.message);
     
@@ -89,8 +112,45 @@ export default function ClientDetails() {
         }
     
     }
-    if (!client) {
-        return <p>Loading...</p>;
+    if (loading) {
+        return (
+            <div className="py-20 flex flex-col items-center justify-center">
+                <Loader2 size={36} className="animate-spin text-blue-500" />
+                <p className="mt-4 text-gray-400">
+                    Loading client...
+                </p>
+            </div>
+        );
+    }
+
+    if (error || !client) {
+        return (
+            <div className="py-20 flex flex-col items-center justify-center text-center">
+                <AlertCircle size={48} className="text-red-500" />
+                <h3 className="mt-4 text-xl font-semibold">
+                    Couldn't load client
+                </h3>
+                <p className="mt-2 text-gray-400 max-w-sm">
+                    {error || "This client no longer exists."}
+                </p>
+                <div className="mt-5 flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={load}
+                        className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700"
+                    >
+                        Retry
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => navigate("/dashboard/clients")}
+                        className="px-5 py-2.5 rounded-xl border border-slate-600 bg-slate-800 hover:bg-slate-700"
+                    >
+                        Back to clients
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     return (

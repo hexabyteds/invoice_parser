@@ -9,28 +9,27 @@ const clientApi = {
 
   // Get single client
   get: async (id) => {
-    console.log("get", id);
+  
     const { data } = await api.get(`/clients/${id}`);
-    console.log("data", data);
+ 
     return data;
   },
 
   // Create client
   create: async (client) => {
     try {
-      console.log("Sending:", client);
+ 
   
       
       const response = await api.post("/clients", client);
   
-      console.log("Response:", response.data);
+      
   
       return response.data;
   
     } catch (error) {
   
-      console.log("Status:", error.response?.status);
-      console.log("Response:", error.response?.data);
+  
   
       throw error;
     }

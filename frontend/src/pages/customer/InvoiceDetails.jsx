@@ -34,14 +34,14 @@ export default function InvoiceDetails() {
       try {
         const res = await getInvoice(id);
   
-        console.log("API RESPONSE");
-        console.log(res.data);
+    
+    
   
         setInvoice(res.data.invoice);
         setLineItems(res.data.lineItems || []);
   
       } catch (err) {
-        console.log(err);
+        toast.error(err.response?.data?.error || "Unable to load invoice.");
       } finally {
         setLoading(false);
       }

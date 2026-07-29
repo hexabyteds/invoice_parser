@@ -85,7 +85,7 @@ export default function ExportCenter() {
         const res = await clientApi.getAll();
         setClients(res.clients || []);
       } catch (err) {
-        console.error(err);
+      
       } finally {
         setLoadingClients(false);
       }
@@ -175,7 +175,7 @@ export default function ExportCenter() {
         `Exported ${selectedFormat.label} successfully.`
       );
     } catch (err) {
-      console.error(err);
+     
       setError(
         err.response?.data?.error ||
           "Unable to export invoices. Please try again."

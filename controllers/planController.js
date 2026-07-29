@@ -21,6 +21,27 @@ class PlanController {
 
     }
   }
+  async getActivePlans(req, res) {
+
+    try {
+
+        const plans = await planService.getActivePlans();
+
+        res.json({
+            success: true,
+            plans
+        });
+
+    } catch (err) {
+
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+
+    }
+
+}
 
   async getPlan(req, res) {
     try {

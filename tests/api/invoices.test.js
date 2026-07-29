@@ -77,7 +77,7 @@ describe("Invoice upload + parsing (Gemini mocked)", () => {
     expect(res.body.error).toMatch(/client/i);
   });
 
-  it("rejects unsupported file types", async () => {
+  it("rejects unsupported file types with a clean JSON error", async () => {
     const { token } = await registerAndLogin();
     const clientId = await createClient(token);
 
@@ -87,7 +87,29 @@ describe("Invoice upload + parsing (Gemini mocked)", () => {
       .field("client_id", String(clientId))
       .attach("image", Buffer.from("not an image"), "notes.txt");
 
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toMatch(/pdf|jpg|png/i);
+  });
+
+  it("rejects files over the server-side size limit with a clean 413, not a hang or an HTML error page", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+
+    const oversized = Buffer.alloc(21 * 1024 * 1024, 1); // over the 20 MB cap
+
+    const res = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("client_id", String(clientId))
+      .attach("image", oversized, {
+        filename: "huge.pdf",
+        contentType: "application/pdf",
+      });
+
+    expect(res.status).toBe(413);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toMatch(/too large/i);
   });
 
   it("surfaces a Gemini extraction failure as a clean error, not a 500 crash", async () => {
@@ -127,6 +149,45 @@ describe("Invoice management", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.invoices).toHaveLength(1);
+    expect(res.body.pagination).toEqual({
+      total: 1,
+      limit: 20,
+      offset: 0,
+      hasMore: false,
+    });
+  });
+
+  it("paginates invoices with limit and offset", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    const first = await uploadOne(token, clientId);
+    const second = await uploadOne(token, clientId);
+
+    const res = await request(app)
+      .get("/api/invoices?limit=1&offset=1")
+      .set(authed(token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.invoices).toHaveLength(1);
+    expect(res.body.invoices[0].id).toBe(first.id);
+    expect(res.body.invoices[0].id).not.toBe(second.id);
+    expect(res.body.pagination).toEqual({
+      total: 2,
+      limit: 1,
+      offset: 1,
+      hasMore: false,
+    });
+  });
+
+  it("rejects invalid invoice pagination parameters", async () => {
+    const { token } = await registerAndLogin();
+
+    const res = await request(app)
+      .get("/api/invoices?limit=101&offset=-1")
+      .set(authed(token));
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
   });
 
   it("gets a single invoice with line items", async () => {
@@ -304,5 +365,148 @@ describe("Plan limit enforcement on upload", () => {
 
     expect(res.status).toBe(403);
     expect(res.body.error).toMatch(/storage limit reached/i);
+  });
+});
+
+describe("Rate limiting on upload", () => {
+  // The rate limiter runs before multer/business logic, so it counts every
+  // request regardless of what the handler would otherwise do with it —
+  // no need for a real file or a valid client_id to prove it fires.
+  it("blocks a single user past the per-minute upload limit with a 429", async () => {
+    const { token } = await registerAndLogin();
+
+    let lastStatus;
+    for (let i = 0; i < 20; i++) {
+      const res = await request(app).post("/api/upload").set(authed(token));
+      lastStatus = res.status;
+    }
+    expect(lastStatus).not.toBe(429);
+
+    const blocked = await request(app).post("/api/upload").set(authed(token));
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.success).toBe(false);
+    expect(blocked.body.error).toMatch(/too many/i);
+  });
+
+  it("rate limits per user, not globally — one user hitting the limit doesn't affect another", async () => {
+    const userA = await registerAndLogin();
+    const userB = await registerAndLogin();
+
+    for (let i = 0; i < 20; i++) {
+      await request(app).post("/api/upload").set(authed(userA.token));
+    }
+
+    const blockedForA = await request(app)
+      .post("/api/upload")
+      .set(authed(userA.token));
+    expect(blockedForA.status).toBe(429);
+
+    const stillOkForB = await request(app)
+      .post("/api/upload")
+      .set(authed(userB.token));
+    expect(stillOkForB.status).not.toBe(429);
+  });
+});
+
+describe("Concurrency — usage limits cannot be exceeded by parallel requests (PERF-02)", () => {
+  // Driven directly against FreeInvoiceAgent/usageService (the same code
+  // the /api/upload route calls) rather than through HTTP: firing many
+  // requests through supertest's ephemeral per-call listeners adds test-
+  // harness overhead unrelated to the app (each call binds its own
+  // throwaway server), which is a separate, much lower-value thing to
+  // prove than "the reservation itself can't be raced." This isolates
+  // exactly the atomic-reservation logic these fixes are about.
+  const FreeInvoiceAgent = require("../../free-invoice-agent");
+  const fs = require("fs");
+  const os = require("os");
+  const path = require("path");
+
+  it("invoice limit: firing more concurrent uploads than the plan allows never lets invoices_used exceed the limit", async () => {
+    // Seeded Free plan: invoice_limit 5 (tests/setup/globalSetup.js).
+    const { token, user } = await registerAndLogin();
+    const clientId = await createClient(token);
+    mockSuccessfulExtract(invoiceService);
+
+    // The seeded Free plan's ocr_limit is also 5 and is reserved first per
+    // upload, so with the default plan it — not the invoice limit — would
+    // be the one that actually trips (still proves the count never
+    // overshoots, but doesn't isolate the invoice-reservation path
+    // specifically). Give this user a generous OCR budget so the invoice
+    // limit is unambiguously the constraint under test here.
+    const [planResult] = await pool.execute(
+      `INSERT INTO plans (name, slug, invoice_limit, client_limit, ocr_limit, storage_limit, user_limit, active)
+       VALUES (?, ?, 5, 100, 1000, 5000, 1, 1)`,
+      [`Concurrency Test ${user.id}`, `concurrency-test-${user.id}`]
+    );
+    await pool.execute(
+      `UPDATE subscriptions SET plan_id = ? WHERE user_id = ? AND status = 'active'`,
+      [planResult.insertId, user.id]
+    );
+
+    const agent = new FreeInvoiceAgent();
+    const CONCURRENCY = 10;
+    const settled = await Promise.allSettled(
+      Array.from({ length: CONCURRENCY }, (_, i) =>
+        agent.processImage(`/fake/path-${i}.png`, user.id, clientId)
+      )
+    );
+
+    const succeeded = settled.filter(
+      (r) => r.status === "fulfilled" && r.value.status === "success"
+    );
+    const blocked = settled.filter((r) => r.status === "rejected");
+
+    expect(succeeded).toHaveLength(5);
+    expect(blocked).toHaveLength(CONCURRENCY - 5);
+    blocked.forEach((r) =>
+      expect(r.reason.message).toMatch(/invoice limit reached/i)
+    );
+
+    const [rows] = await pool.execute(
+      `SELECT invoices_used FROM usage_stats WHERE user_id = ?`,
+      [user.id]
+    );
+    expect(rows[0].invoices_used).toBe(5);
+  });
+
+  it("OCR limit: concurrent multi-page PDF uploads never let ocr_pages_used exceed the limit", async () => {
+    // Seeded Free plan: ocr_limit 5. Each upload here is a real 3-page PDF
+    // (only 1 invoice extracted per PDF via the mock), so OCR pages — not
+    // invoice count — is the binding constraint: only one upload's 3 pages
+    // fit in the 5-page budget (3 + 3 > 5), isolating OCR reservation
+    // concurrency from the invoice-slot test above.
+    const { token, user } = await registerAndLogin();
+    const clientId = await createClient(token);
+    mockSuccessfulExtractPDF(invoiceService);
+
+    const pdfPath = path.join(os.tmpdir(), `concurrency-test-${user.id}.pdf`);
+    fs.writeFileSync(pdfPath, await samplePdfBuffer(3));
+
+    const agent = new FreeInvoiceAgent();
+    const CONCURRENCY = 5;
+    const settled = await Promise.allSettled(
+      Array.from({ length: CONCURRENCY }, () =>
+        agent.processPDF(pdfPath, user.id, clientId)
+      )
+    );
+    fs.unlinkSync(pdfPath);
+
+    const succeeded = settled.filter(
+      (r) => r.status === "fulfilled" && r.value.status === "success"
+    );
+    const blocked = settled.filter((r) => r.status === "rejected");
+
+    expect(succeeded).toHaveLength(1);
+    expect(blocked).toHaveLength(CONCURRENCY - 1);
+    blocked.forEach((r) =>
+      expect(r.reason.message).toMatch(/ocr page limit reached/i)
+    );
+
+    const [rows] = await pool.execute(
+      `SELECT ocr_pages_used FROM usage_stats WHERE user_id = ?`,
+      [user.id]
+    );
+    expect(rows[0].ocr_pages_used).toBe(3);
   });
 });

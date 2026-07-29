@@ -76,7 +76,7 @@ export default function RegisterForm() {
 
   const onSubmit = async (data) => {
 
-    console.log("Form data:", data);
+ 
     try {
       const response = await api.post("/auth/register", {
         fullName: data.fullName,
@@ -84,7 +84,7 @@ export default function RegisterForm() {
         email: data.email,
         password: data.password,
       });
-      console.log("Response:", response.data);
+ 
       if (response.data.success) {
         toast.success("Account Created Successfully");
   
@@ -92,7 +92,7 @@ export default function RegisterForm() {
       }
     } catch (error) {
 
-      console.log("Error response:", error.response?.data);
+     
       toast.error(
         error.response?.data?.error ||
         "Registration Failed"

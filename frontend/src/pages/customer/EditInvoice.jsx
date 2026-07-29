@@ -56,7 +56,6 @@ export default function EditInvoice() {
           }))
         );
       } catch (err) {
-        console.error(err);
         setError(
           err.response?.data?.error || "Unable to load invoice."
         );
@@ -134,7 +133,6 @@ export default function EditInvoice() {
 
       navigate(`/dashboard/invoices/${id}`);
     } catch (err) {
-      console.error(err);
       setError(
         err.response?.data?.error || "Unable to save invoice."
       );

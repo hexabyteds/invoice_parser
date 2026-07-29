@@ -1,18 +1,6 @@
-import axios from "axios";
+// src/services/reportApi.js
 
-const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
-});
-
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  return config;
-});
+import api from "./api";
 
 function buildExportParams({ clientId, from, to, format } = {}) {
   const params = {};
@@ -25,21 +13,36 @@ function buildExportParams({ clientId, from, to, format } = {}) {
   return params;
 }
 
+// ==========================
+// Download Excel
+// ==========================
+
 export const downloadExcel = (filters = {}) =>
-  API.get("/download-excel", {
+  api.get("/download-excel", {
     params: buildExportParams(filters),
     responseType: "blob",
   });
 
+// ==========================
+// Export Invoices
+// ==========================
+
 export const exportInvoices = (filters = {}) =>
-  API.get("/export", {
+  api.get("/export", {
     params: buildExportParams(filters),
     responseType: "blob",
   });
+
+// ==========================
+// Open HTML Report
+// ==========================
 
 export const openHtmlReport = (filters = {}) => {
   const token = localStorage.getItem("token");
-  const params = new URLSearchParams(buildExportParams(filters));
+
+  const params = new URLSearchParams(
+    buildExportParams(filters)
+  );
 
   if (token) {
     params.set("token", token);

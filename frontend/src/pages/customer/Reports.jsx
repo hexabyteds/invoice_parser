@@ -38,7 +38,7 @@ export default function Reports() {
       setAnalytics(analyticsRes.data.analytics);
       setInvoices(invoiceRes.data.invoices);
     } catch (err) {
-      console.log(err);
+    
     } finally {
       setLoading(false);
     }
@@ -59,7 +59,7 @@ export default function Reports() {
 
       link.click();
     } catch (err) {
-      console.log(err);
+ 
     }
   }
 

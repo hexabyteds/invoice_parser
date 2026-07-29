@@ -39,7 +39,6 @@ export default function Analytics() {
       const res = await clientApi.getAll();
       setClients(res.clients || []);
     } catch (err) {
-      console.log(err);
     }
   }
 
@@ -49,7 +48,6 @@ export default function Analytics() {
       const res = await getAnalytics(selectedClientId || null);
       setAnalytics(res.data.analytics || {});
     } catch (err) {
-      console.log(err);
       setAnalytics({});
     } finally {
       setLoading(false);

@@ -80,8 +80,13 @@ class AdminRepository {
     return rows;
   }
 
-  async getAllCustomers() {
-    const [rows] = await db.execute(`
+  // Aggregates are computed once per user (grouped subqueries joined in),
+  // not re-run per output row like the old correlated subqueries were —
+  // see PERF-07. Paginated so listing thousands of customers doesn't
+  // return (or scan) the whole table at once.
+  async getAllCustomers({ limit = 20, offset = 0 } = {}) {
+    const [rows] = await db.query(
+      `
       SELECT
         u.id,
         u.name,
@@ -90,15 +95,36 @@ class AdminRepository {
         u.plan,
         u.status,
         u.created_at,
-        (SELECT COUNT(*) FROM clients c WHERE c.user_id = u.id) AS client_count,
-        (SELECT COUNT(*) FROM invoices i WHERE i.user_id = u.id) AS invoice_count,
-        (SELECT COALESCE(SUM(i.total_amount), 0) FROM invoices i WHERE i.user_id = u.id) AS invoice_total
+        COALESCE(client_counts.client_count, 0) AS client_count,
+        COALESCE(invoice_stats.invoice_count, 0) AS invoice_count,
+        COALESCE(invoice_stats.invoice_total, 0) AS invoice_total
       FROM users u
+      LEFT JOIN (
+        SELECT user_id, COUNT(*) AS client_count
+        FROM clients
+        GROUP BY user_id
+      ) client_counts ON client_counts.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*) AS invoice_count, COALESCE(SUM(total_amount), 0) AS invoice_total
+        FROM invoices
+        GROUP BY user_id
+      ) invoice_stats ON invoice_stats.user_id = u.id
       WHERE ${CUSTOMER_FILTER}
       ORDER BY u.created_at DESC
-    `);
+      LIMIT ? OFFSET ?
+      `,
+      [limit, offset]
+    );
 
     return rows;
+  }
+
+  async countAllCustomers() {
+    const [[row]] = await db.execute(
+      `SELECT COUNT(*) AS total FROM users u WHERE ${CUSTOMER_FILTER}`
+    );
+
+    return Number(row.total || 0);
   }
 
   async getCustomerById(id) {

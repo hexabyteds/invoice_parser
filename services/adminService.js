@@ -28,9 +28,16 @@ class AdminService {
     };
   }
 
-  async getCustomers() {
-    const customers = await adminRepository.getAllCustomers();
-    return customers.map(formatCustomer);
+  async getCustomers({ limit, offset } = {}) {
+    const [rows, total] = await Promise.all([
+      adminRepository.getAllCustomers({ limit, offset }),
+      adminRepository.countAllCustomers(),
+    ]);
+
+    return {
+      customers: rows.map(formatCustomer),
+      total,
+    };
   }
 
   async getCustomerDetails(id) {

@@ -55,7 +55,7 @@ export default function Login() {
                 email: data.email,
                 password: data.password,
             });
-            console.log(response.data);
+           
             if (response.data.success) {
                 const { user, token } = response.data;
 
@@ -67,7 +67,7 @@ export default function Login() {
             }
         } catch (error) {
 
-            console.log(error.response?.data);
+           
 
             toast.error(
                 error.response?.data?.error ||

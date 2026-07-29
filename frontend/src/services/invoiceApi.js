@@ -1,28 +1,13 @@
 // src/services/invoiceApi.js
 
-import axios from "axios";
-
-const API = axios.create({
-  // baseURL: "http://localhost:3001/api",
-  baseURL: import.meta.env.VITE_API_URL,
-});
-
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  return config;
-});
+import api from "./api";
 
 // ==========================
 // Upload Invoice
 // ==========================
 
 export const uploadInvoice = (formData) =>
-  API.post("/upload", formData, {
+  api.post("/upload", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -33,53 +18,66 @@ export const uploadInvoice = (formData) =>
 // ==========================
 
 export const getInvoices = () =>
-  API.get("/invoices");
+  api.get("/invoices");
 
 // ==========================
 // Dashboard Statistics
 // ==========================
 
 export const getStats = () =>
-  API.get("/stats");
+  api.get("/stats");
 
 // ==========================
 // Download Excel
 // ==========================
 
 export const downloadExcel = () =>
-  API.get("/download-excel", {
+  api.get("/download-excel", {
     responseType: "blob",
   });
 
+// ==========================
+// Get Single Invoice
+// ==========================
 
-  export const getInvoice = (id) =>
-    API.get(`/invoices/${id}`);
+export const getInvoice = (id) =>
+  api.get(`/invoices/${id}`);
 
-  export const getInvoiceSource = (id) =>
-    API.get(`/invoices/${id}/source`, {
-      responseType: "blob",
-    });
+// ==========================
+// Get Invoice Source
+// ==========================
 
-  export const updateInvoice = (id, data) =>
-    API.put(`/invoices/${id}`, data);
+export const getInvoiceSource = (id) =>
+  api.get(`/invoices/${id}/source`, {
+    responseType: "blob",
+  });
 
+// ==========================
+// Update Invoice
+// ==========================
 
+export const updateInvoice = (id, data) =>
+  api.put(`/invoices/${id}`, data);
 
+// ==========================
+// Delete Invoice
+// ==========================
 
-  export const deleteInvoices = (id) =>
-    API.delete(`/invoices/${id}`);
-  
+export const deleteInvoices = (id) =>
+  api.delete(`/invoices/${id}`);
+
 // ==========================
 // HTML Report
 // ==========================
 
 export const downloadReport = () =>
-  API.get("/report", {
+  api.get("/report", {
     responseType: "blob",
   });
 
+// ==========================
+// Get Invoices By Client
+// ==========================
 
-  export const getInvoicesByClient = (clientId) =>
-    API.get(`/invoices?client_id=${clientId}`);
-
-  
+export const getInvoicesByClient = (clientId) =>
+  api.get(`/invoices?client_id=${clientId}`);
