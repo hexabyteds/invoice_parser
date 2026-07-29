@@ -4,6 +4,10 @@ const usageService = require("./usageService");
 class ClientService {
 
     async create(userId, data) {
+        if (!data.company_name || !data.company_name.trim()) {
+            throw new Error("Company name is required.");
+        }
+
         await usageService.checkClientLimit(userId);
 
         const id = await clientRepository.create({

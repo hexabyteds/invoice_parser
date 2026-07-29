@@ -224,9 +224,12 @@ CREATE TABLE `users` (
   `is_active` tinyint(1) DEFAULT '1',
   `deleted_at` datetime DEFAULT NULL,
   `plan_id` int DEFAULT NULL,
+  `reset_token_hash` varchar(64) DEFAULT NULL,
+  `reset_token_expires` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
   KEY `fk_user_plan` (`plan_id`),
+  KEY `idx_users_reset_token_hash` (`reset_token_hash`),
   CONSTRAINT `fk_user_plan` FOREIGN KEY (`plan_id`) REFERENCES `plans` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
