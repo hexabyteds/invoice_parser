@@ -17,6 +17,8 @@ import {
 import clientApi from "../../services/clientApi";
 import { useNavigate } from "react-router-dom";
 import { formatDateDisplay } from "../../utils/formatDate";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
+import toast from "react-hot-toast";
 
 const ROWS_PER_PAGE = 10;
 
@@ -27,6 +29,8 @@ export default function Invoices() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
     const navigate = useNavigate();
 
     async function loadClients() {
@@ -96,18 +100,22 @@ export default function Invoices() {
         return filteredInvoices.slice(start, start + ROWS_PER_PAGE);
     }, [filteredInvoices, safePage]);
 
-    async function handleDelete(id) {
-        const ok = window.confirm("Delete this invoice?");
-        if (!ok) return;
+    async function confirmDelete() {
+        if (!deleteTarget) return;
 
         try {
-            await deleteInvoices(id);
+            setDeleting(true);
+            await deleteInvoices(deleteTarget.id);
             await loadInvoices(clientId);
+            toast.success("Invoice deleted.");
         } catch (err) {
-            window.alert(
+            toast.error(
                 err.response?.data?.error ||
                     "Could not delete invoice. Please try again."
             );
+        } finally {
+            setDeleting(false);
+            setDeleteTarget(null);
         }
     }
 
@@ -266,7 +274,7 @@ export default function Invoices() {
                                                 </button>
                                                 <button
                                                     onClick={() =>
-                                                        handleDelete(invoice.id)
+                                                        setDeleteTarget(invoice)
                                                     }
                                                     className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-red-100 text-red-600 flex items-center justify-center transition"
                                                 >
@@ -325,6 +333,19 @@ export default function Invoices() {
                     </div>
                 )}
             </div>
+
+            <ConfirmDialog
+                open={Boolean(deleteTarget)}
+                title="Delete this invoice?"
+                message={
+                    deleteTarget
+                        ? `Invoice ${deleteTarget.invoiceNo || ""} will be permanently deleted. This cannot be undone.`
+                        : ""
+                }
+                loading={deleting}
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
 
         </div>
     );

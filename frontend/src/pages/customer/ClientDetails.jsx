@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import clientApi from "../../services/clientApi.js";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import {
     AlertCircle,
     ChevronLeft,
@@ -29,25 +31,23 @@ export default function ClientDetails() {
     const [error, setError] = useState(null);
     const [downloading, setDownloading] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
     const navigate = useNavigate();
 
     async function handleDelete() {
-        const ok = window.confirm(
-            `Delete "${client.company_name}"? This cannot be undone.`
-        );
-        if (!ok) return;
-
         try {
             setDeleting(true);
             await clientApi.delete(id);
+            toast.success("Client deleted.");
             navigate("/dashboard/clients");
         } catch (err) {
-            alert(
+            toast.error(
                 err.response?.data?.error ||
                     "Could not delete client. Please try again."
             );
         } finally {
             setDeleting(false);
+            setConfirmOpen(false);
         }
     }
 
@@ -218,7 +218,7 @@ export default function ClientDetails() {
 
                         <button
                             type="button"
-                            onClick={handleDelete}
+                            onClick={() => setConfirmOpen(true)}
                             disabled={deleting}
                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-900 bg-red-950/40 text-red-400 hover:bg-red-950 transition disabled:opacity-60"
                         >
@@ -466,6 +466,19 @@ export default function ClientDetails() {
                 )}
 
             </div>
+
+            <ConfirmDialog
+                open={confirmOpen}
+                title="Delete this client?"
+                message={
+                    client
+                        ? `"${client.company_name}" will be permanently deleted. This cannot be undone.`
+                        : ""
+                }
+                loading={deleting}
+                onConfirm={handleDelete}
+                onCancel={() => setConfirmOpen(false)}
+            />
 
         </div>
 

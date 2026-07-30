@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Users, AlertCircle, Pencil, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
 import clientApi from "../../services/clientApi";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 
 export default function Clients() {
 
@@ -10,6 +12,8 @@ export default function Clients() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [search, setSearch] = useState("");
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         loadClients();
@@ -41,23 +45,28 @@ export default function Clients() {
 
     }
 
-    async function handleDelete(client, e) {
+    function handleDeleteClick(client, e) {
         e.preventDefault();
         e.stopPropagation();
+        setDeleteTarget(client);
+    }
 
-        const ok = window.confirm(
-            `Delete "${client.company_name}"? This cannot be undone.`
-        );
-        if (!ok) return;
+    async function confirmDelete() {
+        if (!deleteTarget) return;
 
         try {
-            await clientApi.delete(client.id);
+            setDeleting(true);
+            await clientApi.delete(deleteTarget.id);
             await loadClients();
+            toast.success("Client deleted.");
         } catch (err) {
-            window.alert(
+            toast.error(
                 err.response?.data?.error ||
                     "Could not delete client. Please try again."
             );
+        } finally {
+            setDeleting(false);
+            setDeleteTarget(null);
         }
     }
 
@@ -212,7 +221,7 @@ export default function Clients() {
                                                 </button>
 
                                                 <button
-                                                    onClick={(e) => handleDelete(client, e)}
+                                                    onClick={(e) => handleDeleteClick(client, e)}
                                                     className="text-slate-400 hover:text-red-500 transition"
                                                     title="Delete client"
                                                 >
@@ -270,6 +279,19 @@ export default function Clients() {
                 )
 
             }
+
+            <ConfirmDialog
+                open={Boolean(deleteTarget)}
+                title="Delete this client?"
+                message={
+                    deleteTarget
+                        ? `"${deleteTarget.company_name}" will be permanently deleted. This cannot be undone.`
+                        : ""
+                }
+                loading={deleting}
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
 
         </div>
 
