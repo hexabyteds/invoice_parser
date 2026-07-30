@@ -12,6 +12,7 @@ import {
     PanelLeftClose,
     PanelLeftOpen,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../hooks/useTheme";
 import { useAuth } from "../../context/AuthContext";
 import { getStoredUser } from "../../utils/authStorage";
@@ -29,6 +30,7 @@ export default function Topbar({
     const dropdownRef = useRef(null);
     const notificationsRef = useRef(null);
 
+    const navigate = useNavigate();
     const { logout } = useAuth();
 
     const user =
@@ -375,6 +377,10 @@ export default function Topbar({
                         >
 
                             <button
+                                onClick={() => {
+                                    setProfileOpen(false);
+                                    navigate("/dashboard/settings");
+                                }}
                                 className="
                     w-full
                     px-5
@@ -392,6 +398,10 @@ export default function Topbar({
                             </button>
 
                             <button
+                                onClick={() => {
+                                    setProfileOpen(false);
+                                    navigate("/dashboard/settings");
+                                }}
                                 className="
                     w-full
                     px-5
@@ -399,7 +409,7 @@ export default function Topbar({
                     flex
                     items-center
                     gap-3
-                    hover:bg-slate-50   
+                    hover:bg-slate-50
                     text-black
                     transition
                   "

@@ -1,12 +1,15 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import clientApi from "../../services/clientApi";
 
 export default function AddClient() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
 
   const [loading, setLoading] = useState(false);
+  const [loadingClient, setLoadingClient] = useState(isEditMode);
 
   const [form, setForm] = useState({
     company_name: "",
@@ -19,6 +22,36 @@ export default function AddClient() {
     address: "",
     notes: "",
   });
+
+  useEffect(() => {
+    if (!isEditMode) return;
+
+    async function loadClient() {
+      try {
+        const res = await clientApi.get(id);
+        const client = res.client || {};
+
+        setForm({
+          company_name: client.company_name || "",
+          contact_person: client.contact_person || "",
+          email: client.email || "",
+          phone: client.phone || "",
+          country: client.country || "",
+          city: client.city || "",
+          trn: client.trn || "",
+          address: client.address || "",
+          notes: client.notes || "",
+        });
+      } catch (err) {
+        toast.error(err.response?.data?.error || "Unable to load client.");
+        navigate("/dashboard/clients");
+      } finally {
+        setLoadingClient(false);
+      }
+    }
+
+    loadClient();
+  }, [id, isEditMode, navigate]);
 
   const handleChange = (e) => {
     setForm({
@@ -38,16 +71,32 @@ export default function AddClient() {
     try {
       setLoading(true);
 
-      const res = await clientApi.create(form);
-
-      toast.success("Client added successfully.");
-      navigate(`/dashboard/clients/${res?.client?.id}`);
+      if (isEditMode) {
+        await clientApi.update(id, form);
+        toast.success("Client updated successfully.");
+        navigate(`/dashboard/clients/${id}`);
+      } else {
+        const res = await clientApi.create(form);
+        toast.success("Client added successfully.");
+        navigate(`/dashboard/clients/${res?.client?.id}`);
+      }
     } catch (err) {
-      toast.error(err.response?.data?.error || "Unable to create client.");
+      toast.error(
+        err.response?.data?.error ||
+          `Unable to ${isEditMode ? "update" : "create"} client.`
+      );
     } finally {
       setLoading(false);
     }
   };
+
+  if (loadingClient) {
+    return (
+      <div className="max-w-6xl mx-auto text-slate-400">
+        Loading client...
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -57,11 +106,13 @@ export default function AddClient() {
         <div>
 
           <h1 className="text-3xl font-bold text-white">
-            Add New Client
+            {isEditMode ? "Edit Client" : "Add New Client"}
           </h1>
 
           <p className="text-slate-400 mt-2">
-            Create a client before uploading invoices.
+            {isEditMode
+              ? "Update this client's details."
+              : "Create a client before uploading invoices."}
           </p>
 
         </div>
@@ -188,7 +239,11 @@ export default function AddClient() {
               disabled={loading}
               className="px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
             >
-              {loading ? "Saving..." : "Save Client"}
+              {loading
+                ? "Saving..."
+                : isEditMode
+                  ? "Update Client"
+                  : "Save Client"}
             </button>
 
           </div>

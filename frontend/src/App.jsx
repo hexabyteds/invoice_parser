@@ -66,6 +66,7 @@ function App() {
           <Route path="clients" element={<Clients />} />
           <Route path="clients/:id" element={<ClientDetails />} />
           <Route path="clients/new" element={<AddClient />} />
+          <Route path="clients/:id/edit" element={<AddClient />} />
           <Route path="upload/:clientId" element={<Upload />} />
           <Route path="export" element={<ExportCenter />} />
           <Route path="usage" element={<Usage />} />

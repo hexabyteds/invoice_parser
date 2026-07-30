@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { getInvoice, getInvoiceSource } from "../../services/invoiceApi";
 import ExtractionQualityCard from "../../components/invoices/ExtractionQualityCard";
+import { formatDateDisplay } from "../../utils/formatDate";
 
 export default function InvoiceDetails() {
   const { id } = useParams();
@@ -150,11 +151,7 @@ export default function InvoiceDetails() {
           <InfoCard
             icon={<Calendar size={20} />}
             title="Invoice Date"
-            value={
-                invoice.invoice_date
-                  ? new Date(invoice.invoice_date).toLocaleDateString()
-                  : "-"
-              }
+            value={formatDateDisplay(invoice.invoice_date)}
           />
 
           <InfoCard

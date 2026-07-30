@@ -8,6 +8,15 @@ class ClientService {
             throw new Error("Company name is required.");
         }
 
+        const duplicate = await clientRepository.findByCompanyName(
+            userId,
+            data.company_name.trim()
+        );
+
+        if (duplicate) {
+            throw new Error("A client with this company name already exists.");
+        }
+
         await usageService.checkClientLimit(userId);
 
         const id = await clientRepository.create({
@@ -38,6 +47,20 @@ class ClientService {
 
         if (!existing) {
             throw new Error("Client not found.");
+        }
+
+        const nextName = data.company_name ?? existing.company_name;
+
+        if (nextName && nextName.trim()) {
+            const duplicate = await clientRepository.findByCompanyName(
+                userId,
+                nextName.trim(),
+                id
+            );
+
+            if (duplicate) {
+                throw new Error("A client with this company name already exists.");
+            }
         }
 
         const merged = {

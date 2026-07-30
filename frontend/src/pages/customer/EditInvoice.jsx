@@ -417,6 +417,13 @@ function SummaryCard({ title, value, currency, highlight }) {
 function toDateInput(date) {
   if (!date) return "";
 
+  // Take the calendar date directly when it's already "YYYY-MM-DD" (or
+  // starts with it) — constructing a Date object and calling
+  // toISOString() reinterprets it through a timezone and can shift the
+  // day by one whenever the server's UTC offset is positive.
+  const match = String(date).match(/^\d{4}-\d{2}-\d{2}/);
+  if (match) return match[0];
+
   const d = new Date(date);
   if (isNaN(d)) return "";
 

@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import clientApi from "../../services/clientApi.js";
 import { useNavigate } from "react-router-dom";
-import { AlertCircle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import {
+    AlertCircle,
+    ChevronLeft,
+    ChevronRight,
+    Loader2,
+    Pencil,
+    Trash2,
+} from "lucide-react";
 
 
 import {
@@ -21,7 +28,28 @@ export default function ClientDetails() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [downloading, setDownloading] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const navigate = useNavigate();
+
+    async function handleDelete() {
+        const ok = window.confirm(
+            `Delete "${client.company_name}"? This cannot be undone.`
+        );
+        if (!ok) return;
+
+        try {
+            setDeleting(true);
+            await clientApi.delete(id);
+            navigate("/dashboard/clients");
+        } catch (err) {
+            alert(
+                err.response?.data?.error ||
+                    "Could not delete client. Please try again."
+            );
+        } finally {
+            setDeleting(false);
+        }
+    }
 
     useEffect(() => {
         setPage(1);
@@ -159,17 +187,48 @@ export default function ClientDetails() {
 
             <div className="bg-slate-900 rounded-2xl p-8">
 
-                <h1 className="text-4xl font-bold">
+                <div className="flex items-start justify-between gap-4">
 
-                    {client.company_name}
+                    <div>
+                        <h1 className="text-4xl font-bold">
 
-                </h1>
+                            {client.company_name}
 
-                <p className="text-gray-400 mt-3">
+                        </h1>
 
-                    {client.contact_person}
+                        <p className="text-gray-400 mt-3">
 
-                </p>
+                            {client.contact_person}
+
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                navigate(`/dashboard/clients/${id}/edit`)
+                            }
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-600 bg-slate-800 hover:bg-slate-700 transition"
+                        >
+                            <Pencil size={16} />
+                            Edit
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-900 bg-red-950/40 text-red-400 hover:bg-red-950 transition disabled:opacity-60"
+                        >
+                            <Trash2 size={16} />
+                            {deleting ? "Deleting..." : "Delete"}
+                        </button>
+
+                    </div>
+
+                </div>
 
                 <div className="grid grid-cols-4 gap-6 mt-8">
 

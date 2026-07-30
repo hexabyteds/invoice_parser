@@ -65,7 +65,9 @@ class ClientController {
 
         } catch (err) {
 
-            const status = err.message === "Client not found." ? 404 : 500;
+            let status = 500;
+            if (err.message === "Client not found.") status = 404;
+            else if (err.message.includes("already exists")) status = 400;
 
             res.status(status).json({
                 success: false,

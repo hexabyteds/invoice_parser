@@ -55,6 +55,20 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
         return result;
     }
 
+    async findByCompanyName(userId, companyName, excludeId = null) {
+
+        const sql = excludeId
+            ? `SELECT id FROM clients WHERE user_id = ? AND LOWER(company_name) = LOWER(?) AND id != ? LIMIT 1`
+            : `SELECT id FROM clients WHERE user_id = ? AND LOWER(company_name) = LOWER(?) LIMIT 1`;
+
+        const values = excludeId
+            ? [userId, companyName, excludeId]
+            : [userId, companyName];
+
+        const [rows] = await db.execute(sql, values);
+        return rows[0];
+    }
+
     async countByUser(userId) {
 
         const [rows] = await db.execute(

@@ -16,6 +16,7 @@ import {
 } from "../../services/invoiceApi";
 import clientApi from "../../services/clientApi";
 import { useNavigate } from "react-router-dom";
+import { formatDateDisplay } from "../../utils/formatDate";
 
 const ROWS_PER_PAGE = 10;
 
@@ -226,9 +227,7 @@ export default function Invoices() {
                                             {invoice.clientName}
                                         </td>
                                         <td className="px-6 py-5 text-black">
-                                            {new Date(
-                                                invoice.invoiceDate
-                                            ).toLocaleDateString()}
+                                            {formatDateDisplay(invoice.invoiceDate)}
                                         </td>
                                         <td className="px-6 py-5 text-right font-semibold text-black">
                                             {Number(

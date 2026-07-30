@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { Loader2, Users, AlertCircle } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Loader2, Users, AlertCircle, Pencil, Trash2 } from "lucide-react";
 import clientApi from "../../services/clientApi";
 
 export default function Clients() {
 
+    const navigate = useNavigate();
     const [clients, setClients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -38,6 +39,32 @@ export default function Clients() {
 
         }
 
+    }
+
+    async function handleDelete(client, e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const ok = window.confirm(
+            `Delete "${client.company_name}"? This cannot be undone.`
+        );
+        if (!ok) return;
+
+        try {
+            await clientApi.delete(client.id);
+            await loadClients();
+        } catch (err) {
+            window.alert(
+                err.response?.data?.error ||
+                    "Could not delete client. Please try again."
+            );
+        }
+    }
+
+    function handleEdit(client, e) {
+        e.preventDefault();
+        e.stopPropagation();
+        navigate(`/dashboard/clients/${client.id}/edit`);
     }
 
     const filtered = clients.filter(client =>
@@ -160,7 +187,7 @@ export default function Clients() {
 
                                     <div className="bg-slate-900 rounded-2xl p-6 hover:border hover:border-blue-500 transition">
 
-                                        <div className="flex justify-between">
+                                        <div className="flex justify-between items-start">
 
                                             <h2 className="font-bold text-xl">
 
@@ -168,11 +195,31 @@ export default function Clients() {
 
                                             </h2>
 
-                                            <span className="text-green-400">
+                                            <div className="flex items-center gap-3">
 
-                                                {client.status}
+                                                <span className="text-green-400">
 
-                                            </span>
+                                                    {client.status}
+
+                                                </span>
+
+                                                <button
+                                                    onClick={(e) => handleEdit(client, e)}
+                                                    className="text-slate-400 hover:text-blue-400 transition"
+                                                    title="Edit client"
+                                                >
+                                                    <Pencil size={16} />
+                                                </button>
+
+                                                <button
+                                                    onClick={(e) => handleDelete(client, e)}
+                                                    className="text-slate-400 hover:text-red-500 transition"
+                                                    title="Delete client"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+
+                                            </div>
 
                                         </div>
 
