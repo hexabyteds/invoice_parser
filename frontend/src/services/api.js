@@ -12,12 +12,29 @@ const api = axios.create({
 // REQUEST INTERCEPTOR
 // ==========================================
 
+// These endpoints are meant to be called anonymously. If a stale (but
+// still-valid) token happens to be sitting in storage from a previous
+// session, we must not attach it here — otherwise a 401 caused by simply
+// entering the wrong password gets misread by the response interceptor
+// below as "the stored session expired," and force-redirects away before
+// the login page's own error handling ever runs.
+const PUBLIC_ENDPOINTS = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+];
+
 api.interceptors.request.use(
   (config) => {
 
+    const isPublicEndpoint = PUBLIC_ENDPOINTS.some((path) =>
+      config.url?.includes(path)
+    );
+
     const token = getToken();
 
-    if (token) {
+    if (token && !isPublicEndpoint) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
