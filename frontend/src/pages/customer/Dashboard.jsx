@@ -5,24 +5,46 @@ import {
   FileText,
   DollarSign,
   Receipt,
-  Eye,
-  Loader2,
-  Clock,
-  CheckCircle2,
-  ArrowRight,
   Users,
+  Calendar,
+  Wallet,
+  Loader2,
 } from "lucide-react";
 
-import { getInvoices, uploadInvoice } from "../../services/invoiceApi";
-import { getAnalytics } from "../../services/analyticsApi";
+import { uploadInvoice } from "../../services/invoiceApi";
 import clientApi from "../../services/clientApi";
+import dashboardApi from "../../services/dashboardApi";
+
+import KpiCard from "../../components/dashboard/KpiCard";
+import NeedsAttentionCard from "../../components/dashboard/NeedsAttentionCard";
+import ExtractionAccuracyCard from "../../components/dashboard/ExtractionAccuracyCard";
+import MonthlyProcessingChart from "../../components/dashboard/MonthlyProcessingChart";
+import MonthlyExpensesChart from "../../components/dashboard/MonthlyExpensesChart";
+import TopClientsChart from "../../components/dashboard/TopClientsChart";
+import ConfidenceDistributionChart from "../../components/dashboard/ConfidenceDistributionChart";
+import ClientAnalyticsTable from "../../components/dashboard/ClientAnalyticsTable";
+import RecentActivityFeed from "../../components/dashboard/RecentActivityFeed";
+import DashboardSkeleton from "../../components/dashboard/DashboardSkeleton";
+
+function formatCurrency(value) {
+  return `AED ${Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
+  const [summary, setSummary] = useState(null);
+  const [monthly, setMonthly] = useState({ invoices: [], clients: [] });
+  const [topClients, setTopClients] = useState([]);
+  const [confidenceDistribution, setConfidenceDistribution] = useState(null);
+  const [needsAttention, setNeedsAttention] = useState(null);
+  const [accuracy, setAccuracy] = useState(null);
+  const [clientAnalytics, setClientAnalytics] = useState([]);
+  const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [clientId, setClientId] = useState("");
@@ -39,38 +61,43 @@ export default function Dashboard() {
     try {
       setLoading(true);
 
-      const [invoiceRes, analyticsRes, clientRes] = await Promise.all([
-        getInvoices(),
-        getAnalytics(),
+      const [
+        clientRes,
+        summaryRes,
+        monthlyRes,
+        topClientsRes,
+        confidenceRes,
+        qualityRes,
+        clientAnalyticsRes,
+        activityRes,
+      ] = await Promise.all([
         clientApi.getAll(),
+        dashboardApi.getSummary(),
+        dashboardApi.getMonthly(),
+        dashboardApi.getTopClients(),
+        dashboardApi.getConfidenceDistribution(),
+        dashboardApi.getQuality(),
+        dashboardApi.getClientAnalytics(),
+        dashboardApi.getActivity(),
       ]);
 
-      setInvoices(invoiceRes.data.invoices || []);
-      setAnalytics(analyticsRes.data.analytics || {});
       setClients(clientRes.clients || []);
+      setSummary(summaryRes.data.summary);
+      setMonthly(monthlyRes.data.monthly);
+      setTopClients(topClientsRes.data.topClients || []);
+      setConfidenceDistribution(confidenceRes.data.distribution);
+      setNeedsAttention(qualityRes.data.needsAttention);
+      setAccuracy(qualityRes.data.accuracy);
+      setClientAnalytics(clientAnalyticsRes.data.clients || []);
+      setActivity(activityRes.data.activity || []);
     } catch (err) {
-   
+      // Individual widgets already render sensible empty states from
+      // their default prop values, so a partial/total load failure here
+      // just leaves the dashboard looking empty rather than broken.
     } finally {
       setLoading(false);
     }
   }
-
-  const recentInvoices = invoices.slice(0, 6);
-
-  const activity = invoices.slice(0, 8).map((invoice) => ({
-    id: invoice.id,
-    title: invoice.invoiceNo || "Invoice",
-    client: invoice.clientName || "Unknown client",
-    amount: `${invoice.currency || "AED"} ${Number(
-      invoice.totalAmount || 0
-    ).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`,
-    date: invoice.invoiceDate
-      ? new Date(invoice.invoiceDate).toLocaleDateString()
-      : "-",
-  }));
 
   async function handleQuickUpload() {
     if (!file) {
@@ -115,19 +142,17 @@ export default function Dashboard() {
     }
   }
 
-  const totalInvoices = Number(analytics?.totalInvoices || 0);
-  const totalRevenue = Number(analytics?.totalRevenue || 0);
-  const totalVAT = Number(analytics?.totalVAT || 0);
-  const monthlyInvoices = Number(analytics?.monthlyInvoices || 0);
-
   if (loading) {
-    return (
-      <div className="bg-white rounded-3xl border shadow-sm p-16 flex flex-col items-center justify-center">
-        <Loader2 className="animate-spin text-blue-600" size={40} />
-        <p className="mt-4 text-slate-500">Loading dashboard...</p>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
+
+  const last6 = (arr, key) => (arr || []).slice(-6).map((row) => Number(row?.[key] || 0));
+  const invoiceSeries = monthly.invoices || [];
+  const clientSeries = monthly.clients || [];
+
+  const avgValueSeries = invoiceSeries
+    .slice(-6)
+    .map((m) => (m.uploaded ? m.totalAmount / m.uploaded : 0));
 
   return (
     <div className="space-y-8">
@@ -169,37 +194,61 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+      {/* KPI Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
         <KpiCard
           title="Total Invoices"
-          value={totalInvoices}
-          icon={<FileText size={22} />}
+          value={summary?.totalInvoices.value.toLocaleString()}
+          icon={<FileText size={20} />}
           color="blue"
+          trend={summary?.totalInvoices.trend}
+          percent={summary?.totalInvoices.percent}
+          sparkline={last6(invoiceSeries, "uploaded")}
         />
         <KpiCard
-          title="Total Revenue"
-          value={`AED ${totalRevenue.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`}
-          icon={<DollarSign size={22} />}
+          title="Total Expenses"
+          value={formatCurrency(summary?.totalExpenses.value)}
+          icon={<DollarSign size={20} />}
           color="green"
+          trend={summary?.totalExpenses.trend}
+          percent={summary?.totalExpenses.percent}
+          sparkline={last6(invoiceSeries, "totalAmount")}
         />
         <KpiCard
           title="Total VAT"
-          value={`AED ${totalVAT.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`}
-          icon={<Receipt size={22} />}
+          value={formatCurrency(summary?.totalVAT.value)}
+          icon={<Receipt size={20} />}
           color="orange"
+          trend={summary?.totalVAT.trend}
+          percent={summary?.totalVAT.percent}
+          sparkline={last6(invoiceSeries, "vatAmount")}
+        />
+        <KpiCard
+          title="Total Clients"
+          value={summary?.totalClients.value.toLocaleString()}
+          icon={<Users size={20} />}
+          color="purple"
+          trend={summary?.totalClients.trend}
+          percent={summary?.totalClients.percent}
+          sparkline={last6(clientSeries, "count")}
         />
         <KpiCard
           title="This Month"
-          value={monthlyInvoices}
-          icon={<Users size={22} />}
-          color="purple"
+          value={summary?.thisMonth.value.toLocaleString()}
+          icon={<Calendar size={20} />}
+          color="teal"
+          trend={summary?.thisMonth.trend}
+          percent={summary?.thisMonth.percent}
+          sparkline={last6(invoiceSeries, "uploaded")}
+        />
+        <KpiCard
+          title="Avg Invoice Value"
+          value={formatCurrency(summary?.avgInvoiceValue.value)}
+          icon={<Wallet size={20} />}
+          color="pink"
+          trend={summary?.avgInvoiceValue.trend}
+          percent={summary?.avgInvoiceValue.percent}
+          sparkline={avgValueSeries}
         />
       </div>
 
@@ -209,130 +258,24 @@ export default function Dashboard() {
         {/* Left column */}
         <div className="xl:col-span-2 space-y-6">
 
-          {/* Recent Invoices */}
-          <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-            <div className="p-6 border-b flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-black">
-                Recent Invoices
-              </h2>
-              <button
-                onClick={() => navigate("/dashboard/invoices")}
-                className="text-blue-600 text-sm font-medium flex items-center gap-1 hover:underline"
-              >
-                View all <ArrowRight size={16} />
-              </button>
-            </div>
-
-            {recentInvoices.length === 0 ? (
-              <div className="p-10 text-center text-slate-500">
-                No invoices yet. Upload your first invoice to get started.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead className="bg-slate-50 border-b">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-slate-600">
-                        Invoice #
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-slate-600">
-                        Client
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-slate-600">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-right text-sm font-semibold text-slate-600">
-                        Amount
-                      </th>
-                      <th className="px-6 py-3 text-center text-sm font-semibold text-slate-600">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentInvoices.map((invoice) => (
-                      <tr
-                        key={invoice.id}
-                        className="border-b hover:bg-slate-50 transition"
-                      >
-                        <td className="px-6 py-4 font-semibold text-black">
-                          {invoice.invoiceNo}
-                        </td>
-                        <td className="px-6 py-4 text-black">
-                          {invoice.clientName}
-                        </td>
-                        <td className="px-6 py-4 text-black">
-                          {invoice.invoiceDate
-                            ? new Date(
-                                invoice.invoiceDate
-                              ).toLocaleDateString()
-                            : "-"}
-                        </td>
-                        <td className="px-6 py-4 text-right font-semibold text-black">
-                          {invoice.currency}{" "}
-                          {Number(invoice.totalAmount || 0).toLocaleString(
-                            undefined,
-                            {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex justify-center">
-                            <button
-                              onClick={() =>
-                                navigate(`/dashboard/invoices/${invoice.id}`)
-                              }
-                              className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition"
-                            >
-                              <Eye size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          {/* Needs Attention + Extraction Accuracy */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <NeedsAttentionCard data={needsAttention} />
+            <ExtractionAccuracyCard data={accuracy} />
           </div>
 
-          {/* Activity */}
-          <div className="bg-white rounded-2xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold text-black mb-6">
-              Invoice Activity
-            </h2>
+          {/* Monthly processing + expenses */}
+          <MonthlyProcessingChart data={invoiceSeries} />
+          <MonthlyExpensesChart data={invoiceSeries} />
 
-            {activity.length === 0 ? (
-              <p className="text-slate-500">No recent activity.</p>
-            ) : (
-              <div className="space-y-4">
-                {activity.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 hover:bg-slate-100 transition"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-                      <CheckCircle2 size={18} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-black">
-                        {item.title}
-                      </p>
-                      <p className="text-sm text-slate-500 mt-1">
-                        {item.client} · {item.amount}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-slate-400 shrink-0">
-                      <Clock size={14} />
-                      {item.date}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* Top clients + confidence distribution */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <TopClientsChart data={topClients} />
+            <ConfidenceDistributionChart data={confidenceDistribution} />
           </div>
+
+          {/* Client analytics table */}
+          <ClientAnalyticsTable clients={clientAnalytics} />
         </div>
 
         {/* Right column */}
@@ -422,84 +365,10 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* Stats */}
-          <div className="bg-white rounded-2xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold text-black mb-4">
-              Invoice Stats
-            </h2>
-
-            <div className="space-y-4">
-              <StatRow
-                label="Processed Invoices"
-                value={totalInvoices}
-              />
-              <StatRow
-                label="Revenue"
-                value={`AED ${totalRevenue.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`}
-              />
-              <StatRow
-                label="VAT Collected"
-                value={`AED ${totalVAT.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`}
-              />
-              <StatRow
-                label="Clients"
-                value={clients.length}
-              />
-              <StatRow
-                label="This Month"
-                value={monthlyInvoices}
-              />
-            </div>
-
-            <button
-              onClick={() => navigate("/dashboard/analytics")}
-              className="mt-6 w-full border border-slate-200 hover:bg-slate-50 text-black py-3 rounded-xl font-medium transition"
-            >
-              Open Analytics
-            </button>
-          </div>
+          {/* Recent Activity */}
+          <RecentActivityFeed activity={activity} />
         </div>
       </div>
-    </div>
-  );
-}
-
-function KpiCard({ title, value, icon, color }) {
-  const colors = {
-    blue: "bg-blue-50 text-blue-600",
-    green: "bg-green-50 text-green-600",
-    orange: "bg-orange-50 text-orange-600",
-    purple: "bg-purple-50 text-purple-600",
-  };
-
-  return (
-    <div className="bg-white rounded-2xl border shadow-sm p-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-slate-500">{title}</p>
-          <p className="text-2xl font-bold text-black mt-2">{value}</p>
-        </div>
-        <div
-          className={`w-12 h-12 rounded-xl flex items-center justify-center ${colors[color]}`}
-        >
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatRow({ label, value }) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-      <span className="text-slate-500 text-sm">{label}</span>
-      <span className="font-semibold text-black">{value}</span>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import Landing from "./pages/landing/Landing";
 import Price from "./pages/landing/Price";
@@ -14,7 +14,6 @@ import AdminLayout from "./layouts/AdminLayout";
 import Upload from "./pages/customer/Upload";
 import Dashboard from "./pages/customer/Dashboard";
 import Invoices from "./pages/customer/Invoices";
-import Reports from "./pages/customer/Reports";
 import Analytics from "./pages/customer/Analytics";
 import Settings from "./pages/customer/Settings";
 import InvoiceDetails from "./pages/customer/InvoiceDetails";
@@ -59,7 +58,9 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="upload" element={<Upload />} />
           <Route path="invoices" element={<Invoices />} />
-          <Route path="reports" element={<Reports />} />
+          {/* Reports & Analytics were merged into one page — keep the old
+              /reports URL working for anyone with it bookmarked. */}
+          <Route path="reports" element={<Navigate to="/dashboard/analytics" replace />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="settings" element={<Settings />} />
           <Route path="invoices/:id" element={<InvoiceDetails />} />

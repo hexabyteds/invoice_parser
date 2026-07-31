@@ -147,7 +147,7 @@ export default function Upload() {
     <div className="space-y-8">
 
       <div>
-        <h1 className="text-3xl font-bold">
+        <h1 className="text-3xl font-bold text-slate-900">
           Upload Invoice
         </h1>
 

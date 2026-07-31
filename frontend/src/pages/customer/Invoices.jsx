@@ -206,13 +206,22 @@ export default function Invoices() {
                                         Invoice #
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Client
+                                        Supplier
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
                                         Date
                                     </th>
                                     <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
+                                        Without VAT
+                                    </th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
                                         Amount
+                                    </th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
+                                        VAT
+                                    </th>
+                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
+                                        VAT Rate
                                     </th>
                                     <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
                                         Currency
@@ -237,6 +246,14 @@ export default function Invoices() {
                                         <td className="px-6 py-5 text-black">
                                             {formatDateDisplay(invoice.invoiceDate)}
                                         </td>
+                                        <td className="px-6 py-5 text-right text-black">
+                                            {Number(
+                                                invoice.subtotal || 0
+                                            ).toLocaleString(undefined, {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            })}
+                                        </td>
                                         <td className="px-6 py-5 text-right font-semibold text-black">
                                             {Number(
                                                 invoice.totalAmount
@@ -244,6 +261,17 @@ export default function Invoices() {
                                                 minimumFractionDigits: 2,
                                                 maximumFractionDigits: 2,
                                             })}
+                                        </td>
+                                        <td className="px-6 py-5 text-right text-black">
+                                            {Number(
+                                                invoice.vatAmount || 0
+                                            ).toLocaleString(undefined, {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            })}
+                                        </td>
+                                        <td className="px-6 py-5 text-center text-black">
+                                            {invoice.vatRate ? `${invoice.vatRate}%` : "-"}
                                         </td>
                                         <td className="px-6 py-5 text-center">
                                             <span className="inline-flex px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">

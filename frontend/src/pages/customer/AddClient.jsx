@@ -10,6 +10,7 @@ export default function AddClient() {
 
   const [loading, setLoading] = useState(false);
   const [loadingClient, setLoadingClient] = useState(isEditMode);
+  const [errors, setErrors] = useState({});
 
   const [form, setForm] = useState({
     company_name: "",
@@ -54,17 +55,70 @@ export default function AddClient() {
   }, [id, isEditMode, navigate]);
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
+
     setForm({
       ...form,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
+
+  const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const PHONE_PATTERN = /^[0-9+\-\s()]{7,20}$/;
+  const TRN_PATTERN = /^[0-9]+$/;
+
+  function validate() {
+    const nextErrors = {};
+
+    if (!form.company_name.trim()) {
+      nextErrors.company_name = "Company Name is required.";
+    }
+
+    if (!form.contact_person.trim()) {
+      nextErrors.contact_person = "Contact Person is required.";
+    }
+
+    if (!form.email.trim()) {
+      nextErrors.email = "Email is required.";
+    } else if (!EMAIL_PATTERN.test(form.email.trim())) {
+      nextErrors.email = "Enter a valid email address.";
+    }
+
+    if (!form.phone.trim()) {
+      nextErrors.phone = "Phone is required.";
+    } else if (!PHONE_PATTERN.test(form.phone.trim())) {
+      nextErrors.phone = "Enter a valid phone number.";
+    }
+
+    if (!form.country.trim()) {
+      nextErrors.country = "Country is required.";
+    }
+
+    if (!form.city.trim()) {
+      nextErrors.city = "City is required.";
+    }
+
+    if (!form.trn.trim()) {
+      nextErrors.trn = "TRN is required.";
+    } else if (!TRN_PATTERN.test(form.trn.trim())) {
+      nextErrors.trn = "TRN must contain digits only.";
+    }
+
+    return nextErrors;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.company_name.trim()) {
-      toast.error("Company Name is required.");
+    const nextErrors = validate();
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      toast.error("Please fix the highlighted fields.");
       return;
     }
 
@@ -105,7 +159,7 @@ export default function AddClient() {
 
         <div>
 
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold text-slate-900">
             {isEditMode ? "Edit Client" : "Add New Client"}
           </h1>
 
@@ -132,6 +186,7 @@ export default function AddClient() {
 
         <form
           onSubmit={handleSubmit}
+          noValidate
           className="lg:col-span-2 bg-slate-900 rounded-2xl p-8 border border-slate-800"
         >
 
@@ -146,49 +201,63 @@ export default function AddClient() {
               name="company_name"
               value={form.company_name}
               onChange={handleChange}
+              error={errors.company_name}
+              required
             />
 
             <Input
-              label="Contact Person"
+              label="Contact Person *"
               name="contact_person"
               value={form.contact_person}
               onChange={handleChange}
+              error={errors.contact_person}
+              required
             />
 
             <Input
-              label="Email"
+              label="Email *"
               name="email"
               type="email"
               value={form.email}
               onChange={handleChange}
+              error={errors.email}
+              required
             />
 
             <Input
-              label="Phone"
+              label="Phone *"
               name="phone"
               value={form.phone}
               onChange={handleChange}
+              error={errors.phone}
+              required
             />
 
             <Input
-              label="Country"
+              label="Country *"
               name="country"
               value={form.country}
               onChange={handleChange}
+              error={errors.country}
+              required
             />
 
             <Input
-              label="City"
+              label="City *"
               name="city"
               value={form.city}
               onChange={handleChange}
+              error={errors.city}
+              required
             />
 
             <Input
-              label="TRN"
+              label="TRN *"
               name="trn"
               value={form.trn}
               onChange={handleChange}
+              error={errors.trn}
+              required
             />
 
           </div>
@@ -356,6 +425,7 @@ export default function AddClient() {
 
 function Input({
   label,
+  error,
   ...props
 }) {
   return (
@@ -367,8 +437,16 @@ function Input({
 
       <input
         {...props}
-        className="mt-2 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-white outline-none focus:border-blue-500"
+        className={`mt-2 w-full rounded-xl bg-slate-950 border px-4 py-3 text-white outline-none focus:border-blue-500 ${
+          error ? "border-red-500" : "border-slate-700"
+        }`}
       />
+
+      {error && (
+        <p className="mt-1.5 text-sm text-red-400">
+          {error}
+        </p>
+      )}
 
     </div>
   );

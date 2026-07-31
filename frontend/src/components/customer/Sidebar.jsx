@@ -39,12 +39,7 @@ const menuItems = [
     path: "/dashboard/invoices",
   },
   {
-    title: "Reports",
-    icon: FolderOpen,
-    path: "/dashboard/reports",
-  },
-  {
-    title: "Analytics",
+    title: "Reports & Analytics",
     icon: BarChart3,
     path: "/dashboard/analytics",
   },

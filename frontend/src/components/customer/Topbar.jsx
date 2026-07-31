@@ -128,6 +128,7 @@ export default function Topbar({
             transition
             items-center
             justify-center
+            text-slate-900
           "
                 >
                     {collapsed ? (
@@ -216,7 +217,7 @@ export default function Topbar({
 
                 {/* Dark Mode */}
 
-                <button
+                {/* <button
                     onClick={toggleTheme}
                     title={isDark ? "Switch to light mode" : "Switch to dark mode"}
                     className="
@@ -238,11 +239,11 @@ export default function Topbar({
                     ) : (
                         <Moon size={18} />
                     )}
-                </button>
+                </button> */}
 
                 {/* Notifications */}
 
-                <div className="relative" ref={notificationsRef}>
+                <div className="relative text-slate-900" ref={notificationsRef}>
 
                     <button
                         onClick={() => setNotificationsOpen(!notificationsOpen)}

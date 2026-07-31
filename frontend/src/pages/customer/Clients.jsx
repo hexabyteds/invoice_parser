@@ -90,7 +90,7 @@ export default function Clients() {
 
                 <div>
 
-                    <h1 className="text-3xl font-bold">
+                    <h1 className="text-3xl font-bold text-slate-900">
                         Clients
                     </h1>
 

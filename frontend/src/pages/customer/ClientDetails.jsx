@@ -300,7 +300,7 @@ export default function ClientDetails() {
 
             </div>
 
-            <div className="grid md:grid-cols-4 gap-6">
+            {/* <div className="grid md:grid-cols-4 gap-6">
 
                 <button
                   onClick={() => navigate(`/dashboard/upload/${id}`)}
@@ -330,7 +330,7 @@ export default function ClientDetails() {
                     Analytics
                 </button>
 
-            </div>
+            </div> */}
 
             <div className="bg-slate-900 rounded-2xl p-6">
 

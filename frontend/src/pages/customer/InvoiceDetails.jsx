@@ -101,6 +101,8 @@ export default function InvoiceDetails() {
     );
   }
 
+  const hasSource = Boolean(invoice?.hasSourceFile || invoice?.image_path);
+
   return (
     <div className="space-y-8">
 
@@ -200,40 +202,6 @@ export default function InvoiceDetails() {
 
       {validation && <ExtractionQualityCard validation={validation} />}
 
-      {(invoice?.hasSourceFile || invoice?.image_path) && (
-        <div className="bg-white rounded-3xl shadow border p-8">
-          <h2 className="text-xl font-semibold mb-4 text-black">
-            Original Document
-          </h2>
-
-          {sourceLoading && (
-            <p className="text-slate-500">Loading document...</p>
-          )}
-
-          {!sourceLoading && sourceUrl && sourceKind === "image" && (
-            <img
-              src={sourceUrl}
-              alt="Uploaded invoice"
-              className="max-w-full rounded-xl border"
-            />
-          )}
-
-          {!sourceLoading && sourceUrl && sourceKind === "pdf" && (
-            <iframe
-              title="Uploaded invoice PDF"
-              src={sourceUrl}
-              className="w-full min-h-[480px] rounded-xl border"
-            />
-          )}
-
-          {!sourceLoading && !sourceUrl && (
-            <p className="text-slate-500">
-              Original file is not available on the server.
-            </p>
-          )}
-        </div>
-      )}
-
       {/* Description */}
 
       {/* <div className="bg-white rounded-3xl shadow border p-8">
@@ -285,7 +253,11 @@ export default function InvoiceDetails() {
 
       </div>
 
-      {/* Line Items */}
+      {/* Line Items — paired side-by-side with the original document
+          (when one exists) so the extracted numbers are easy to check
+          against the source file at a glance. */}
+
+      <div className={`grid gap-6 items-start ${hasSource ? "lg:grid-cols-2" : ""}`}>
 
       <div className="bg-white rounded-3xl shadow border overflow-hidden">
 
@@ -316,6 +288,14 @@ export default function InvoiceDetails() {
                 </th>
 
                 <th className="text-right px-6 py-4" style={{ color: "black" }}>
+                  Without VAT
+                </th>
+
+                <th className="text-right px-6 py-4" style={{ color: "black" }}>
+                  VAT
+                </th>
+
+                <th className="text-right px-6 py-4" style={{ color: "black" }}>
                   Total
                 </th>
 
@@ -325,38 +305,95 @@ export default function InvoiceDetails() {
 
             <tbody>
 
-              {lineItems.map((item, index) => (
+              {lineItems.map((item, index) => {
+                // item.total_price is stored pre-VAT (it sums to the
+                // invoice's Subtotal, not its VAT-inclusive Total) — line
+                // items don't store their own VAT split, so VAT and the
+                // inclusive total are derived from the invoice's overall
+                // VAT rate applied to this line's pre-tax amount.
+                const vatRate = Number(invoice.vat_rate) || 0;
+                const withoutVat = Number(item.total_price) || 0;
+                const vatAmount = withoutVat * (vatRate / 100);
+                const totalPrice = withoutVat + vatAmount;
 
-                <tr
-                  key={index}
-                  className="border-t hover:bg-slate-50"
-                >
+                return (
+                  <tr
+                    key={index}
+                    className="border-t hover:bg-slate-50"
+                  >
 
-                  <td className="px-6 py-4" style={{ color: "black" }}>
-                    {item.description}
-                  </td>
+                    <td className="px-6 py-4" style={{ color: "black" }}>
+                      {item.description}
+                    </td>
 
-                  <td className="px-6 py-4 text-center" style={{ color: "black" }}>
-                    {item.quantity}
-                  </td>
+                    <td className="px-6 py-4 text-center" style={{ color: "black" }}>
+                      {item.quantity}
+                    </td>
 
-                  <td className="px-6 py-4 text-right" style={{ color: "black" }}>
-                    {Number(item.unit_price).toFixed(2)}
-                  </td>
+                    <td className="px-6 py-4 text-right" style={{ color: "black" }}>
+                      {Number(item.unit_price).toFixed(2)}
+                    </td>
 
-                  <td className="px-6 py-4 text-right font-semibold" style={{ color: "black" }}>
-                    {Number(item.total_price).toFixed(2)}
-                  </td>
+                    <td className="px-6 py-4 text-right" style={{ color: "black" }}>
+                      {withoutVat.toFixed(2)}
+                    </td>
 
-                </tr>
+                    <td className="px-6 py-4 text-right" style={{ color: "black" }}>
+                      {vatAmount.toFixed(2)}
+                    </td>
 
-              ))}
+                    <td className="px-6 py-4 text-right font-semibold" style={{ color: "black" }}>
+                      {totalPrice.toFixed(2)}
+                    </td>
+
+                  </tr>
+                );
+              })}
 
             </tbody>
 
           </table>
 
         </div>
+
+      </div>
+
+      {hasSource && (
+        <div className="bg-white rounded-3xl shadow border p-8 lg:sticky lg:top-8">
+          <h2 className="text-xl font-semibold mb-4 text-black">
+            Original Document
+          </h2>
+
+          {sourceLoading && (
+            <p className="text-slate-500">Loading document...</p>
+          )}
+
+          {!sourceLoading && sourceUrl && sourceKind === "image" && (
+            <img
+              src={sourceUrl}
+              alt="Uploaded invoice"
+              className="max-w-full rounded-xl border"
+            />
+          )}
+
+          {!sourceLoading && sourceUrl && sourceKind === "pdf" && (
+            // #toolbar=0&navpanes=0 strips the browser's native PDF
+            // viewer chrome (toolbar, page thumbnails) so this shows
+            // just the file itself alongside the line items table.
+            <iframe
+              title="Uploaded invoice PDF"
+              src={`${sourceUrl}#toolbar=0&navpanes=0`}
+              className="w-full h-[600px] rounded-xl border"
+            />
+          )}
+
+          {!sourceLoading && !sourceUrl && (
+            <p className="text-slate-500">
+              Original file is not available on the server.
+            </p>
+          )}
+        </div>
+      )}
 
       </div>
 

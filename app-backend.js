@@ -18,8 +18,10 @@ const adminRoutes = require("./routes/adminRoutes");
 const planRoutes = require("./routes/planRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const usageRoutes = require("./routes/usageRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 const usageService = require("./services/usageService");
 const validationService = require("./services/validationService");
+const auditLogRepository = require("./repositories/auditLogRepository");
 const db = require("./config/database");
 
 const app = express();
@@ -47,6 +49,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/usage", require("./routes/usageRoutes"));
+app.use("/api/dashboard", dashboardRoutes);
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -200,6 +203,21 @@ app.post(
       }
 
       if (result.status !== "success") {
+        // Activity feed is a nice-to-have — a logging failure must never
+        // break the response, but the write itself is awaited so the
+        // dashboard reflects it immediately (no fire-and-forget race).
+        try {
+          await auditLogRepository.create({
+            userId: req.user.id,
+            clientId,
+            // A validation-object means Gemini extracted something but it
+            // wasn't a valid invoice; no validation object means a hard
+            // extraction/OCR/system failure.
+            action: result.validation ? "invoice_rejected" : "invoice_error",
+            description: result.message,
+          });
+        } catch (logErr) {}
+
         return res.status(400).json({
           success: false,
           error: result.message,
@@ -210,6 +228,24 @@ app.post(
       // PDF RESPONSE
       // ===========================
       if (extension === ".pdf") {
+
+        try {
+          await auditLogRepository.create({
+            userId: req.user.id,
+            clientId,
+            action: "invoice_uploaded",
+            description: `${result.totalInvoices} invoice(s) processed from PDF`,
+          });
+
+          if (result.meta?.failedPages > 0) {
+            await auditLogRepository.create({
+              userId: req.user.id,
+              clientId,
+              action: "invoice_error",
+              description: `${result.meta.failedPages} page(s) failed during PDF extraction`,
+            });
+          }
+        } catch (logErr) {}
 
         return res.json({
           success: true,
@@ -226,6 +262,22 @@ app.post(
 
       const invoice = result.invoice;
       const validation = result.validation;
+
+      try {
+        await auditLogRepository.create({
+          userId: req.user.id,
+          clientId,
+          action: "invoice_uploaded",
+          description: invoice.invoiceNo ? `Invoice ${invoice.invoiceNo}` : "Invoice",
+        });
+
+        await auditLogRepository.create({
+          userId: req.user.id,
+          clientId,
+          action: "invoice_processed",
+          description: `${validation.confidence}% confidence`,
+        });
+      } catch (logErr) {}
 
       return res.json({
         success: true,

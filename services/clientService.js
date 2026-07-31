@@ -1,5 +1,6 @@
 const clientRepository = require("../repositories/clientRepository");
 const usageService = require("./usageService");
+const auditLogRepository = require("../repositories/auditLogRepository");
 
 class ClientService {
 
@@ -33,6 +34,18 @@ class ClientService {
         });
 
         await usageService.incrementClients(userId);
+
+        // Activity feed is a nice-to-have — never let logging break client creation.
+        try {
+            await auditLogRepository.create({
+                userId,
+                clientId: id,
+                action: "client_added",
+                description: data.company_name,
+            });
+        } catch (err) {
+            // ignore
+        }
 
         return await clientRepository.findById(id, userId);
     }
