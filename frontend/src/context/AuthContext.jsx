@@ -63,6 +63,14 @@ export function AuthProvider({ children }) {
 
       },
 
+      updateUser(userData) {
+
+        updateStoredUser(userData);
+
+        setUser(userData);
+
+      },
+
       logout() {
 
         clearSession();

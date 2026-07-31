@@ -15,7 +15,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../hooks/useTheme";
 import { useAuth } from "../../context/AuthContext";
-import { getStoredUser } from "../../utils/authStorage";
 
 export default function Topbar({
     toggleSidebar,
@@ -31,10 +30,10 @@ export default function Topbar({
     const notificationsRef = useRef(null);
 
     const navigate = useNavigate();
-    const { logout } = useAuth();
+    const { logout, user: authUser } = useAuth();
 
     const user =
-        getStoredUser() || {
+        authUser || {
             name: "User",
             email: "user@email.com",
         };
@@ -380,7 +379,7 @@ export default function Topbar({
                             <button
                                 onClick={() => {
                                     setProfileOpen(false);
-                                    navigate("/dashboard/settings");
+                                    navigate("/dashboard/profile");
                                 }}
                                 className="
                     w-full

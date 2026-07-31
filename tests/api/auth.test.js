@@ -127,4 +127,61 @@ describe("Auth", () => {
       expect(res.body.user.email).toBe(user.email);
     });
   });
+
+  describe("PUT /api/auth/profile", () => {
+    it("requires authentication", async () => {
+      const res = await request(app)
+        .put("/api/auth/profile")
+        .send({ name: "New Name" });
+
+      expect(res.status).toBe(401);
+    });
+
+    it("updates name and company_name for the authenticated user", async () => {
+      const { token } = await registerAndLogin();
+
+      const res = await request(app)
+        .put("/api/auth/profile")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ name: "Updated Name", company_name: "Updated Co" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.user.name).toBe("Updated Name");
+      expect(res.body.user.company_name).toBe("Updated Co");
+
+      const me = await request(app)
+        .get("/api/auth/me")
+        .set("Authorization", `Bearer ${token}`);
+
+      expect(me.body.user.name).toBe("Updated Name");
+      expect(me.body.user.company_name).toBe("Updated Co");
+    });
+
+    it("rejects an empty name", async () => {
+      const { token } = await registerAndLogin();
+
+      const res = await request(app)
+        .put("/api/auth/profile")
+        .set("Authorization", `Bearer ${token}`)
+        .send({ name: "   ", company_name: "Co" });
+
+      expect(res.status).toBe(400);
+    });
+
+    it("only ever updates the authenticated caller's own profile", async () => {
+      const userA = await registerAndLogin();
+      const userB = await registerAndLogin();
+
+      await request(app)
+        .put("/api/auth/profile")
+        .set("Authorization", `Bearer ${userA.token}`)
+        .send({ name: "A's New Name" });
+
+      const meB = await request(app)
+        .get("/api/auth/me")
+        .set("Authorization", `Bearer ${userB.token}`);
+
+      expect(meB.body.user.name).not.toBe("A's New Name");
+    });
+  });
 });

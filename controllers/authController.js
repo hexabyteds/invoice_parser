@@ -76,6 +76,28 @@ class AuthController {
 
     }
 
+    async updateProfile(req, res) {
+
+        try {
+
+            const user = await authService.updateProfile(req.user.id, req.body);
+
+            res.json({
+                success: true,
+                user
+            });
+
+        } catch (err) {
+
+            res.status(400).json({
+                success: false,
+                error: err.message
+            });
+
+        }
+
+    }
+
     async forgotPassword(req, res) {
 
         try {

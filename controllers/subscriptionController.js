@@ -114,6 +114,42 @@ class SubscriptionController {
   }
 
   // =====================================================
+  // Select Plan (customer self-service — always the caller's own
+  // subscription, unlike changePlan above which is admin-only and takes
+  // an arbitrary target userId from the request body)
+  // =====================================================
+
+  async selectPlan(req, res) {
+
+    try {
+
+      const { planId, billingCycle } = req.body;
+
+      const subscription =
+        await subscriptionService.changePlan(
+          req.user.id,
+          planId,
+          billingCycle
+        );
+
+      res.json({
+        success: true,
+        message: "Plan updated successfully.",
+        subscription
+      });
+
+    } catch (err) {
+
+      res.status(400).json({
+        success: false,
+        error: err.message
+      });
+
+    }
+
+  }
+
+  // =====================================================
   // Cancel Subscription
   // =====================================================
 

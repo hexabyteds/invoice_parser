@@ -49,6 +49,11 @@ router.get("/me",
     (req, res) => authController.me(req, res)
 );
 
+router.put("/profile",
+    authMiddleware,
+    (req, res) => authController.updateProfile(req, res)
+);
+
 router.post("/forgot-password",
     forgotPasswordRateLimiter,
     (req, res) => authController.forgotPassword(req, res)

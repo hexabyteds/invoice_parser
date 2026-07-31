@@ -122,6 +122,19 @@ class AuthService {
         return toPublicUser(user);
     }
 
+    async updateProfile(id, data) {
+        if (!data.name || !data.name.trim()) {
+            throw new Error("Name is required.");
+        }
+
+        await userRepository.update(id, {
+            name: data.name.trim(),
+            company_name: (data.company_name || "").trim(),
+        });
+
+        return await this.me(id);
+    }
+
     // Deliberately never reveals whether the email is registered — the
     // "no account / inactive account" branch just returns normally, same
     // as the "sent" branch, so the caller can't distinguish them. A

@@ -86,11 +86,11 @@ class UserRepository {
       UPDATE users
       SET
         name = ?,
-        email = ?
+        company_name = ?
       WHERE id = ?
     `;
 
-    await db.execute(sql, [data.name, data.email, id]);
+    await db.execute(sql, [data.name, data.company_name ?? null, id]);
   }
 
   async updatePassword(id, password) {

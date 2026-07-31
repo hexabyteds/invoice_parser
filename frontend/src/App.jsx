@@ -16,6 +16,7 @@ import Dashboard from "./pages/customer/Dashboard";
 import Invoices from "./pages/customer/Invoices";
 import Analytics from "./pages/customer/Analytics";
 import Settings from "./pages/customer/Settings";
+import Profile from "./pages/customer/Profile";
 import InvoiceDetails from "./pages/customer/InvoiceDetails";
 import Clients from "./pages/customer/Clients";
 import ClientDetails from "./pages/customer/ClientDetails";
@@ -63,6 +64,7 @@ function App() {
           <Route path="reports" element={<Navigate to="/dashboard/analytics" replace />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="profile" element={<Profile />} />
           <Route path="invoices/:id" element={<InvoiceDetails />} />
           <Route path="clients" element={<Clients />} />
           <Route path="clients/:id" element={<ClientDetails />} />

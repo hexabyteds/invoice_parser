@@ -32,6 +32,14 @@ router.get(
   subscriptionController.getUsage
 );
 
+// Select/change own plan (self-service — always scoped to the caller,
+// unlike the admin-only /change-plan below which takes an arbitrary userId)
+router.post(
+  "/select-plan",
+  authMiddleware,
+  subscriptionController.selectPlan
+);
+
 // Cancel Own Subscription
 router.post(
   "/cancel",
