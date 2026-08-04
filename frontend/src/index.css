@@ -22,38 +22,162 @@ body {
   toggle onto the shared dashboard chrome and the most common surface/
   text utilities, so switching it genuinely changes how the app looks
   rather than just flipping the sun/moon icon.
+
+  Palette: an indigo/violet-tinted "elevated surface" scheme — the page
+  canvas sits darkest, inputs are gently recessed, and cards/panels sit
+  lightest so they visibly lift off the page instead of blending into it.
 */
 .dark body {
-  background: #0b1120;
-  color: #e2e8f0;
+  background: #090c18;
+  color: #e8eaf2;
 }
 
 .dark .bg-white,
 .dark .bg-white\/90 {
-  background-color: #111827;
+  background-color: #141833;
 }
 
 .dark .bg-slate-50 {
-  background-color: #0f172a;
+  background-color: #0e1228;
 }
 
 .dark .bg-slate-100 {
-  background-color: #1e293b;
+  background-color: #1b2044;
 }
 
 .dark .text-black,
+.dark .text-slate-900,
 .dark .text-slate-800,
 .dark .text-slate-700 {
-  color: #e2e8f0;
+  color: #eef0f8;
 }
 
+.dark .text-slate-600,
 .dark .text-slate-500,
 .dark .text-slate-400 {
-  color: #94a3b8;
+  color: #9aa3c7;
 }
 
 .dark .border-slate-200 {
-  border-color: #1f2937;
+  border-color: #262c52;
+}
+
+/* Soft pastel badges/icon chips (KPI icons, status pills, currency tags)
+   read as near-white in dark mode without this — convert them to
+   translucent, color-tinted "glass" chips instead. */
+.dark .bg-blue-50,
+.dark .bg-blue-100 {
+  background-color: rgba(99, 102, 241, 0.16);
+}
+.dark .text-blue-600,
+.dark .text-blue-700 {
+  color: #a5b4fc;
+}
+
+.dark .bg-indigo-50,
+.dark .bg-indigo-100 {
+  background-color: rgba(99, 102, 241, 0.16);
+}
+.dark .text-indigo-600,
+.dark .text-indigo-700 {
+  color: #a5b4fc;
+}
+
+.dark .bg-amber-50,
+.dark .bg-amber-100 {
+  background-color: rgba(245, 158, 11, 0.16);
+}
+.dark .text-amber-600,
+.dark .text-amber-700 {
+  color: #fcd34d;
+}
+
+.dark .bg-green-50,
+.dark .bg-green-100 {
+  background-color: rgba(16, 185, 129, 0.16);
+}
+.dark .text-green-600,
+.dark .text-green-700 {
+  color: #6ee7b7;
+}
+
+.dark .bg-orange-50 {
+  background-color: rgba(249, 115, 22, 0.16);
+}
+.dark .text-orange-600 {
+  color: #fdba74;
+}
+
+.dark .bg-purple-50 {
+  background-color: rgba(168, 85, 247, 0.16);
+}
+.dark .text-purple-600 {
+  color: #d8b4fe;
+}
+
+.dark .bg-pink-50 {
+  background-color: rgba(236, 72, 153, 0.16);
+}
+.dark .text-pink-600 {
+  color: #f9a8d4;
+}
+
+.dark .bg-teal-50 {
+  background-color: rgba(20, 184, 166, 0.16);
+}
+.dark .text-teal-600 {
+  color: #5eead4;
+}
+
+.dark .bg-red-50,
+.dark .bg-red-100 {
+  background-color: rgba(244, 63, 94, 0.16);
+}
+.dark .text-red-600,
+.dark .text-red-700 {
+  color: #fca5a5;
+}
+
+/* `hover:bg-slate-50` etc. compile to a class distinct from `bg-slate-50`
+   (Tailwind escapes the colon rather than reusing the base class), so the
+   overrides above never touched them — hover states on table rows/menus
+   were flashing back to their light-mode color. Covering the hover/focus
+   variants of the same utilities here keeps hover feedback on the dark
+   palette instead of flashing white. */
+.dark .hover\:bg-white:hover,
+.dark .hover\:bg-slate-50:hover {
+  background-color: #1a1f40;
+}
+
+.dark .hover\:bg-slate-100:hover {
+  background-color: #232951;
+}
+
+.dark .hover\:border-slate-200:hover,
+.dark .hover\:border-slate-300:hover {
+  border-color: #333a66;
+}
+
+.dark .hover\:bg-blue-50:hover,
+.dark .hover\:bg-blue-100:hover,
+.dark .hover\:bg-indigo-50:hover,
+.dark .hover\:bg-indigo-100:hover {
+  background-color: rgba(99, 102, 241, 0.24);
+}
+
+.dark .hover\:bg-green-50:hover,
+.dark .hover\:bg-green-100:hover {
+  background-color: rgba(16, 185, 129, 0.24);
+}
+
+.dark .hover\:bg-amber-50:hover,
+.dark .hover\:bg-amber-100:hover {
+  background-color: rgba(245, 158, 11, 0.24);
+}
+
+.dark .hover\:bg-red-50:hover,
+.dark .hover\:bg-red-100:hover {
+  background-color: rgba(244, 63, 94, 0.24);
 }
 
 * {
@@ -66,4 +190,26 @@ a {
 
 button {
   cursor: pointer;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #2c3260;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3d447f;
 }

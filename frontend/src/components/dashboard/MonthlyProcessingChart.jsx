@@ -30,8 +30,8 @@ export default function MonthlyProcessingChart({ data = [] }) {
           <AreaChart data={data} margin={{ top: 5, right: 10, bottom: 0, left: -10 }}>
             <defs>
               <linearGradient id="uploaded" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#2563eb" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
+                <stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="processed" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#16a34a" stopOpacity={0.35} />
@@ -70,7 +70,7 @@ export default function MonthlyProcessingChart({ data = [] }) {
               type="monotone"
               dataKey="uploaded"
               name="Uploaded"
-              stroke="#2563eb"
+              stroke="#6366f1"
               fill="url(#uploaded)"
               strokeWidth={2}
               animationDuration={800}

@@ -1,0 +1,8 @@
+# Placeholder domain — keep in sync with SITE_URL in src/utils/seo.js
+# and public/sitemap.xml once the real production domain is set.
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /admin
+
+Sitemap: https://www.eazeebooks.com/sitemap.xml

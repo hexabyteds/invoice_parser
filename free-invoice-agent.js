@@ -8,6 +8,7 @@ const pdfService = require("./services/pdfService");
 
 const invoiceRepository = require("./repositories/invoiceRepository");
 const invoiceItemRepository = require("./repositories/invoiceItemRepository");
+const { formatDate } = require("./utils/dateUtils");
 const {
     toStoredSourcePath,
     resolveUploadPath
@@ -59,7 +60,8 @@ class FreeInvoiceAgent {
         imagePath,
         userId,
         clientId,
-        sourceFilePath = imagePath
+        sourceFilePath = imagePath,
+        documentType = null
     ) {
         // Reserve OCR quota atomically before Gemini.
         await usageService.reserveOCRPages(userId, 1);
@@ -131,6 +133,7 @@ class FreeInvoiceAgent {
 
         result.invoice.user_id = userId;
         result.invoice.client_id = clientId;
+        result.invoice.document_type = documentType;
 
         const stored = this.persistSourceOnInvoice(
             result.invoice,
@@ -187,7 +190,8 @@ class FreeInvoiceAgent {
         pdfPath,
         userId,
         clientId,
-        sourceFilePath = pdfPath
+        sourceFilePath = pdfPath,
+        documentType = null
     ) {
         const pageCount = await pdfService.getPageCount(pdfPath);
     
@@ -295,7 +299,8 @@ class FreeInvoiceAgent {
     
             invoice.user_id = userId;
             invoice.client_id = clientId;
-    
+            invoice.document_type = documentType;
+
             const stored =
                 this.persistSourceOnInvoice(
                     invoice,
@@ -369,7 +374,7 @@ class FreeInvoiceAgent {
 
     async getInvoices(
         userId,
-        { limit = 20, offset = 0 } = {}
+        { limit = 20, offset = 0, documentType = null } = {}
     ) {
         const [invoices, total] =
             await Promise.all([
@@ -377,12 +382,14 @@ class FreeInvoiceAgent {
                     userId,
                     {
                         limit,
-                        offset
+                        offset,
+                        documentType
                     }
                 ),
 
                 invoiceRepository.countByUser(
-                    userId
+                    userId,
+                    documentType
                 )
             ]);
 
@@ -509,10 +516,53 @@ class FreeInvoiceAgent {
             return null;
         }
 
+        const numericFields = ["subtotal", "vat_rate", "vat_amount", "total_amount"];
+
+        for (const field of numericFields) {
+            if (data[field] === undefined || data[field] === null) continue;
+
+            const value = Number(data[field]);
+
+            if (Number.isNaN(value) || value < 0) {
+                throw new Error(
+                    `Invalid value for ${field}: must be a non-negative number.`
+                );
+            }
+        }
+
+        const dateFields = ["invoice_date", "due_date"];
+
+        for (const field of dateFields) {
+            if (!data[field]) continue;
+
+            if (!formatDate(data[field])) {
+                throw new Error(
+                    `Invalid value for ${field}: must be a valid date.`
+                );
+            }
+        }
+
+        const merged = {
+            invoice_no: data.invoice_no ?? existing.invoice_no,
+            client_name: data.client_name ?? existing.client_name,
+            invoice_date: data.invoice_date ?? existing.invoice_date,
+            due_date: data.due_date ?? existing.due_date,
+            phone_number: data.phone_number ?? existing.phone_number,
+            location: data.location ?? existing.location,
+            description: data.description ?? existing.description,
+            subtotal: data.subtotal ?? existing.subtotal,
+            vat_rate: data.vat_rate ?? existing.vat_rate,
+            vat_amount: data.vat_amount ?? existing.vat_amount,
+            total_amount: data.total_amount ?? existing.total_amount,
+            currency: data.currency ?? existing.currency,
+            trn: data.trn ?? existing.trn,
+            document_type: data.document_type ?? existing.document_type,
+        };
+
         await invoiceRepository.update(
             invoiceId,
             userId,
-            data
+            merged
         );
 
         // Replace line items if provided.
@@ -589,7 +639,10 @@ class FreeInvoiceAgent {
                     filters.from || null,
 
                 to:
-                    filters.to || null
+                    filters.to || null,
+
+                documentType:
+                    filters.documentType || null
             });
     }
 
@@ -788,7 +841,7 @@ class FreeInvoiceAgent {
     async getInvoicesByClient(
         userId,
         clientId,
-        { limit = 20, offset = 0 } = {}
+        { limit = 20, offset = 0, documentType = null } = {}
     ) {
         const [invoices, total] =
             await Promise.all([
@@ -797,13 +850,15 @@ class FreeInvoiceAgent {
                     clientId,
                     {
                         limit,
-                        offset
+                        offset,
+                        documentType
                     }
                 ),
 
                 invoiceRepository.countByClient(
                     userId,
-                    clientId
+                    clientId,
+                    documentType
                 )
             ]);
 

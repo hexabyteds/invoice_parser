@@ -73,10 +73,10 @@ export default function Sidebar({
     "flex items-center gap-4 rounded-xl px-4 py-3 transition-all duration-200";
 
   const activeNav =
-    "bg-blue-600 text-white shadow-lg";
+    "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-950/50";
 
   const inactiveNav =
-    "text-slate-300 hover:bg-slate-800 hover:text-white";
+    "text-slate-400 hover:bg-white/5 hover:text-white";
 
     return (
         <>
@@ -109,9 +109,11 @@ export default function Sidebar({
               left-0
               h-screen
               ${sidebarWidth}
-              bg-slate-950
+              bg-gradient-to-b
+              from-[#0a0e1c]
+              to-[#020510]
               border-r
-              border-slate-800
+              border-white/5
               flex
               flex-col
               transition-all
@@ -138,10 +140,10 @@ export default function Sidebar({
                 justify-between
                 px-6
                 border-b
-                border-slate-800
+                border-white/5
               "
             >
-    
+
               <div
                 className="
                   flex
@@ -149,15 +151,16 @@ export default function Sidebar({
                   gap-3
                 "
               >
-    
+
                 <div
                   className="
                     w-12
                     h-12
                     rounded-2xl
-                    bg-gradient-to-r
-                    from-blue-600
-                    to-indigo-600
+                    bg-gradient-to-br
+                    from-indigo-500
+                    via-violet-500
+                    to-purple-600
                     flex
                     items-center
                     justify-center
@@ -165,6 +168,7 @@ export default function Sidebar({
                     font-bold
                     text-xl
                     shadow-lg
+                    shadow-indigo-950/50
                   "
                 >
                   IP
@@ -278,7 +282,7 @@ export default function Sidebar({
         <div
           className="
             border-t
-            border-slate-800
+            border-white/5
             p-5
             space-y-4
           "
@@ -295,8 +299,10 @@ export default function Sidebar({
                 items-center
                 justify-between
                 rounded-xl
-                bg-slate-900
-                hover:bg-slate-800
+                bg-white/5
+                hover:bg-white/10
+                border
+                border-white/5
                 px-4
                 py-3
                 transition
@@ -307,7 +313,7 @@ export default function Sidebar({
 
                 <Bell
                   size={20}
-                  className="text-blue-400"
+                  className="text-indigo-400"
                 />
 
                 <span className="text-slate-300">
@@ -321,7 +327,9 @@ export default function Sidebar({
                   w-6
                   h-6
                   rounded-full
-                  bg-blue-600
+                  bg-gradient-to-r
+                  from-indigo-500
+                  to-violet-500
                   text-white
                   text-xs
                   flex
@@ -341,7 +349,9 @@ export default function Sidebar({
           <div
             className="
               rounded-2xl
-              bg-slate-900
+              bg-white/5
+              border
+              border-white/5
               p-4
             "
           >
@@ -359,9 +369,9 @@ export default function Sidebar({
                   w-12
                   h-12
                   rounded-full
-                  bg-gradient-to-r
-                  from-blue-500
-                  to-indigo-600
+                  bg-gradient-to-br
+                  from-indigo-500
+                  to-violet-600
                   flex
                   items-center
                   justify-center
@@ -411,9 +421,9 @@ export default function Sidebar({
               items-center
               gap-4
               rounded-xl
-              bg-red-500/10
-              hover:bg-red-500
-              text-red-400
+              bg-rose-500/10
+              hover:bg-rose-500
+              text-rose-400
               hover:text-white
               px-4
               py-3

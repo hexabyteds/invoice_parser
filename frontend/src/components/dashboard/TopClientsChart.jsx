@@ -66,7 +66,7 @@ export default function TopClientsChart({ data = [] }) {
               <Bar
                 dataKey="invoiceCount"
                 name="Invoices"
-                fill="#2563eb"
+                fill="#6366f1"
                 radius={[0, 8, 8, 0]}
                 animationDuration={800}
               />

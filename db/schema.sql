@@ -89,6 +89,7 @@ CREATE TABLE `invoices` (
   `user_id` int NOT NULL,
   `client_id` int DEFAULT NULL,
   `invoice_type` varchar(100) DEFAULT NULL,
+  `document_type` enum('supplier_invoice','bill') DEFAULT NULL,
   `invoice_no` varchar(100) DEFAULT NULL,
   `client_name` varchar(255) DEFAULT NULL,
   `invoice_date` date DEFAULT NULL,
@@ -109,6 +110,7 @@ CREATE TABLE `invoices` (
   PRIMARY KEY (`id`),
   KEY `fk_invoice_user` (`user_id`),
   KEY `fk_invoice_client` (`client_id`),
+  KEY `idx_invoices_user_document_type` (`user_id`,`document_type`),
   CONSTRAINT `fk_invoice_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_invoice_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

@@ -10,6 +10,7 @@ import { uploadInvoice } from "../../services/invoiceApi";
 import clientApi from "../../services/clientApi";
 import { useParams, useNavigate } from "react-router-dom";
 import ExtractionQualityCard from "../../components/invoices/ExtractionQualityCard";
+import { DOCUMENT_TYPES, documentTypeLabel } from "../../utils/documentTypes";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
 const MAX_FILE_SIZE_MB = 15;
@@ -46,6 +47,7 @@ export default function Upload() {
   const [error, setError] = useState("");
   const [clients, setClients] = useState([]);
   const [clientId, setClientId] = useState(routeClientId || "");
+  const [documentType, setDocumentType] = useState("");
 
   // When opened from Client Details, client is locked
   const isClientLocked = Boolean(routeClientId);
@@ -114,6 +116,11 @@ export default function Upload() {
       return;
     }
 
+    if (!documentType) {
+      setError("Please select a document type.");
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
@@ -121,6 +128,7 @@ export default function Upload() {
       const formData = new FormData();
       formData.append("image", file);
       formData.append("client_id", clientId);
+      formData.append("document_type", documentType);
 
       const response = await uploadInvoice(formData);
 
@@ -185,6 +193,30 @@ export default function Upload() {
               Client is already selected from Client Details.
             </p>
           )}
+        </div>
+
+        <div className="mb-8">
+          <label className="block mb-2 text-sm font-semibold text-black">
+            Document Type
+          </label>
+
+          <select
+            value={documentType}
+            onChange={(e) => setDocumentType(e.target.value)}
+            className="w-full rounded-xl border p-3 bg-white text-black"
+          >
+            <option value="">Select Document Type</option>
+
+            {DOCUMENT_TYPES.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+
+          <p className="text-sm text-slate-500 mt-2">
+            Select whether this document is a supplier invoice or a bill.
+          </p>
         </div>
 
         <div
@@ -274,6 +306,13 @@ export default function Upload() {
               <label className="text-slate-500">Invoice Number</label>
               <p className="font-semibold text-black">
                 {result.invoice?.invoiceNo}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-slate-500">Document Type</label>
+              <p className="font-semibold text-black">
+                {documentTypeLabel(result.invoice?.document_type)}
               </p>
             </div>
 

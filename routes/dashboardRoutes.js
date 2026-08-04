@@ -35,4 +35,8 @@ router.get("/activity", (req, res) =>
     dashboardController.getActivity(req, res)
 );
 
+router.get("/document-types", (req, res) =>
+    dashboardController.getDocumentTypeCounts(req, res)
+);
+
 module.exports = router;

@@ -13,6 +13,7 @@ class InvoiceRepository {
                 user_id,
                 client_id,
                 invoice_type,
+                document_type,
                 invoice_no,
                 client_name,
                 invoice_date,
@@ -28,13 +29,14 @@ class InvoiceRepository {
                 trn,
                 image_path
             )
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `;
-    
+
         const values = [
             invoice.user_id,
             invoice.client_id,
             invoice.invoiceType,
+            invoice.document_type || invoice.documentType || null,
             invoice.invoiceNo,
             invoice.clientName,
             formatDate(invoice.invoiceDate) || null,
@@ -80,25 +82,33 @@ class InvoiceRepository {
     // Get invoice by ID
 
     // Get invoices of one user
-    async findByUser(userId, { limit = 20, offset = 0 } = {}) {
+    async findByUser(userId, { limit = 20, offset = 0, documentType = null } = {}) {
+
+        const documentTypeFilter = documentType ? "AND document_type = ?" : "";
+        const params = documentType
+            ? [userId, documentType, limit, offset]
+            : [userId, limit, offset];
 
         const [rows] = await db.query(
             `SELECT *
              FROM invoices
-             WHERE user_id = ?
+             WHERE user_id = ? ${documentTypeFilter}
              ORDER BY created_at DESC, id DESC
              LIMIT ? OFFSET ?`,
-            [userId, limit, offset]
+            params
         );
 
         return await this.mapInvoices(rows);
     }
 
-    async countByUser(userId) {
+    async countByUser(userId, documentType = null) {
+
+        const documentTypeFilter = documentType ? "AND document_type = ?" : "";
+        const params = documentType ? [userId, documentType] : [userId];
 
         const [rows] = await db.execute(
-            `SELECT COUNT(*) AS total FROM invoices WHERE user_id = ?`,
-            [userId]
+            `SELECT COUNT(*) AS total FROM invoices WHERE user_id = ? ${documentTypeFilter}`,
+            params
         );
 
         return Number(rows[0]?.total || 0);
@@ -140,7 +150,8 @@ class InvoiceRepository {
                 vat_amount = ?,
                 total_amount = ?,
                 currency = ?,
-                trn = ?
+                trn = ?,
+                document_type = ?
             WHERE id = ?
             AND user_id = ?
         `;
@@ -159,6 +170,7 @@ class InvoiceRepository {
             invoice.total_amount ?? 0,
             invoice.currency ?? null,
             invoice.trn ?? null,
+            invoice.document_type || null,
             id,
             userId
         ];
@@ -243,7 +255,12 @@ class InvoiceRepository {
 
         return rows[0];
     }
-    async findByClient(userId, clientId, { limit = 20, offset = 0 } = {}) {
+    async findByClient(userId, clientId, { limit = 20, offset = 0, documentType = null } = {}) {
+
+        const documentTypeFilter = documentType ? "AND document_type = ?" : "";
+        const params = documentType
+            ? [userId, clientId, documentType, limit, offset]
+            : [userId, clientId, limit, offset];
 
         const [rows] = await db.query(
             `
@@ -251,29 +268,35 @@ class InvoiceRepository {
             FROM invoices
             WHERE user_id = ?
             AND client_id = ?
+            ${documentTypeFilter}
             ORDER BY created_at DESC, id DESC
             LIMIT ? OFFSET ?
             `,
-            [userId, clientId, limit, offset]
+            params
         );
-    
+
         return await this.mapInvoices(rows);
     }
 
-    async countByClient(userId, clientId) {
+    async countByClient(userId, clientId, documentType = null) {
+
+        const documentTypeFilter = documentType ? "AND document_type = ?" : "";
+        const params = documentType
+            ? [userId, clientId, documentType]
+            : [userId, clientId];
 
         const [rows] = await db.execute(
             `SELECT COUNT(*) AS total
              FROM invoices
-             WHERE user_id = ? AND client_id = ?`,
-            [userId, clientId]
+             WHERE user_id = ? AND client_id = ? ${documentTypeFilter}`,
+            params
         );
 
         return Number(rows[0]?.total || 0);
     }
 
-    // Export filter: optional client + optional date range on invoice_date
-    async findForExport(userId, { clientId = null, from = null, to = null } = {}) {
+    // Export filter: optional client + optional document type + optional date range on invoice_date
+    async findForExport(userId, { clientId = null, from = null, to = null, documentType = null } = {}) {
 
         let sql = `
             SELECT *
@@ -286,6 +309,11 @@ class InvoiceRepository {
         if (clientId) {
             sql += ` AND client_id = ?`;
             values.push(Number(clientId));
+        }
+
+        if (documentType) {
+            sql += ` AND document_type = ?`;
+            values.push(documentType);
         }
 
         if (from) {
@@ -353,6 +381,7 @@ class InvoiceRepository {
                 clientId: row.client_id,
 
                 invoiceType: row.invoice_type,
+                documentType: row.document_type,
                 invoiceNo: row.invoice_no,
                 clientName: row.client_name,
 

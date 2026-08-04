@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function Hero() {
   return (
@@ -16,33 +17,37 @@ export default function Hero() {
         >
 
           <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-400">
-            AI Powered Finance Platform
+            AI Accounting Platform
           </span>
 
-          <h1 className="mt-8 text-6xl font-black leading-tight text-white">
-            The Intelligent Platform
+          <h1 className="mt-8 text-4xl sm:text-5xl lg:text-6xl font-black leading-tight text-white text-balance">
+            Turn Any Invoice Into
             <br />
-            for Invoice Processing
-            <br />
-            & Factorization
+            Clean, Exportable Books
           </h1>
 
           <p className="mt-8 max-w-xl text-lg leading-8 text-slate-400">
-            Automate invoice extraction, AI validation,
-            financing workflows, approvals and analytics
-            from one intelligent platform.
+            Upload a PDF or photo and get structured, categorized
+            invoice data in seconds. Export straight to QuickBooks,
+            Zoho, or Xero — no manual entry, no per-seat pricing.
           </p>
 
-          <div className="mt-10 flex gap-5">
+          <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:gap-5">
 
-            <button className="flex items-center gap-2 rounded-full bg-blue-600 px-7 py-4 font-semibold hover:bg-blue-500">
-              Start Free
+            <Link
+              to="/register"
+              className="flex items-center justify-center gap-2 rounded-full bg-blue-600 px-7 py-4 font-semibold hover:bg-blue-500"
+            >
+              Start Free — No Card Required
               <ArrowRight size={18} />
-            </button>
+            </Link>
 
-            <button className="rounded-full border border-slate-700 px-7 py-4 hover:bg-slate-900">
+            <a
+              href="mailto:sales@eazeebooks.com?subject=Book%20a%20demo"
+              className="flex items-center justify-center rounded-full border border-slate-700 px-7 py-4 hover:bg-slate-900"
+            >
               Book Demo
-            </button>
+            </a>
 
           </div>
 

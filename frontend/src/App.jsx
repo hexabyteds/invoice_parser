@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 
 import Landing from "./pages/landing/Landing";
 import Price from "./pages/landing/Price";
+import LegalStub from "./pages/landing/LegalStub";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -48,6 +49,8 @@ function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/price" element={<Price />} />
         <Route path="/features" element={<Features />} />
+        <Route path="/privacy" element={<LegalStub title="Privacy Policy" />} />
+        <Route path="/terms" element={<LegalStub title="Terms of Service" />} />
         <Route
           path="/dashboard"
           element={

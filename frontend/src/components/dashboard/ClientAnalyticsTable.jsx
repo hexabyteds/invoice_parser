@@ -159,7 +159,7 @@ export default function ClientAnalyticsTable({ clients = [] }) {
           }`}
         >
           {label}
-          <Icon size={13} className={active ? "text-blue-600" : "text-slate-300"} />
+          <Icon size={13} className={active ? "text-indigo-600" : "text-slate-300"} />
         </span>
       </th>
     );
@@ -188,7 +188,7 @@ export default function ClientAnalyticsTable({ clients = [] }) {
                 setPage(1);
               }}
               placeholder="Search client..."
-              className="pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-black outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-56"
+              className="pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-black outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-56"
             />
           </div>
 
@@ -198,7 +198,7 @@ export default function ClientAnalyticsTable({ clients = [] }) {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-black outline-none focus:ring-2 focus:ring-blue-500"
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-black outline-none focus:ring-2 focus:ring-indigo-500"
           >
             {STATUS_FILTERS.map((option) => (
               <option key={option} value={option}>
@@ -304,7 +304,7 @@ export default function ClientAnalyticsTable({ clients = [] }) {
                               e.stopPropagation();
                               navigate(`/dashboard/clients/${row.id}`);
                             }}
-                            className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition"
+                            className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition"
                             title="View client"
                           >
                             <Eye size={16} />

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import clientApi from "../../services/clientApi";
 import { exportInvoices } from "../../services/reportApi";
+import { DOCUMENT_TYPES, documentTypeLabel } from "../../utils/documentTypes";
 
 const FORMATS = [
   {
@@ -74,6 +75,7 @@ export default function ExportCenter() {
 
   const [form, setForm] = useState({
     clientId: "",
+    documentType: "",
     format: "excel",
     from: "",
     to: "",
@@ -140,6 +142,7 @@ export default function ExportCenter() {
       const res = await exportInvoices({
         format: form.format,
         clientId: form.clientId || undefined,
+        documentType: form.documentType || undefined,
         from: form.from || undefined,
         to: form.to || undefined,
       });
@@ -154,6 +157,10 @@ export default function ExportCenter() {
         ? selectedClient.company_name.replace(/\s+/g, "_")
         : "all_clients";
 
+      const documentTypePart = form.documentType
+        ? `_${form.documentType}`
+        : "";
+
       const formatTag =
         form.format === "csv" ||
         form.format === "excel" ||
@@ -165,7 +172,7 @@ export default function ExportCenter() {
           : `_${form.format}`;
 
       link.href = url;
-      link.download = `invoices_${clientPart}${formatTag}_${form.from || "start"}_${form.to || "end"}.${selectedFormat.ext}`;
+      link.download = `invoices_${clientPart}${documentTypePart}${formatTag}_${form.from || "start"}_${form.to || "end"}.${selectedFormat.ext}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -216,16 +223,16 @@ export default function ExportCenter() {
 
           <div className="grid gap-5 md:grid-cols-2">
 
-            <div className="md:col-span-2">
+            <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
-                <Users size={16} className="text-blue-600" />
+                <Users size={16} className="text-indigo-600" />
                 Client
               </label>
               <select
                 value={form.clientId}
                 onChange={(e) => update("clientId", e.target.value)}
                 disabled={loadingClients}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               >
                 <option value="">All Clients</option>
                 {clients.map((client) => (
@@ -236,15 +243,34 @@ export default function ExportCenter() {
               </select>
             </div>
 
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+                <FileText size={16} className="text-indigo-600" />
+                Document Type
+              </label>
+              <select
+                value={form.documentType}
+                onChange={(e) => update("documentType", e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+              >
+                <option value="">All Types</option>
+                {DOCUMENT_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="md:col-span-2">
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
-                <FileSpreadsheet size={16} className="text-blue-600" />
+                <FileSpreadsheet size={16} className="text-indigo-600" />
                 Format
               </label>
               <select
                 value={form.format}
                 onChange={(e) => update("format", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               >
                 {FORMATS.map((format) => (
                   <option key={format.value} value={format.value}>
@@ -256,27 +282,27 @@ export default function ExportCenter() {
 
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
-                <CalendarRange size={16} className="text-blue-600" />
+                <CalendarRange size={16} className="text-indigo-600" />
                 From
               </label>
               <input
                 type="date"
                 value={form.from}
                 onChange={(e) => update("from", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               />
             </div>
 
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
-                <CalendarRange size={16} className="text-blue-600" />
+                <CalendarRange size={16} className="text-indigo-600" />
                 To
               </label>
               <input
                 type="date"
                 value={form.to}
                 onChange={(e) => update("to", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               />
             </div>
 
@@ -313,7 +339,7 @@ export default function ExportCenter() {
           <button
             type="submit"
             disabled={exporting}
-            className="inline-flex w-full md:w-auto items-center justify-center gap-2 rounded-xl bg-blue-600 px-8 py-3.5 font-semibold text-white hover:bg-blue-700 disabled:opacity-60 transition"
+            className="inline-flex w-full md:w-auto items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-8 py-3.5 font-semibold text-white hover:from-indigo-500 hover:to-violet-500 disabled:opacity-60 transition-all shadow-lg shadow-indigo-950/30"
           >
             {exporting ? (
               <Loader2 size={18} className="animate-spin" />
@@ -343,6 +369,10 @@ export default function ExportCenter() {
               value={selectedClient?.company_name || "All Clients"}
             />
             <SummaryRow
+              label="Document Type"
+              value={form.documentType ? documentTypeLabel(form.documentType) : "All Types"}
+            />
+            <SummaryRow
               label="Format"
               value={selectedFormat.label}
             />
@@ -360,7 +390,7 @@ export default function ExportCenter() {
             <div className="flex items-start gap-3">
               <selectedFormat.icon
                 size={22}
-                className="text-blue-600 mt-0.5"
+                className="text-indigo-600 mt-0.5"
               />
               <div>
                 <p className="font-semibold text-slate-800">
@@ -374,8 +404,9 @@ export default function ExportCenter() {
           </div>
 
           <p className="text-xs text-slate-400 leading-relaxed">
-            Leave dates empty to export every invoice for the selected client.
-            Date filtering uses each invoice&apos;s invoice date.
+            Leave document type as "All Types" and dates empty to export
+            every invoice for the selected client. Date filtering uses
+            each invoice&apos;s invoice date.
           </p>
 
         </div>

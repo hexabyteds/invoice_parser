@@ -36,12 +36,28 @@ const resetPasswordRateLimiter = rateLimit({
     },
 });
 
+// Unlike the reset token, a login password IS guessable, so this guards
+// against brute force — keyed on IP, same as forgot-password above.
+const loginRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => {
+        res.status(429).json({
+            success: false,
+            error: "Too many login attempts. Please try again later.",
+        });
+    },
+});
+
 router.post("/register", (req, res) =>
     authController.register(req, res)
 );
 
-router.post("/login", (req, res) =>
-    authController.login(req, res)
+router.post("/login",
+    loginRateLimiter,
+    (req, res) => authController.login(req, res)
 );
 
 router.get("/me",

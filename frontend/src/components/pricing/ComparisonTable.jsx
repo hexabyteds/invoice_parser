@@ -1,49 +1,53 @@
 import { Fragment } from "react";
 import { Check, Minus } from "lucide-react";
 
+// Column order and plan set match the live plans returned by
+// getPublicPlans() (Free / Starter / Business / Enterprise) — keep the
+// two in sync if plans change, or this table drifts from what's actually
+// sold again.
 const features = [
   {
     category: "Invoice Processing",
     items: [
       {
         name: "AI OCR Invoice Extraction",
+        free: true,
         starter: true,
-        growth: true,
         business: true,
         enterprise: true,
       },
       {
         name: "PDF & Image Upload",
+        free: true,
         starter: true,
-        growth: true,
         business: true,
         enterprise: true,
       },
       {
         name: "Bulk Upload",
+        free: false,
         starter: false,
-        growth: true,
         business: true,
         enterprise: true,
       },
       {
         name: "Multi-page PDF Support",
+        free: true,
         starter: true,
-        growth: true,
         business: true,
         enterprise: true,
       },
       {
         name: "Duplicate Detection",
+        free: false,
         starter: false,
-        growth: false,
         business: true,
         enterprise: true,
       },
       {
         name: "Manual Invoice Editing",
+        free: true,
         starter: true,
-        growth: true,
         business: true,
         enterprise: true,
       },
@@ -56,24 +60,24 @@ const features = [
     items: [
       {
         name: "Client Management",
+        free: true,
         starter: true,
-        growth: true,
         business: true,
         enterprise: true,
       },
 
       {
         name: "Unlimited Clients",
+        free: false,
         starter: false,
-        growth: true,
         business: true,
         enterprise: true,
       },
 
       {
         name: "Client Portal",
+        free: false,
         starter: false,
-        growth: false,
         business: true,
         enterprise: true,
       },
@@ -86,32 +90,32 @@ const features = [
     items: [
       {
         name: "Excel Export",
+        free: true,
         starter: true,
-        growth: true,
         business: true,
         enterprise: true,
       },
 
       {
         name: "Zoho Books Export",
+        free: false,
         starter: false,
-        growth: true,
         business: true,
         enterprise: true,
       },
 
       {
         name: "QuickBooks Export",
+        free: false,
         starter: false,
-        growth: true,
         business: true,
         enterprise: true,
       },
 
       {
         name: "Xero Export",
+        free: false,
         starter: false,
-        growth: true,
         business: true,
         enterprise: true,
       },
@@ -124,32 +128,32 @@ const features = [
     items: [
       {
         name: "Email Upload",
+        free: false,
         starter: false,
-        growth: true,
         business: true,
         enterprise: true,
       },
 
       {
         name: "WhatsApp Upload",
+        free: false,
         starter: false,
-        growth: false,
         business: true,
         enterprise: true,
       },
 
       {
         name: "Approval Workflow",
+        free: false,
         starter: false,
-        growth: false,
         business: true,
         enterprise: true,
       },
 
       {
         name: "Auto Categorization",
+        free: false,
         starter: false,
-        growth: true,
         business: true,
         enterprise: true,
       },
@@ -162,32 +166,32 @@ const features = [
     items: [
       {
         name: "SSL Encryption",
+        free: true,
         starter: true,
-        growth: true,
         business: true,
         enterprise: true,
       },
 
       {
         name: "Role Permissions",
+        free: false,
         starter: false,
-        growth: false,
         business: true,
         enterprise: true,
       },
 
       {
         name: "Audit Logs",
+        free: false,
         starter: false,
-        growth: false,
         business: true,
         enterprise: true,
       },
 
       {
         name: "Single Sign-On",
+        free: false,
         starter: false,
-        growth: false,
         business: false,
         enterprise: true,
       },
@@ -236,14 +240,14 @@ export default function ComparisonTable() {
               </th>
 
               <th className="text-center">
+                Free
+              </th>
+
+              <th className="text-center">
                 Starter
               </th>
 
               <th className="text-center text-blue-400">
-                Growth
-              </th>
-
-              <th className="text-center">
                 Business
               </th>
 
@@ -277,8 +281,8 @@ export default function ComparisonTable() {
                       {feature.name}
                     </td>
 
+                    <Cell value={feature.free} />
                     <Cell value={feature.starter} />
-                    <Cell value={feature.growth} />
                     <Cell value={feature.business} />
                     <Cell value={feature.enterprise} />
                   </tr>
@@ -291,6 +295,10 @@ export default function ComparisonTable() {
         </table>
 
       </div>
+
+      <p className="mt-4 text-center text-sm text-slate-500 md:hidden">
+        Scroll the table sideways to see all plans →
+      </p>
 
     </section>
   );

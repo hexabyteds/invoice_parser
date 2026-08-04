@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
+import { formatAed, formatUsd } from "../../utils/currency";
 
 export default function PricingCard({ plan, yearly = false }) {
   const price = yearly
@@ -49,19 +50,21 @@ export default function PricingCard({ plan, yearly = false }) {
       } bg-slate-900 p-8`}
     >
 
-      {/* Popular Badge */}
+      {/* Plan Name + Popular Badge */}
 
-      {isPopular && (
-        <div className="absolute right-6 top-6 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold">
-          Most Popular
-        </div>
-      )}
+      <div className="flex items-center justify-between gap-3">
 
-      {/* Plan Name */}
+        <h3 className="text-3xl font-bold">
+          {plan.name}
+        </h3>
 
-      <h3 className="text-3xl font-bold">
-        {plan.name}
-      </h3>
+        {isPopular && (
+          <span className="shrink-0 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold">
+            Most Popular
+          </span>
+        )}
+
+      </div>
 
       {/* Description */}
 
@@ -71,18 +74,29 @@ export default function PricingCard({ plan, yearly = false }) {
 
       {/* Price */}
 
-      <div className="mt-8 flex items-end gap-2">
+      <div className="mt-8">
 
-        <span className="text-6xl font-black">
-          {price === 0
-            ? "Free"
-            : `$${price.toLocaleString()}`}
-        </span>
+        <div className="flex items-end gap-2">
+
+          <span className="whitespace-nowrap text-4xl font-black">
+            {price === 0
+              ? "Free"
+              : formatAed(price)}
+          </span>
+
+          {price > 0 && (
+            <span className="pb-1.5 text-slate-400">
+              {billingLabel}
+            </span>
+          )}
+
+        </div>
 
         {price > 0 && (
-          <span className="pb-2 text-slate-400">
-            {billingLabel}
-          </span>
+          <p className="mt-2 text-sm text-slate-500">
+            {formatUsd(price)}
+            {billingLabel} · excl. 5% VAT
+          </p>
         )}
 
       </div>

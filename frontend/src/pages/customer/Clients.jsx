@@ -102,7 +102,7 @@ export default function Clients() {
 
                 <Link
                     to="/dashboard/clients/new"
-                    className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700"
+                    className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-lg shadow-indigo-950/40 transition-all"
                 >
                     + Add Client
                 </Link>
@@ -115,7 +115,7 @@ export default function Clients() {
                 onChange={(e) =>
                     setSearch(e.target.value)
                 }
-                className="w-full bg-slate-800 rounded-xl px-4 py-3"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
             />
 
             {
@@ -125,7 +125,7 @@ export default function Clients() {
                     <div className="py-20 flex flex-col items-center justify-center">
                         <Loader2
                             size={36}
-                            className="animate-spin text-blue-500"
+                            className="animate-spin text-indigo-500"
                         />
                         <p className="mt-4 text-gray-400">
                             Loading clients...
@@ -144,7 +144,7 @@ export default function Clients() {
                         </p>
                         <button
                             onClick={loadClients}
-                            className="mt-5 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700"
+                            className="mt-5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition-all"
                         >
                             Retry
                         </button>
@@ -163,7 +163,7 @@ export default function Clients() {
                         </p>
                         <Link
                             to="/dashboard/clients/new"
-                            className="mt-5 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700"
+                            className="mt-5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition-all"
                         >
                             + Add Client
                         </Link>
@@ -194,7 +194,7 @@ export default function Clients() {
                                     to={`/dashboard/clients/${client.id}`}
                                 >
 
-                                    <div className="bg-slate-900 rounded-2xl p-6 hover:border hover:border-blue-500 transition">
+                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-indigo-500/50 hover:bg-white/[0.07] hover:-translate-y-0.5 transition-all duration-300">
 
                                         <div className="flex justify-between items-start">
 
@@ -206,7 +206,7 @@ export default function Clients() {
 
                                             <div className="flex items-center gap-3">
 
-                                                <span className="text-green-400">
+                                                <span className="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-400">
 
                                                     {client.status}
 
@@ -214,7 +214,7 @@ export default function Clients() {
 
                                                 <button
                                                     onClick={(e) => handleEdit(client, e)}
-                                                    className="text-slate-400 hover:text-blue-400 transition"
+                                                    className="text-slate-400 hover:text-indigo-400 transition"
                                                     title="Edit client"
                                                 >
                                                     <Pencil size={16} />
@@ -222,7 +222,7 @@ export default function Clients() {
 
                                                 <button
                                                     onClick={(e) => handleDeleteClick(client, e)}
-                                                    className="text-slate-400 hover:text-red-500 transition"
+                                                    className="text-slate-400 hover:text-rose-400 transition"
                                                     title="Delete client"
                                                 >
                                                     <Trash2 size={16} />

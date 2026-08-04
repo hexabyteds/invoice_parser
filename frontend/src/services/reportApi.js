@@ -2,13 +2,14 @@
 
 import api from "./api";
 
-function buildExportParams({ clientId, from, to, format } = {}) {
+function buildExportParams({ clientId, from, to, format, documentType } = {}) {
   const params = {};
 
   if (format) params.format = format;
   if (clientId) params.client_id = clientId;
   if (from) params.from = from;
   if (to) params.to = to;
+  if (documentType) params.document_type = documentType;
 
   return params;
 }

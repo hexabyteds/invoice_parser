@@ -1,14 +1,32 @@
 const dashboardService = require("../services/dashboardService");
+const { isValidDocumentType } = require("../utils/documentTypes");
 
 function clientIdFrom(req) {
     return req.query.client_id ? Number(req.query.client_id) : null;
+}
+
+function documentTypeFrom(req) {
+    return req.query.document_type || null;
 }
 
 class DashboardController {
 
     async getSummary(req, res) {
         try {
-            const summary = await dashboardService.getSummary(req.user.id, clientIdFrom(req));
+            const documentType = documentTypeFrom(req);
+
+            if (documentType && !isValidDocumentType(documentType)) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Invalid document type.",
+                });
+            }
+
+            const summary = await dashboardService.getSummary(
+                req.user.id,
+                clientIdFrom(req),
+                documentType
+            );
             res.json({ success: true, summary });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
@@ -67,6 +85,18 @@ class DashboardController {
         try {
             const activity = await dashboardService.getActivity(req.user.id);
             res.json({ success: true, activity });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    }
+
+    async getDocumentTypeCounts(req, res) {
+        try {
+            const counts = await dashboardService.getDocumentTypeCounts(
+                req.user.id,
+                clientIdFrom(req)
+            );
+            res.json({ success: true, counts });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
         }

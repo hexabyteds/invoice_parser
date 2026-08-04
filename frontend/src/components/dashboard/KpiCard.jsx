@@ -3,6 +3,7 @@ import { AreaChart, Area, ResponsiveContainer } from "recharts";
 
 const COLORS = {
   blue: { bg: "bg-blue-50", text: "text-blue-600", stroke: "#2563eb" },
+  indigo: { bg: "bg-indigo-50", text: "text-indigo-600", stroke: "#6366f1" },
   green: { bg: "bg-green-50", text: "text-green-600", stroke: "#16a34a" },
   orange: { bg: "bg-orange-50", text: "text-orange-600", stroke: "#ea580c" },
   purple: { bg: "bg-purple-50", text: "text-purple-600", stroke: "#9333ea" },
@@ -25,7 +26,7 @@ export default function KpiCard({
     trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : Minus;
 
   const trendColor =
-    trend === "up" ? "text-green-600" : trend === "down" ? "text-red-500" : "text-slate-400";
+    trend === "up" ? "text-emerald-500" : trend === "down" ? "text-rose-500" : "text-slate-400";
 
   const chartData = sparkline.map((v, i) => ({ i, v }));
 

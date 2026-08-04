@@ -16,12 +16,17 @@ async function createClient(token, name) {
   return res.body.client.id;
 }
 
-function uploadImage(token, clientId) {
-  return request(app)
+function uploadImage(token, clientId, documentType) {
+  const req = request(app)
     .post("/api/upload")
     .set(authed(token))
-    .field("client_id", String(clientId))
-    .attach("image", samplePngBuffer(), "invoice.png");
+    .field("client_id", String(clientId));
+
+  if (documentType) {
+    req.field("document_type", documentType);
+  }
+
+  return req.attach("image", samplePngBuffer(), "invoice.png");
 }
 
 beforeEach(() => {
@@ -216,5 +221,114 @@ describe("Dashboard analytics endpoints", () => {
       monthlyA.body.monthly.invoices[monthlyA.body.monthly.invoices.length - 1];
     expect(currentMonthA.processed).toBe(1);
     expect(currentMonthA.failed).toBe(0);
+  });
+});
+
+describe("Dashboard document-type breakdown", () => {
+  it("counts supplier invoices, bills, and uncategorized documents from the database", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token, "Client A");
+
+    mockSuccessfulExtract(invoiceService);
+    await uploadImage(token, clientId, "supplier_invoice");
+
+    mockSuccessfulExtract(invoiceService);
+    await uploadImage(token, clientId, "supplier_invoice");
+
+    mockSuccessfulExtract(invoiceService);
+    await uploadImage(token, clientId, "bill");
+
+    mockSuccessfulExtract(invoiceService);
+    await uploadImage(token, clientId); // no type selected
+
+    const res = await request(app)
+      .get("/api/dashboard/document-types")
+      .set(authed(token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.counts).toEqual({
+      supplierInvoices: 2,
+      bills: 1,
+      uncategorized: 1,
+      total: 4,
+    });
+  });
+
+  it("scopes document-type counts to a single client when client_id is given", async () => {
+    const { token } = await registerAndLogin();
+    const clientA = await createClient(token, "Client A");
+    const clientB = await createClient(token, "Client B");
+
+    mockSuccessfulExtract(invoiceService);
+    await uploadImage(token, clientA, "bill");
+
+    mockSuccessfulExtract(invoiceService);
+    await uploadImage(token, clientB, "supplier_invoice");
+
+    const res = await request(app)
+      .get("/api/dashboard/document-types")
+      .query({ client_id: clientA })
+      .set(authed(token));
+
+    expect(res.body.counts).toEqual({
+      supplierInvoices: 0,
+      bills: 1,
+      uncategorized: 0,
+      total: 1,
+    });
+  });
+
+  it("requires authentication", async () => {
+    const res = await request(app).get("/api/dashboard/document-types");
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("Dashboard summary filtered by document_type", () => {
+  it("scopes the summary KPIs to a single document type", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token, "Client A");
+
+    mockSuccessfulExtract(invoiceService, { invoice: { totalAmount: 100 } });
+    await uploadImage(token, clientId, "supplier_invoice");
+
+    mockSuccessfulExtract(invoiceService, { invoice: { totalAmount: 250 } });
+    await uploadImage(token, clientId, "bill");
+
+    const supplierRes = await request(app)
+      .get("/api/dashboard/summary")
+      .query({ document_type: "supplier_invoice" })
+      .set(authed(token));
+
+    expect(supplierRes.status).toBe(200);
+    expect(supplierRes.body.summary.totalInvoices.value).toBe(1);
+    expect(supplierRes.body.summary.totalExpenses.value).toBe(100);
+
+    const billRes = await request(app)
+      .get("/api/dashboard/summary")
+      .query({ document_type: "bill" })
+      .set(authed(token));
+
+    expect(billRes.status).toBe(200);
+    expect(billRes.body.summary.totalInvoices.value).toBe(1);
+    expect(billRes.body.summary.totalExpenses.value).toBe(250);
+
+    const allRes = await request(app)
+      .get("/api/dashboard/summary")
+      .set(authed(token));
+
+    expect(allRes.body.summary.totalInvoices.value).toBe(2);
+  });
+
+  it("rejects an invalid document_type on the summary endpoint", async () => {
+    const { token } = await registerAndLogin();
+
+    const res = await request(app)
+      .get("/api/dashboard/summary")
+      .query({ document_type: "nonsense" })
+      .set(authed(token));
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
   });
 });

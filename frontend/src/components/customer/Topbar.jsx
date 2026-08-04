@@ -198,8 +198,8 @@ export default function Topbar({
               py-3
               outline-none
               focus:ring-2
-              focus:ring-blue-500
-              focus:border-blue-500
+              focus:ring-indigo-500
+              focus:border-indigo-500
               transition
             "
                     />
@@ -322,9 +322,9 @@ export default function Topbar({
                   w-11
                   h-11
                   rounded-full
-                  bg-gradient-to-r
-                  from-blue-600
-                  to-indigo-600
+                  bg-gradient-to-br
+                  from-indigo-500
+                  to-violet-600
                   text-white
                   flex
                   items-center

@@ -19,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 import { formatDateDisplay } from "../../utils/formatDate";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import toast from "react-hot-toast";
+import { DOCUMENT_TYPES, documentTypeLabel, documentTypeBadgeClass } from "../../utils/documentTypes";
 
 const ROWS_PER_PAGE = 10;
 
@@ -26,6 +27,7 @@ export default function Invoices() {
     const [invoices, setInvoices] = useState([]);
     const [clients, setClients] = useState([]);
     const [clientId, setClientId] = useState("");
+    const [documentType, setDocumentType] = useState("");
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
@@ -41,13 +43,13 @@ export default function Invoices() {
         }
     }
 
-    async function loadInvoices(selectedClientId = clientId) {
+    async function loadInvoices(selectedClientId = clientId, selectedDocumentType = documentType) {
         try {
             setLoading(true);
 
             const res = selectedClientId
-                ? await getInvoicesByClient(selectedClientId)
-                : await getInvoices();
+                ? await getInvoicesByClient(selectedClientId, selectedDocumentType)
+                : await getInvoices(selectedDocumentType);
 
             setInvoices(res.data.invoices || []);
         } catch (err) {
@@ -62,9 +64,9 @@ export default function Invoices() {
     }, []);
 
     useEffect(() => {
-        loadInvoices(clientId);
+        loadInvoices(clientId, documentType);
         setPage(1);
-    }, [clientId]);
+    }, [clientId, documentType]);
 
     useEffect(() => {
         setPage(1);
@@ -149,7 +151,7 @@ export default function Invoices() {
                             placeholder="Search invoice number, client..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-black"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
                         />
                     </div>
 
@@ -157,12 +159,27 @@ export default function Invoices() {
                         <select
                             value={clientId}
                             onChange={(e) => setClientId(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-black"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
                         >
                             <option value="">All Clients</option>
                             {clients.map((client) => (
                                 <option key={client.id} value={client.id}>
                                     {client.company_name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="md:w-72">
+                        <select
+                            value={documentType}
+                            onChange={(e) => setDocumentType(e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
+                        >
+                            <option value="">All Types</option>
+                            {DOCUMENT_TYPES.map((type) => (
+                                <option key={type.value} value={type.value}>
+                                    {type.label}
                                 </option>
                             ))}
                         </select>
@@ -176,7 +193,7 @@ export default function Invoices() {
                     <div className="py-20 flex flex-col items-center justify-center">
                         <Loader2
                             size={42}
-                            className="animate-spin text-blue-600"
+                            className="animate-spin text-indigo-600"
                         />
                         <p className="mt-4 text-slate-500">
                             Loading invoices...
@@ -207,6 +224,9 @@ export default function Invoices() {
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
                                         Supplier
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Type
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
                                         Date
@@ -243,6 +263,11 @@ export default function Invoices() {
                                         <td className="px-6 py-5 text-black">
                                             {invoice.clientName}
                                         </td>
+                                        <td className="px-6 py-5">
+                                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${documentTypeBadgeClass(invoice.documentType)}`}>
+                                                {documentTypeLabel(invoice.documentType)}
+                                            </span>
+                                        </td>
                                         <td className="px-6 py-5 text-black">
                                             {formatDateDisplay(invoice.invoiceDate)}
                                         </td>
@@ -274,7 +299,7 @@ export default function Invoices() {
                                             {invoice.vatRate ? `${invoice.vatRate}%` : "-"}
                                         </td>
                                         <td className="px-6 py-5 text-center">
-                                            <span className="inline-flex px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+                                            <span className="inline-flex px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-xs font-semibold">
                                                 {invoice.currency}
                                             </span>
                                         </td>
@@ -286,7 +311,7 @@ export default function Invoices() {
                                                             `/dashboard/invoices/${invoice.id}`
                                                         )
                                                     }
-                                                    className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition"
+                                                    className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition"
                                                 >
                                                     <Eye size={18} />
                                                 </button>
