@@ -1,5 +1,3 @@
-// src/pages/landing/Features.jsx
-
 import { motion } from "framer-motion";
 import {
   FileText,
@@ -15,6 +13,8 @@ import {
 } from "lucide-react";
 
 import Navbar from "../../components/layout/Navbar";
+import Footer from "../../components/layout/Footer";
+import CTASection from "../../components/landing/CTASection";
 import { useSeo } from "../../hooks/useSeo";
 
 const liveFeatures = [
@@ -111,13 +111,12 @@ function FeatureCard({ feature, index }) {
         group
         rounded-[22px]
         border
-        border-[#ddd9ce]
-        bg-[#fffefa]
+        border-slate-800
+        bg-slate-900
         p-7
-        shadow-[0_8px_30px_rgba(35,32,25,0.045)]
         transition-shadow
         duration-300
-        hover:shadow-[0_12px_35px_rgba(35,32,25,0.08)]
+        hover:border-slate-700
         sm:p-8
       "
     >
@@ -131,9 +130,9 @@ function FeatureCard({ feature, index }) {
           justify-center
           rounded-xl
           border
-          border-[#dedbd1]
-          bg-[#f7f5ef]
-          text-[#4f4b42]
+          border-slate-700
+          bg-slate-800
+          text-blue-400
           transition-transform
           duration-300
           group-hover:scale-105
@@ -147,7 +146,7 @@ function FeatureCard({ feature, index }) {
           text-[21px]
           font-semibold
           tracking-[-0.025em]
-          text-[#20201d]
+          text-white
         "
       >
         {feature.title}
@@ -159,7 +158,7 @@ function FeatureCard({ feature, index }) {
           text-[17px]
           leading-[1.7]
           tracking-[-0.01em]
-          text-[#747169]
+          text-slate-400
         "
       >
         {feature.description}
@@ -177,7 +176,7 @@ export default function Features() {
   });
 
   return (
-    <main className="min-h-screen bg-[#f8f7f3] text-[#20201d]">
+    <main className="min-h-screen bg-[#030712] text-white">
       <Navbar />
 
       {/* =====================================================
@@ -200,28 +199,26 @@ export default function Features() {
         >
           <p
             className="
-              font-mono
-              text-[13px]
-              font-medium
+              text-sm
+              font-semibold
               uppercase
-              tracking-[0.16em]
-              text-[#77736a]
+              tracking-[0.2em]
+              text-blue-400
             "
           >
-            PRODUCT
+            Product
           </p>
 
           <h1
             className="
               mt-7
               max-w-4xl
-              font-serif
-              text-[48px]
-              font-semibold
-              leading-[1.02]
-              tracking-[-0.035em]
-              text-[#20201d]
-              sm:text-[58px]
+              text-[44px]
+              font-black
+              leading-[1.05]
+              tracking-[-0.02em]
+              text-white
+              sm:text-[56px]
               lg:text-[64px]
             "
           >
@@ -232,11 +229,10 @@ export default function Features() {
             className="
               mt-7
               max-w-[920px]
-              text-[19px]
+              text-lg
               leading-[1.7]
-              tracking-[-0.01em]
-              text-[#77736a]
-              sm:text-[21px]
+              text-slate-400
+              sm:text-xl
             "
           >
             Everything you need to turn invoices into organized financial
@@ -252,7 +248,7 @@ export default function Features() {
 
       <section className="mx-auto max-w-[1320px] px-6 pb-24 sm:px-10 lg:px-14">
         <div className="mb-8 flex items-center gap-3">
-          <span className="h-3 w-3 rounded-full bg-[#35a968]" />
+          <span className="h-3 w-3 rounded-full bg-green-400" />
 
           <h2
             className="
@@ -260,7 +256,7 @@ export default function Features() {
               font-bold
               uppercase
               tracking-[0.08em]
-              text-[#68655d]
+              text-slate-400
             "
           >
             Live today
@@ -293,35 +289,32 @@ export default function Features() {
       <section
         className="
           border-y
-          border-[#e2dfd6]
-          bg-[#f4f2ec]
+          border-slate-800
+          bg-slate-950/60
         "
       >
         <div className="mx-auto max-w-[1320px] px-6 py-24 sm:px-10 lg:px-14">
           <div className="max-w-3xl">
             <p
               className="
-                font-mono
-                text-[13px]
-                font-medium
+                text-sm
+                font-semibold
                 uppercase
-                tracking-[0.16em]
-                text-[#77736a]
+                tracking-[0.2em]
+                text-blue-400
               "
             >
-              HOW IT WORKS
+              How it works
             </p>
 
             <h2
               className="
                 mt-6
-                font-serif
-                text-[38px]
-                font-semibold
+                text-4xl
+                font-bold
                 leading-[1.08]
-                tracking-[-0.03em]
-                text-[#20201d]
-                sm:text-[48px]
+                text-white
+                sm:text-5xl
               "
             >
               From document to usable data.
@@ -330,9 +323,9 @@ export default function Features() {
             <p
               className="
                 mt-6
-                text-[18px]
+                text-lg
                 leading-[1.7]
-                text-[#77736a]
+                text-slate-400
               "
             >
               Keep the process simple: upload an invoice, let AI extract the
@@ -369,15 +362,14 @@ export default function Features() {
       <section className="mx-auto max-w-[1320px] px-6 py-24 sm:px-10 lg:px-14">
         <p
           className="
-            font-mono
-            text-[13px]
-            font-medium
+            text-sm
+            font-semibold
             uppercase
-            tracking-[0.16em]
-            text-[#77736a]
+            tracking-[0.2em]
+            text-blue-400
           "
         >
-          THE WORKFLOW
+          The workflow
         </p>
 
         <div
@@ -386,10 +378,10 @@ export default function Features() {
             grid
             grid-cols-1
             overflow-hidden
-            rounded-[24px]
+            rounded-3xl
             border
-            border-[#ddd9ce]
-            bg-[#fffefa]
+            border-slate-800
+            bg-slate-900
             md:grid-cols-4
           "
         >
@@ -420,7 +412,7 @@ export default function Features() {
                 sm:p-9
                 ${
                   index !== 3
-                    ? "border-b border-[#e2dfd6] md:border-b-0 md:border-r"
+                    ? "border-b border-slate-800 md:border-b-0 md:border-r"
                     : ""
                 }
               `}
@@ -430,7 +422,7 @@ export default function Features() {
                   font-mono
                   text-[12px]
                   tracking-[0.12em]
-                  text-[#99958b]
+                  text-slate-500
                 "
               >
                 {number}
@@ -441,13 +433,13 @@ export default function Features() {
                   mt-5
                   text-[21px]
                   font-semibold
-                  text-[#20201d]
+                  text-white
                 "
               >
                 {title}
               </h3>
 
-              <p className="mt-3 text-[16px] text-[#77736a]">
+              <p className="mt-3 text-[16px] text-slate-400">
                 {description}
               </p>
             </motion.div>
@@ -455,112 +447,9 @@ export default function Features() {
         </div>
       </section>
 
-      {/* =====================================================
-          CTA
-      ===================================================== */}
+      <CTASection />
 
-      <section className="px-6 pb-24 sm:px-10 lg:px-14">
-        <div
-          className="
-            mx-auto
-            max-w-[1320px]
-            rounded-[28px]
-            border
-            border-[#ddd9ce]
-            bg-[#20201d]
-            px-7
-            py-14
-            text-white
-            sm:px-12
-            sm:py-16
-            lg:px-16
-          "
-        >
-          <div className="max-w-3xl">
-            <p
-              className="
-                font-mono
-                text-[13px]
-                uppercase
-                tracking-[0.16em]
-                text-[#aaa79d]
-              "
-            >
-              READY TO START?
-            </p>
-
-            <h2
-              className="
-                mt-6
-                font-serif
-                text-[38px]
-                font-semibold
-                leading-[1.08]
-                tracking-[-0.03em]
-                sm:text-[48px]
-              "
-            >
-              Turn your invoices into structured data.
-            </h2>
-
-            <p
-              className="
-                mt-6
-                max-w-2xl
-                text-[17px]
-                leading-[1.7]
-                text-[#b8b5ac]
-              "
-            >
-              Upload your first invoice and see how much manual bookkeeping
-              work you can remove from your workflow.
-            </p>
-
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <a
-                href="/register"
-                className="
-                  inline-flex
-                  items-center
-                  justify-center
-                  rounded-xl
-                  bg-white
-                  px-6
-                  py-3.5
-                  text-sm
-                  font-semibold
-                  text-[#20201d]
-                  transition
-                  hover:bg-[#ebe9e2]
-                "
-              >
-                Get started
-              </a>
-
-              <a
-                href="/pricing"
-                className="
-                  inline-flex
-                  items-center
-                  justify-center
-                  rounded-xl
-                  border
-                  border-[#55534d]
-                  px-6
-                  py-3.5
-                  text-sm
-                  font-semibold
-                  text-white
-                  transition
-                  hover:bg-[#2c2c28]
-                "
-              >
-                View pricing
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
+      <Footer />
     </main>
   );
 }
