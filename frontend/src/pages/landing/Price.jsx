@@ -4,11 +4,20 @@ import { motion } from "framer-motion";
 import { getPublicPlans } from "../../services/api";
 
 import Navbar from "../../components/layout/Navbar";
+import Footer from "../../components/layout/Footer";
 import BillingToggle from "../../components/pricing/BillingToggle";
 import PricingCard from "../../components/pricing/PricingCard";
 import ComparisonTable from "../../components/pricing/ComparisonTable";
+import { useSeo } from "../../hooks/useSeo";
 
 export default function Pricing() {
+  useSeo({
+    title: "Pricing",
+    description:
+      "Simple, transparent pricing for AI invoice processing — priced in AED, no per-user fees. Compare Free, Starter, Business, and Enterprise plans.",
+    path: "/price",
+  });
+
   const [yearly, setYearly] = useState(false);
 
   const [plans, setPlans] = useState([]);
@@ -80,12 +89,16 @@ export default function Pricing() {
           Xero and grow your business without paying per user.
         </motion.p>
 
-        <div className="mt-14 flex justify-center">
+        <div className="mt-14 flex flex-col items-center gap-3">
 
           <BillingToggle
             yearly={yearly}
             setYearly={setYearly}
           />
+
+          <p className="text-sm text-slate-500">
+            Prices shown in AED, excluding 5% UAE VAT.
+          </p>
 
         </div>
 
@@ -120,6 +133,8 @@ export default function Pricing() {
       </section>
 
       <ComparisonTable />
+
+      <Footer />
 
     </div>
   );

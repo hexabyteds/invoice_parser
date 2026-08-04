@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import Navbar from "../../components/layout/Navbar";
+import { useSeo } from "../../hooks/useSeo";
 
 const liveFeatures = [
   {
@@ -168,6 +169,13 @@ function FeatureCard({ feature, index }) {
 }
 
 export default function Features() {
+  useSeo({
+    title: "Features",
+    description:
+      "See how EazeeBooks extracts, structures, and exports invoice data with AI — upload, review, and send it straight into your accounting workflow.",
+    path: "/features",
+  });
+
   return (
     <main className="min-h-screen bg-[#f8f7f3] text-[#20201d]">
       <Navbar />
@@ -200,7 +208,7 @@ export default function Features() {
               text-[#77736a]
             "
           >
-            NAV ITEM 1 — FEATURES
+            PRODUCT
           </p>
 
           <h1
