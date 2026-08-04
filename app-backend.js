@@ -23,6 +23,7 @@ const usageService = require("./services/usageService");
 const validationService = require("./services/validationService");
 const auditLogRepository = require("./repositories/auditLogRepository");
 const db = require("./config/database");
+const { DOCUMENT_TYPES, isValidDocumentType } = require("./utils/documentTypes");
 
 const app = express();
 const UPLOADS_DIR = path.join(__dirname, "uploads");
@@ -171,6 +172,18 @@ app.post(
         });
       }
 
+      // ===========================
+      // NEW: Validate document type
+      // ===========================
+      const documentType = req.body.document_type || null;
+
+      if (documentType && !isValidDocumentType(documentType)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid document type. Must be one of: ${DOCUMENT_TYPES.join(", ")}.`,
+        });
+      }
+
       await usageService.checkStorageLimit(req.user.id, req.file.size);
       await usageService.addStorage(req.user.id, req.file.size);
 
@@ -188,7 +201,8 @@ app.post(
           req.file.path,
           req.user.id,
           clientId,
-          req.file.path
+          req.file.path,
+          documentType
         );
 
       } else {
@@ -197,7 +211,8 @@ app.post(
           req.file.path,
           req.user.id,
           clientId,
-          req.file.path
+          req.file.path,
+          documentType
         );
 
       }
@@ -286,6 +301,7 @@ app.post(
           id: invoice.id,
           client_id: invoice.client_id,   // NEW
           invoiceType: invoice.invoiceType,
+          document_type: invoice.document_type,
           clientName: invoice.clientName,
           invoiceNo: invoice.invoiceNo,
           invoiceDate: invoice.invoiceDate,
@@ -408,6 +424,15 @@ app.get("/api/invoices", authMiddleware, async (req, res) => {
       });
     }
 
+    const documentType = req.query.document_type || null;
+
+    if (documentType && !isValidDocumentType(documentType)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid document type. Must be one of: ${DOCUMENT_TYPES.join(", ")}.`,
+      });
+    }
+
     let result;
 
     if (clientId) {
@@ -423,10 +448,10 @@ app.get("/api/invoices", authMiddleware, async (req, res) => {
       result = await agent.getInvoicesByClient(
         req.user.id,
         parsedClientId,
-        { limit, offset }
+        { limit, offset, documentType }
       );
     } else {
-      result = await agent.getInvoices(req.user.id, { limit, offset });
+      result = await agent.getInvoices(req.user.id, { limit, offset, documentType });
     }
 
     res.json({
@@ -558,6 +583,16 @@ app.put(
   async (req, res) => {
 
     try {
+
+      if (
+        req.body.document_type &&
+        !isValidDocumentType(req.body.document_type)
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid document type. Must be one of: ${DOCUMENT_TYPES.join(", ")}.`,
+        });
+      }
 
       const updated = await agent.updateInvoice(
         req.params.id,
@@ -692,13 +727,32 @@ function getExportFilters(query = {}) {
     clientId: query.client_id ? Number(query.client_id) : null,
     from: query.from || null,
     to: query.to || null,
+    documentType: query.document_type || null,
   };
+}
+
+// Shared by all export routes — returns true (and has already sent the
+// 400 response) when an invalid document_type was requested.
+function rejectInvalidExportDocumentType(req, res) {
+  const documentType = req.query.document_type;
+
+  if (documentType && !isValidDocumentType(documentType)) {
+    res.status(400).json({
+      success: false,
+      error: `Invalid document type. Must be one of: ${DOCUMENT_TYPES.join(", ")}.`,
+    });
+    return true;
+  }
+
+  return false;
 }
 
 // Download Excel (regenerate from DB — one row per line item)
 // Supports: ?client_id=&from=YYYY-MM-DD&to=YYYY-MM-DD
 app.get("/api/download-excel", authMiddleware, async (req, res) => {
   try {
+    if (rejectInvalidExportDocumentType(req, res)) return;
+
     const filters = getExportFilters(req.query);
 
     console.log("DOWNLOAD EXCEL", {
@@ -732,6 +786,8 @@ app.get("/api/download-excel", authMiddleware, async (req, res) => {
 // Supports: ?format=&client_id=&from=YYYY-MM-DD&to=YYYY-MM-DD
 app.get("/api/export", authMiddleware, async (req, res) => {
   try {
+    if (rejectInvalidExportDocumentType(req, res)) return;
+
     const format = String(req.query.format || "excel").toLowerCase();
     const filters = getExportFilters(req.query);
     const prefix = filters.clientId
@@ -819,6 +875,8 @@ app.get("/api/export", authMiddleware, async (req, res) => {
 app.get("/api/report", authMiddleware, async (req, res) => {
 
   try {
+    if (rejectInvalidExportDocumentType(req, res)) return;
+
     const filters = getExportFilters(req.query);
 
     const reportFile = await agent.generateHTMLReport(

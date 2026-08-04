@@ -44,10 +44,20 @@ function lastMonths(count) {
 
 class DashboardRepository {
 
-    async getSummary(userId, clientId = null) {
+    async getSummary(userId, clientId = null, documentType = null) {
 
-        const invoiceParams = clientId ? [userId, clientId] : [userId];
-        const clientFilter = clientId ? "AND client_id = ?" : "";
+        const invoiceParams = [userId];
+        let clientFilter = "";
+
+        if (clientId) {
+            clientFilter += " AND client_id = ?";
+            invoiceParams.push(clientId);
+        }
+
+        if (documentType) {
+            clientFilter += " AND document_type = ?";
+            invoiceParams.push(documentType);
+        }
 
         const [[invoiceRow]] = await db.execute(
             `
@@ -376,6 +386,38 @@ class DashboardRepository {
             accuracy: entry.processed ? Math.round(entry.confidenceSum / entry.processed) : 0,
             lastActive: entry.lastActive,
         }));
+    }
+
+    // Category-wise totals (Supplier Invoice / Bill / Uncategorized) for
+    // dashboard/reporting — queryable by document_type per client request.
+    async getDocumentTypeCounts(userId, clientId = null) {
+
+        const clientFilter = clientId ? "AND client_id = ?" : "";
+        const params = clientId ? [userId, clientId] : [userId];
+
+        const [rows] = await db.execute(
+            `
+            SELECT document_type AS documentType, COUNT(*) AS count
+            FROM invoices
+            WHERE user_id = ? ${clientFilter}
+            GROUP BY document_type
+            `,
+            params
+        );
+
+        const counts = { supplierInvoices: 0, bills: 0, uncategorized: 0 };
+        let total = 0;
+
+        for (const row of rows) {
+            const count = Number(row.count);
+            total += count;
+
+            if (row.documentType === "supplier_invoice") counts.supplierInvoices = count;
+            else if (row.documentType === "bill") counts.bills = count;
+            else counts.uncategorized = count;
+        }
+
+        return { ...counts, total };
     }
 
     async getActivity(userId, limit = 15) {

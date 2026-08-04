@@ -14,9 +14,9 @@ function calcDelta(current, previous) {
 
 class DashboardService {
 
-    async getSummary(userId, clientId = null) {
+    async getSummary(userId, clientId = null, documentType = null) {
 
-        const s = await dashboardRepository.getSummary(userId, clientId);
+        const s = await dashboardRepository.getSummary(userId, clientId, documentType);
 
         const summary = {
             totalInvoices: {
@@ -75,6 +75,10 @@ class DashboardService {
 
     async getActivity(userId) {
         return await dashboardRepository.getActivity(userId, 15);
+    }
+
+    async getDocumentTypeCounts(userId, clientId = null) {
+        return await dashboardRepository.getDocumentTypeCounts(userId, clientId);
     }
 }
 

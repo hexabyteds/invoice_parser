@@ -18,12 +18,17 @@ async function createClient(token, name = "Upload Client") {
   return res.body.client.id;
 }
 
-function uploadImage(token, clientId, filename = "invoice.png") {
-  return request(app)
+function uploadImage(token, clientId, filename = "invoice.png", documentType) {
+  const req = request(app)
     .post("/api/upload")
     .set(authed(token))
-    .field("client_id", String(clientId))
-    .attach("image", samplePngBuffer(), filename);
+    .field("client_id", String(clientId));
+
+  if (documentType !== undefined) {
+    req.field("document_type", documentType);
+  }
+
+  return req.attach("image", samplePngBuffer(), filename);
 }
 
 beforeEach(() => {
@@ -130,6 +135,126 @@ describe("Invoice upload + parsing (Gemini mocked)", () => {
       .attach("image", samplePngBuffer(), "invoice.png");
 
     expect(res.status).toBe(401);
+  });
+});
+
+describe("Invoice document type (category)", () => {
+  it("uploads a Supplier Invoice and persists the type", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    mockSuccessfulExtract(invoiceService);
+
+    const res = await uploadImage(token, clientId, "invoice.png", "supplier_invoice");
+
+    expect(res.status).toBe(200);
+    expect(res.body.invoice.document_type).toBe("supplier_invoice");
+  });
+
+  it("uploads a Bill and persists the type", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    mockSuccessfulExtract(invoiceService);
+
+    const res = await uploadImage(token, clientId, "invoice.png", "bill");
+
+    expect(res.status).toBe(200);
+    expect(res.body.invoice.document_type).toBe("bill");
+  });
+
+  it("rejects an unsupported document type", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    mockSuccessfulExtract(invoiceService);
+
+    const res = await uploadImage(token, clientId, "invoice.png", "not_a_real_type");
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toMatch(/invalid document type/i);
+  });
+
+  it("still accepts an upload with no document type (legacy/back-compat)", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    mockSuccessfulExtract(invoiceService);
+
+    const res = await uploadImage(token, clientId);
+
+    expect(res.status).toBe(200);
+    expect(res.body.invoice.document_type).toBeFalsy();
+  });
+
+  it("filters the invoice list by document_type", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+
+    mockSuccessfulExtract(invoiceService);
+    await uploadImage(token, clientId, "supplier.png", "supplier_invoice");
+
+    mockSuccessfulExtract(invoiceService);
+    await uploadImage(token, clientId, "bill.png", "bill");
+
+    const supplierRes = await request(app)
+      .get("/api/invoices?document_type=supplier_invoice")
+      .set(authed(token));
+
+    expect(supplierRes.status).toBe(200);
+    expect(supplierRes.body.invoices).toHaveLength(1);
+    expect(supplierRes.body.invoices[0].documentType).toBe("supplier_invoice");
+
+    const billRes = await request(app)
+      .get("/api/invoices?document_type=bill")
+      .set(authed(token));
+
+    expect(billRes.status).toBe(200);
+    expect(billRes.body.invoices).toHaveLength(1);
+    expect(billRes.body.invoices[0].documentType).toBe("bill");
+
+    const allRes = await request(app).get("/api/invoices").set(authed(token));
+    expect(allRes.body.invoices).toHaveLength(2);
+  });
+
+  it("rejects an invalid document_type filter on the list endpoint", async () => {
+    const { token } = await registerAndLogin();
+
+    const res = await request(app)
+      .get("/api/invoices?document_type=nonsense")
+      .set(authed(token));
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("updates an invoice's document type via edit", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    mockSuccessfulExtract(invoiceService);
+    const uploadRes = await uploadImage(token, clientId, "invoice.png", "supplier_invoice");
+    const invoice = uploadRes.body.invoice;
+
+    const res = await request(app)
+      .put(`/api/invoices/${invoice.id}`)
+      .set(authed(token))
+      .send({ document_type: "bill" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.invoice.document_type).toBe("bill");
+  });
+
+  it("rejects an invalid document type on edit", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    mockSuccessfulExtract(invoiceService);
+    const uploadRes = await uploadImage(token, clientId, "invoice.png", "bill");
+    const invoice = uploadRes.body.invoice;
+
+    const res = await request(app)
+      .put(`/api/invoices/${invoice.id}`)
+      .set(authed(token))
+      .send({ document_type: "totally_invalid" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
   });
 });
 

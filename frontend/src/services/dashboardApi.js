@@ -1,8 +1,13 @@
 import api from "./api";
 
 const dashboardApi = {
-  getSummary: (clientId = null) =>
-    api.get("/dashboard/summary", { params: clientId ? { client_id: clientId } : {} }),
+  getSummary: (clientId = null, documentType = null) =>
+    api.get("/dashboard/summary", {
+      params: {
+        ...(clientId ? { client_id: clientId } : {}),
+        ...(documentType ? { document_type: documentType } : {}),
+      },
+    }),
   getMonthly: (clientId = null) =>
     api.get("/dashboard/monthly", { params: clientId ? { client_id: clientId } : {} }),
   getTopClients: () => api.get("/dashboard/top-clients"),

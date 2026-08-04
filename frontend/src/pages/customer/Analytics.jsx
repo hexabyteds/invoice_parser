@@ -25,6 +25,7 @@ import MonthlyExpensesChart from "../../components/dashboard/MonthlyExpensesChar
 import TopClientsChart from "../../components/dashboard/TopClientsChart";
 import ConfidenceDistributionChart from "../../components/dashboard/ConfidenceDistributionChart";
 import DashboardSkeleton from "../../components/dashboard/DashboardSkeleton";
+import { DOCUMENT_TYPES } from "../../utils/documentTypes";
 
 function formatCurrency(value) {
   return `AED ${Number(value || 0).toLocaleString(undefined, {
@@ -39,6 +40,7 @@ export default function Analytics() {
 
   const [clientId, setClientId] = useState(searchParams.get("client") || "");
   const [clients, setClients] = useState([]);
+  const [documentType, setDocumentType] = useState("");
 
   const [summary, setSummary] = useState(null);
   const [monthly, setMonthly] = useState({ invoices: [], clients: [] });
@@ -62,9 +64,9 @@ export default function Analytics() {
   }, [searchParams]);
 
   useEffect(() => {
-    loadAnalytics(clientId);
+    loadAnalytics(clientId, documentType);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
+  }, [clientId, documentType]);
 
   async function loadClients() {
     try {
@@ -75,7 +77,7 @@ export default function Analytics() {
     }
   }
 
-  async function loadAnalytics(selectedClientId) {
+  async function loadAnalytics(selectedClientId, selectedDocumentType) {
     try {
       setLoading(true);
 
@@ -83,7 +85,7 @@ export default function Analytics() {
 
       const [summaryRes, monthlyRes, confidenceRes, invoiceRes, topClientsRes] =
         await Promise.all([
-          dashboardApi.getSummary(numericClientId),
+          dashboardApi.getSummary(numericClientId, selectedDocumentType || null),
           dashboardApi.getMonthly(numericClientId),
           dashboardApi.getConfidenceDistribution(numericClientId),
           numericClientId
@@ -181,7 +183,7 @@ export default function Analytics() {
 
           <button
             onClick={() => handleExport("html")}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-medium transition"
+            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white px-5 py-3 rounded-xl font-medium transition-all"
           >
             <FileTextIcon size={18} />
             HTML Report
@@ -198,22 +200,42 @@ export default function Analytics() {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-        <div className="md:w-72">
-          <label className="block mb-2 text-sm font-semibold text-black">
-            Select Client
-          </label>
-          <select
-            value={clientId}
-            onChange={(e) => handleClientChange(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-black"
-          >
-            <option value="">All Clients</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.company_name}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="md:w-72">
+            <label className="block mb-2 text-sm font-semibold text-black">
+              Select Client
+            </label>
+            <select
+              value={clientId}
+              onChange={(e) => handleClientChange(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
+            >
+              <option value="">All Clients</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.company_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="md:w-72">
+            <label className="block mb-2 text-sm font-semibold text-black">
+              Document Type
+            </label>
+            <select
+              value={documentType}
+              onChange={(e) => setDocumentType(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
+            >
+              <option value="">All Types</option>
+              {DOCUMENT_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -223,7 +245,7 @@ export default function Analytics() {
           title="Total Invoices"
           value={summary?.totalInvoices.value.toLocaleString()}
           icon={<FileText size={20} />}
-          color="blue"
+          color="indigo"
           trend={summary?.totalInvoices.trend}
           percent={summary?.totalInvoices.percent}
           sparkline={last6(invoiceSeries, "uploaded")}
@@ -292,7 +314,7 @@ export default function Analytics() {
           <h2 className="text-xl font-semibold text-black">Recent Invoices</h2>
           <button
             onClick={() => navigate("/dashboard/invoices")}
-            className="text-blue-600 text-sm font-medium hover:underline"
+            className="text-indigo-600 text-sm font-medium hover:underline"
           >
             View all
           </button>
@@ -331,7 +353,7 @@ export default function Analytics() {
                       <div className="flex justify-center">
                         <button
                           onClick={() => navigate(`/dashboard/invoices/${invoice.id}`)}
-                          className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition"
+                          className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition"
                         >
                           <Eye size={16} />
                         </button>

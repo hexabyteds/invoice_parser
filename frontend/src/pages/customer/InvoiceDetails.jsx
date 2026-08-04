@@ -11,10 +11,12 @@ import {
   MapPin,
   FileText,
   BadgeDollarSign,
+  Tag,
 } from "lucide-react";
 import { getInvoice, getInvoiceSource } from "../../services/invoiceApi";
 import ExtractionQualityCard from "../../components/invoices/ExtractionQualityCard";
 import { formatDateDisplay } from "../../utils/formatDate";
+import { documentTypeLabel } from "../../utils/documentTypes";
 
 export default function InvoiceDetails() {
   const { id } = useParams();
@@ -120,11 +122,11 @@ export default function InvoiceDetails() {
             Back
           </button>
 
-          <h1 className="text-3xl font-bold" style={{ color: "black" }}>
+          <h1 className="text-3xl font-bold text-black">
             Invoice Details
           </h1>
 
-          <p className="text-slate-500 mt-2" style={{ color: "black" }}>
+          <p className="text-slate-500 mt-2">
             Complete extracted invoice information.
           </p>
 
@@ -142,6 +144,12 @@ export default function InvoiceDetails() {
             icon={<Receipt size={20} />}
             title="Invoice Number"
             value={invoice.invoice_no}
+          />
+
+          <InfoCard
+            icon={<Tag size={20} />}
+            title="Document Type"
+            value={documentTypeLabel(invoice.document_type)}
           />
 
           <InfoCard
@@ -263,7 +271,7 @@ export default function InvoiceDetails() {
 
         <div className="p-6 border-b">
 
-          <h2 className="text-xl font-semibold" style={{ color: "black" }}>
+          <h2 className="text-xl font-semibold text-black">
             Line Items ({lineItems.length})
           </h2>
 
@@ -279,23 +287,23 @@ export default function InvoiceDetails() {
 
                 <th className="text-left px-6 py-4 text-black">Description</th>
 
-                <th className="text-center px-6 py-4" style={{ color: "black" }}>
+                <th className="text-center px-6 py-4 text-black">
                   Qty
                 </th>
 
-                <th className="text-right px-6 py-4" style={{ color: "black" }}>
+                <th className="text-right px-6 py-4 text-black">
                   Unit Price
                 </th>
 
-                <th className="text-right px-6 py-4" style={{ color: "black" }}>
+                <th className="text-right px-6 py-4 text-black">
                   Without VAT
                 </th>
 
-                <th className="text-right px-6 py-4" style={{ color: "black" }}>
+                <th className="text-right px-6 py-4 text-black">
                   VAT
                 </th>
 
-                <th className="text-right px-6 py-4" style={{ color: "black" }}>
+                <th className="text-right px-6 py-4 text-black">
                   Total
                 </th>
 
@@ -322,27 +330,27 @@ export default function InvoiceDetails() {
                     className="border-t hover:bg-slate-50"
                   >
 
-                    <td className="px-6 py-4" style={{ color: "black" }}>
+                    <td className="px-6 py-4 text-black">
                       {item.description}
                     </td>
 
-                    <td className="px-6 py-4 text-center" style={{ color: "black" }}>
+                    <td className="px-6 py-4 text-center text-black">
                       {item.quantity}
                     </td>
 
-                    <td className="px-6 py-4 text-right" style={{ color: "black" }}>
+                    <td className="px-6 py-4 text-right text-black">
                       {Number(item.unit_price).toFixed(2)}
                     </td>
 
-                    <td className="px-6 py-4 text-right" style={{ color: "black" }}>
+                    <td className="px-6 py-4 text-right text-black">
                       {withoutVat.toFixed(2)}
                     </td>
 
-                    <td className="px-6 py-4 text-right" style={{ color: "black" }}>
+                    <td className="px-6 py-4 text-right text-black">
                       {vatAmount.toFixed(2)}
                     </td>
 
-                    <td className="px-6 py-4 text-right font-semibold" style={{ color: "black" }}>
+                    <td className="px-6 py-4 text-right font-semibold text-black">
                       {totalPrice.toFixed(2)}
                     </td>
 

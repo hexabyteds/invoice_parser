@@ -59,7 +59,8 @@ class FreeInvoiceAgent {
         imagePath,
         userId,
         clientId,
-        sourceFilePath = imagePath
+        sourceFilePath = imagePath,
+        documentType = null
     ) {
         // Reserve OCR quota atomically before Gemini.
         await usageService.reserveOCRPages(userId, 1);
@@ -131,6 +132,7 @@ class FreeInvoiceAgent {
 
         result.invoice.user_id = userId;
         result.invoice.client_id = clientId;
+        result.invoice.document_type = documentType;
 
         const stored = this.persistSourceOnInvoice(
             result.invoice,
@@ -187,7 +189,8 @@ class FreeInvoiceAgent {
         pdfPath,
         userId,
         clientId,
-        sourceFilePath = pdfPath
+        sourceFilePath = pdfPath,
+        documentType = null
     ) {
         const pageCount = await pdfService.getPageCount(pdfPath);
     
@@ -295,7 +298,8 @@ class FreeInvoiceAgent {
     
             invoice.user_id = userId;
             invoice.client_id = clientId;
-    
+            invoice.document_type = documentType;
+
             const stored =
                 this.persistSourceOnInvoice(
                     invoice,
@@ -369,7 +373,7 @@ class FreeInvoiceAgent {
 
     async getInvoices(
         userId,
-        { limit = 20, offset = 0 } = {}
+        { limit = 20, offset = 0, documentType = null } = {}
     ) {
         const [invoices, total] =
             await Promise.all([
@@ -377,12 +381,14 @@ class FreeInvoiceAgent {
                     userId,
                     {
                         limit,
-                        offset
+                        offset,
+                        documentType
                     }
                 ),
 
                 invoiceRepository.countByUser(
-                    userId
+                    userId,
+                    documentType
                 )
             ]);
 
@@ -589,7 +595,10 @@ class FreeInvoiceAgent {
                     filters.from || null,
 
                 to:
-                    filters.to || null
+                    filters.to || null,
+
+                documentType:
+                    filters.documentType || null
             });
     }
 
@@ -788,7 +797,7 @@ class FreeInvoiceAgent {
     async getInvoicesByClient(
         userId,
         clientId,
-        { limit = 20, offset = 0 } = {}
+        { limit = 20, offset = 0, documentType = null } = {}
     ) {
         const [invoices, total] =
             await Promise.all([
@@ -797,13 +806,15 @@ class FreeInvoiceAgent {
                     clientId,
                     {
                         limit,
-                        offset
+                        offset,
+                        documentType
                     }
                 ),
 
                 invoiceRepository.countByClient(
                     userId,
-                    clientId
+                    clientId,
+                    documentType
                 )
             ]);
 

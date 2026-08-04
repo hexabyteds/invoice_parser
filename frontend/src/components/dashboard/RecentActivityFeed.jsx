@@ -11,7 +11,7 @@ const ACTION_META = {
   invoice_uploaded: {
     label: "Invoice Uploaded",
     icon: <UploadCloud size={16} />,
-    tone: "bg-blue-100 text-blue-600",
+    tone: "bg-indigo-100 text-indigo-600",
   },
   invoice_processed: {
     label: "OCR Completed",

@@ -158,13 +158,13 @@ export default function Dashboard() {
     <div className="space-y-8">
 
       {/* Welcome Banner */}
-      <section className="rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white p-8 shadow-xl overflow-hidden relative">
+      <section className="rounded-3xl bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 text-white p-8 shadow-xl overflow-hidden relative">
         <div className="absolute -right-16 -top-16 w-60 h-60 rounded-full bg-white/10 blur-3xl" />
 
         <div className="relative z-10">
           <h1 className="text-4xl font-bold">Welcome back 👋</h1>
 
-          <p className="mt-3 text-blue-100 max-w-2xl">
+          <p className="mt-3 text-indigo-100 max-w-2xl">
             Manage invoices, upload documents, analyze results and
             download reports from one dashboard.
           </p>
@@ -172,7 +172,7 @@ export default function Dashboard() {
           <div className="flex flex-wrap gap-3 mt-8">
             <button
               onClick={() => navigate("/dashboard/upload")}
-              className="px-6 py-3 rounded-xl bg-white text-blue-700 font-semibold hover:shadow-xl transition"
+              className="px-6 py-3 rounded-xl bg-white text-indigo-700 font-semibold hover:shadow-xl transition"
             >
               Upload Invoice
             </button>
@@ -200,7 +200,7 @@ export default function Dashboard() {
           title="Total Invoices"
           value={summary?.totalInvoices.value.toLocaleString()}
           icon={<FileText size={20} />}
-          color="blue"
+          color="indigo"
           trend={summary?.totalInvoices.trend}
           percent={summary?.totalInvoices.percent}
           sparkline={last6(invoiceSeries, "uploaded")}
@@ -294,7 +294,7 @@ export default function Dashboard() {
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-black outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-black outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="">Select Client</option>
                 {clients.map((client) => (
@@ -305,7 +305,7 @@ export default function Dashboard() {
               </select>
             </div>
 
-            <label className="block border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
+            <label className="block border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition">
               <input
                 type="file"
                 hidden
@@ -318,7 +318,7 @@ export default function Dashboard() {
                   }
                 }}
               />
-              <UploadCloud className="mx-auto text-blue-600" size={36} />
+              <UploadCloud className="mx-auto text-indigo-600" size={36} />
               <p className="mt-3 font-medium text-black">
                 {file ? file.name : "Choose PDF / Image"}
               </p>
@@ -342,7 +342,7 @@ export default function Dashboard() {
             <button
               disabled={uploading}
               onClick={handleQuickUpload}
-              className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+              className="mt-4 w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-60 transition-all shadow-lg shadow-indigo-950/30"
             >
               {uploading ? (
                 <>
@@ -359,7 +359,7 @@ export default function Dashboard() {
 
             <button
               onClick={() => navigate("/dashboard/upload")}
-              className="mt-3 w-full text-blue-600 text-sm font-medium hover:underline"
+              className="mt-3 w-full text-indigo-600 text-sm font-medium hover:underline"
             >
               Open full upload page
             </button>

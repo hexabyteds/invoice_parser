@@ -13,13 +13,18 @@ async function createClient(token) {
   return res.body.client.id;
 }
 
-async function uploadOne(token, clientId, overrides = {}) {
+async function uploadOne(token, clientId, overrides = {}, documentType) {
   mockSuccessfulExtract(invoiceService, { invoice: overrides });
-  const res = await request(app)
+  const req = request(app)
     .post("/api/upload")
     .set(authed(token))
-    .field("client_id", String(clientId))
-    .attach("image", samplePngBuffer(), "invoice.png");
+    .field("client_id", String(clientId));
+
+  if (documentType) {
+    req.field("document_type", documentType);
+  }
+
+  const res = await req.attach("image", samplePngBuffer(), "invoice.png");
   return res.body.invoice;
 }
 
@@ -99,5 +104,86 @@ describe("Export", () => {
       .set(authed(userB.token));
 
     expect(res.text).not.toContain("A-ONLY-INV");
+  });
+});
+
+describe("Export filtered by document_type", () => {
+  it("only exports invoices matching the requested document type", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    await uploadOne(token, clientId, { invoiceNo: "SUP-1" }, "supplier_invoice");
+    await uploadOne(token, clientId, { invoiceNo: "BILL-1" }, "bill");
+
+    const supplierRes = await request(app)
+      .get("/api/export?format=csv&document_type=supplier_invoice")
+      .set(authed(token));
+
+    expect(supplierRes.status).toBe(200);
+    expect(supplierRes.text).toContain("SUP-1");
+    expect(supplierRes.text).not.toContain("BILL-1");
+
+    const billRes = await request(app)
+      .get("/api/export?format=csv&document_type=bill")
+      .set(authed(token));
+
+    expect(billRes.status).toBe(200);
+    expect(billRes.text).toContain("BILL-1");
+    expect(billRes.text).not.toContain("SUP-1");
+  });
+
+  it("combines client and document_type filters (ABC + Bill only)", async () => {
+    const { token } = await registerAndLogin();
+    const clientAbc = await createClient(token);
+    const clientOther = await request(app)
+      .post("/api/clients")
+      .set(authed(token))
+      .send({ company_name: "Other Client" });
+    const otherClientId = clientOther.body.client.id;
+
+    await uploadOne(token, clientAbc, { invoiceNo: "ABC-BILL" }, "bill");
+    await uploadOne(token, clientAbc, { invoiceNo: "ABC-SUPPLIER" }, "supplier_invoice");
+    await uploadOne(token, otherClientId, { invoiceNo: "OTHER-BILL" }, "bill");
+
+    const res = await request(app)
+      .get(`/api/export?format=csv&client_id=${clientAbc}&document_type=bill`)
+      .set(authed(token));
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("ABC-BILL");
+    expect(res.text).not.toContain("ABC-SUPPLIER");
+    expect(res.text).not.toContain("OTHER-BILL");
+  });
+
+  it("rejects an invalid document_type on export", async () => {
+    const { token } = await registerAndLogin();
+
+    const res = await request(app)
+      .get("/api/export?format=csv&document_type=nonsense")
+      .set(authed(token));
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("rejects an invalid document_type on download-excel", async () => {
+    const { token } = await registerAndLogin();
+
+    const res = await request(app)
+      .get("/api/download-excel?document_type=nonsense")
+      .set(authed(token));
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("rejects an invalid document_type on the HTML report", async () => {
+    const { token } = await registerAndLogin();
+
+    const res = await request(app)
+      .get("/api/report?document_type=nonsense")
+      .set(authed(token));
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
   });
 });
