@@ -7,6 +7,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
@@ -68,7 +69,8 @@ const storage = multer.diskStorage({
     cb(null, UPLOADS_DIR);
   },
   filename: (req, file, cb) => {
-    cb(null, `invoice_${Date.now()}${path.extname(file.originalname)}`);
+    const unique = `${Date.now()}_${crypto.randomUUID()}`;
+    cb(null, `invoice_${unique}${path.extname(file.originalname)}`);
   },
 });
 
@@ -616,7 +618,11 @@ app.put(
 
     } catch (err) {
 
-      res.status(500).json({
+      const statusCode = err.message?.startsWith("Invalid value for")
+        ? 400
+        : 500;
+
+      res.status(statusCode).json({
         success: false,
         error: err.message
       });
