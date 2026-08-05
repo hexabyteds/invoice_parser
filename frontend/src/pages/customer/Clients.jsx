@@ -94,7 +94,7 @@ export default function Clients() {
                         Clients
                     </h1>
 
-                    <p className="text-gray-400 mt-1">
+                    <p className="text-slate-500 mt-1">
                         Manage all your business clients.
                     </p>
 
@@ -115,7 +115,7 @@ export default function Clients() {
                 onChange={(e) =>
                     setSearch(e.target.value)
                 }
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                className="w-full bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
             />
 
             {
@@ -127,7 +127,7 @@ export default function Clients() {
                             size={36}
                             className="animate-spin text-indigo-500"
                         />
-                        <p className="mt-4 text-gray-400">
+                        <p className="mt-4 text-slate-500">
                             Loading clients...
                         </p>
                     </div>
@@ -136,10 +136,10 @@ export default function Clients() {
 
                     <div className="py-20 flex flex-col items-center justify-center text-center">
                         <AlertCircle size={48} className="text-red-500" />
-                        <h3 className="mt-4 text-xl font-semibold">
+                        <h3 className="mt-4 text-xl font-semibold text-slate-900">
                             Couldn't load clients
                         </h3>
-                        <p className="mt-2 text-gray-400 max-w-sm">
+                        <p className="mt-2 text-slate-500 max-w-sm">
                             {error}
                         </p>
                         <button
@@ -154,10 +154,10 @@ export default function Clients() {
 
                     <div className="py-20 flex flex-col items-center justify-center text-center">
                         <Users size={48} className="text-slate-500" />
-                        <h3 className="mt-4 text-xl font-semibold">
+                        <h3 className="mt-4 text-xl font-semibold text-slate-900">
                             No clients yet
                         </h3>
-                        <p className="mt-2 text-gray-400 max-w-sm">
+                        <p className="mt-2 text-slate-500 max-w-sm">
                             Add your first client to start uploading and
                             tracking their invoices.
                         </p>
@@ -173,10 +173,10 @@ export default function Clients() {
 
                     <div className="py-20 flex flex-col items-center justify-center text-center">
                         <Users size={48} className="text-slate-500" />
-                        <h3 className="mt-4 text-xl font-semibold">
+                        <h3 className="mt-4 text-xl font-semibold text-slate-900">
                             No clients match "{search}"
                         </h3>
-                        <p className="mt-2 text-gray-400 max-w-sm">
+                        <p className="mt-2 text-slate-500 max-w-sm">
                             Try a different search term.
                         </p>
                     </div>
@@ -194,11 +194,11 @@ export default function Clients() {
                                     to={`/dashboard/clients/${client.id}`}
                                 >
 
-                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-indigo-500/50 hover:bg-white/[0.07] hover:-translate-y-0.5 transition-all duration-300">
+                                    <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-indigo-500/50 hover:bg-slate-50 hover:-translate-y-0.5 transition-all duration-300">
 
                                         <div className="flex justify-between items-start">
 
-                                            <h2 className="font-bold text-xl">
+                                            <h2 className="font-bold text-xl text-slate-900">
 
                                                 {client.company_name}
 
@@ -232,19 +232,19 @@ export default function Clients() {
 
                                         </div>
 
-                                        <p className="text-gray-400 mt-3">
+                                        <p className="text-slate-500 mt-3">
 
                                             {client.contact_person}
 
                                         </p>
 
-                                        <p className="text-gray-500 mt-1">
+                                        <p className="text-slate-500 mt-1">
 
                                             {client.email}
 
                                         </p>
 
-                                        <p className="text-gray-500">
+                                        <p className="text-slate-500">
 
                                             {client.phone}
 
@@ -252,13 +252,13 @@ export default function Clients() {
 
                                         <div className="mt-6 flex justify-between">
 
-                                            <span>
+                                            <span className="text-slate-500">
 
                                                 {client.country}
 
                                             </span>
 
-                                            <span>
+                                            <span className="text-slate-500">
 
                                                 →
 
