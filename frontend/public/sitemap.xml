@@ -3,31 +3,32 @@
      and public/robots.txt once the real production domain is set. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://www.eazeebooks.com/</loc>
+<loc>https://eazeebooks.com/</loc>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.eazeebooks.com/features</loc>
+<loc>https://eazeebooks.com/features</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://www.eazeebooks.com/price</loc>
+<loc>https://eazeebooks.com/price</loc>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://www.eazeebooks.com/register</loc>
-    <priority>0.6</priority>
+
+<loc>https://eazeebooks.com/register</loc>  
+  <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://www.eazeebooks.com/login</loc>
+    <loc>https://eazeebooks.com/login</loc>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://www.eazeebooks.com/privacy</loc>
+    <loc>https://eazeebooks.com/privacy</loc>
     <priority>0.2</priority>
   </url>
   <url>
-    <loc>https://www.eazeebooks.com/terms</loc>
+    <loc>https://eazeebooks.com/terms</loc>
     <priority>0.2</priority>
   </url>
 </urlset>

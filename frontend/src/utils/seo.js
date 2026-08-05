@@ -3,4 +3,4 @@
 // correct, it just needs this one constant swapped for the real domain before
 // launch — canonical tags, OG/Twitter tags, robots.txt, and sitemap.xml all
 // key off it.
-export const SITE_URL = "https://www.eazeebooks.com";
+export const SITE_URL = "https://eazeebooks.com";
