@@ -1,0 +1,23 @@
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/apexhome/eazeebooks.com"
+PassengerBaseURI "/"
+PassengerNodejs "/home/apexhome/nodevenv/eazeebooks.com/20/bin/node"
+PassengerAppType node
+PassengerStartupFile app-backend.js
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Redirect www -> non-www
+    RewriteCond %{HTTP_HOST} ^www\.eazeebooks\.com$ [NC]
+    RewriteRule ^(.*)$ https://eazeebooks.com/$1 [R=301,L]
+
+    # Serve existing files/directories normally
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # React Router fallback
+    RewriteRule ^ index.html [L]
+</IfModule>

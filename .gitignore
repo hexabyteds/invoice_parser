@@ -22,6 +22,18 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+._*
+
+# Built frontend, synced straight into place by scripts/deploy.sh — never
+# committed (see DEPLOY.md); keeping it untracked stops every deploy's
+# asset swap from dirtying the server's git working tree. Anchored to
+# root — frontend/public/ holds real tracked source assets (favicon, etc.)
+# and must stay tracked.
+/public/
+
+# Stray env backups (e.g. .env.bak.<timestamp>) — must never hold real
+# secrets in git history.
+.env.bak*
 
 # IDE
 .vscode/
