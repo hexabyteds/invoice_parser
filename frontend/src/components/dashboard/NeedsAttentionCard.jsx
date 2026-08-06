@@ -6,7 +6,7 @@ export default function NeedsAttentionCard({ data }) {
 
   const items = [
     {
-      label: "Failed Invoices",
+      label: "Failed Documents",
       value: data?.failedInvoices ?? 0,
       icon: <XCircle size={18} />,
       tone: "text-red-600 bg-red-50",

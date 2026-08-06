@@ -220,6 +220,9 @@ export default function Invoices() {
                             <thead className="bg-slate-50 border-b">
                                 <tr>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        #
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
                                         Invoice #
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
@@ -252,11 +255,14 @@ export default function Invoices() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {paginatedInvoices.map((invoice) => (
+                                {paginatedInvoices.map((invoice, index) => (
                                     <tr
                                         key={invoice.id}
                                         className="border-b hover:bg-slate-50 transition"
                                     >
+                                        <td className="px-6 py-5 text-slate-500">
+                                            {(safePage - 1) * ROWS_PER_PAGE + index + 1}
+                                        </td>
                                         <td className="px-6 py-5 font-semibold text-black">
                                             {invoice.invoiceNo}
                                         </td>

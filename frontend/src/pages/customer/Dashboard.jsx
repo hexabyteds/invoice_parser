@@ -5,8 +5,6 @@ import {
   FileText,
   DollarSign,
   Receipt,
-  Users,
-  Calendar,
   Wallet,
   Loader2,
 } from "lucide-react";
@@ -17,12 +15,7 @@ import dashboardApi from "../../services/dashboardApi";
 
 import KpiCard from "../../components/dashboard/KpiCard";
 import NeedsAttentionCard from "../../components/dashboard/NeedsAttentionCard";
-import ExtractionAccuracyCard from "../../components/dashboard/ExtractionAccuracyCard";
 import MonthlyProcessingChart from "../../components/dashboard/MonthlyProcessingChart";
-import MonthlyExpensesChart from "../../components/dashboard/MonthlyExpensesChart";
-import TopClientsChart from "../../components/dashboard/TopClientsChart";
-import ConfidenceDistributionChart from "../../components/dashboard/ConfidenceDistributionChart";
-import ClientAnalyticsTable from "../../components/dashboard/ClientAnalyticsTable";
 import RecentActivityFeed from "../../components/dashboard/RecentActivityFeed";
 import DashboardSkeleton from "../../components/dashboard/DashboardSkeleton";
 
@@ -39,11 +32,7 @@ export default function Dashboard() {
   const [clients, setClients] = useState([]);
   const [summary, setSummary] = useState(null);
   const [monthly, setMonthly] = useState({ invoices: [], clients: [] });
-  const [topClients, setTopClients] = useState([]);
-  const [confidenceDistribution, setConfidenceDistribution] = useState(null);
   const [needsAttention, setNeedsAttention] = useState(null);
-  const [accuracy, setAccuracy] = useState(null);
-  const [clientAnalytics, setClientAnalytics] = useState([]);
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -61,34 +50,19 @@ export default function Dashboard() {
     try {
       setLoading(true);
 
-      const [
-        clientRes,
-        summaryRes,
-        monthlyRes,
-        topClientsRes,
-        confidenceRes,
-        qualityRes,
-        clientAnalyticsRes,
-        activityRes,
-      ] = await Promise.all([
-        clientApi.getAll(),
-        dashboardApi.getSummary(),
-        dashboardApi.getMonthly(),
-        dashboardApi.getTopClients(),
-        dashboardApi.getConfidenceDistribution(),
-        dashboardApi.getQuality(),
-        dashboardApi.getClientAnalytics(),
-        dashboardApi.getActivity(),
-      ]);
+      const [clientRes, summaryRes, monthlyRes, qualityRes, activityRes] =
+        await Promise.all([
+          clientApi.getAll(),
+          dashboardApi.getSummary(),
+          dashboardApi.getMonthly(),
+          dashboardApi.getQuality(),
+          dashboardApi.getActivity(),
+        ]);
 
       setClients(clientRes.clients || []);
       setSummary(summaryRes.data.summary);
       setMonthly(monthlyRes.data.monthly);
-      setTopClients(topClientsRes.data.topClients || []);
-      setConfidenceDistribution(confidenceRes.data.distribution);
       setNeedsAttention(qualityRes.data.needsAttention);
-      setAccuracy(qualityRes.data.accuracy);
-      setClientAnalytics(clientAnalyticsRes.data.clients || []);
       setActivity(activityRes.data.activity || []);
     } catch (err) {
       // Individual widgets already render sensible empty states from
@@ -148,7 +122,6 @@ export default function Dashboard() {
 
   const last6 = (arr, key) => (arr || []).slice(-6).map((row) => Number(row?.[key] || 0));
   const invoiceSeries = monthly.invoices || [];
-  const clientSeries = monthly.clients || [];
 
   const avgValueSeries = invoiceSeries
     .slice(-6)
@@ -174,7 +147,7 @@ export default function Dashboard() {
               onClick={() => navigate("/dashboard/upload")}
               className="px-6 py-3 rounded-xl bg-white text-indigo-700 font-semibold hover:shadow-xl transition"
             >
-              Upload Invoice
+              Upload Documents
             </button>
 
             <button
@@ -195,9 +168,9 @@ export default function Dashboard() {
       </section>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         <KpiCard
-          title="Total Invoices"
+          title="Total Documents"
           value={summary?.totalInvoices.value.toLocaleString()}
           icon={<FileText size={20} />}
           color="indigo"
@@ -206,7 +179,7 @@ export default function Dashboard() {
           sparkline={last6(invoiceSeries, "uploaded")}
         />
         <KpiCard
-          title="Total Expenses"
+          title="Total Value"
           value={formatCurrency(summary?.totalExpenses.value)}
           icon={<DollarSign size={20} />}
           color="green"
@@ -224,25 +197,7 @@ export default function Dashboard() {
           sparkline={last6(invoiceSeries, "vatAmount")}
         />
         <KpiCard
-          title="Total Clients"
-          value={summary?.totalClients.value.toLocaleString()}
-          icon={<Users size={20} />}
-          color="purple"
-          trend={summary?.totalClients.trend}
-          percent={summary?.totalClients.percent}
-          sparkline={last6(clientSeries, "count")}
-        />
-        <KpiCard
-          title="This Month"
-          value={summary?.thisMonth.value.toLocaleString()}
-          icon={<Calendar size={20} />}
-          color="teal"
-          trend={summary?.thisMonth.trend}
-          percent={summary?.thisMonth.percent}
-          sparkline={last6(invoiceSeries, "uploaded")}
-        />
-        <KpiCard
-          title="Avg Invoice Value"
+          title="Average Document Value"
           value={formatCurrency(summary?.avgInvoiceValue.value)}
           icon={<Wallet size={20} />}
           color="pink"
@@ -258,24 +213,11 @@ export default function Dashboard() {
         {/* Left column */}
         <div className="xl:col-span-2 space-y-6">
 
-          {/* Needs Attention + Extraction Accuracy */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <NeedsAttentionCard data={needsAttention} />
-            <ExtractionAccuracyCard data={accuracy} />
-          </div>
+          {/* Needs Attention */}
+          <NeedsAttentionCard data={needsAttention} />
 
-          {/* Monthly processing + expenses */}
-          <MonthlyProcessingChart data={invoiceSeries} />
-          <MonthlyExpensesChart data={invoiceSeries} />
-
-          {/* Top clients + confidence distribution */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <TopClientsChart data={topClients} />
-            <ConfidenceDistributionChart data={confidenceDistribution} />
-          </div>
-
-          {/* Client analytics table */}
-          <ClientAnalyticsTable clients={clientAnalytics} />
+          {/* Document processing trend */}
+          <MonthlyProcessingChart data={invoiceSeries} title="Document Processing Trend" />
         </div>
 
         {/* Right column */}
@@ -352,7 +294,7 @@ export default function Dashboard() {
               ) : (
                 <>
                   <UploadCloud size={18} />
-                  Upload Invoice
+                  Upload Documents
                 </>
               )}
             </button>

@@ -1,20 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import {
-  ArrowLeft,
-  Building2,
-  Calendar,
-  CreditCard,
-  Receipt,
-  Phone,
-  MapPin,
-  FileText,
-  BadgeDollarSign,
-  Tag,
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { getInvoice, getInvoiceSource } from "../../services/invoiceApi";
-import ExtractionQualityCard from "../../components/invoices/ExtractionQualityCard";
 import { formatDateDisplay } from "../../utils/formatDate";
 import { documentTypeLabel } from "../../utils/documentTypes";
 
@@ -24,7 +12,6 @@ export default function InvoiceDetails() {
 
   const [invoice, setInvoice] = useState(null);
   const [lineItems, setLineItems] = useState([]);
-  const [validation, setValidation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sourceUrl, setSourceUrl] = useState(null);
@@ -38,7 +25,6 @@ export default function InvoiceDetails() {
 
         setInvoice(res.data.invoice);
         setLineItems(res.data.lineItems || []);
-        setValidation(res.data.validation || null);
 
       } catch (err) {
         const message =
@@ -109,11 +95,8 @@ export default function InvoiceDetails() {
     <div className="space-y-8">
 
       {/* Header */}
-
       <div className="flex items-center justify-between">
-
         <div>
-
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-blue-600 mb-4 hover:underline"
@@ -129,265 +112,194 @@ export default function InvoiceDetails() {
           <p className="text-slate-500 mt-2">
             Complete extracted invoice information.
           </p>
-
         </div>
-
       </div>
 
-      {/* Invoice Info */}
+      {/* Document Details + Line Items (left) paired with the original
+          document preview (right) — mirrors the Edit Invoice layout,
+          but read-only. */}
+      <div className="grid lg:grid-cols-3 gap-6 items-start">
 
-      <div className="bg-white rounded-3xl shadow border p-8">
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow border overflow-hidden">
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="border-b bg-slate-50 px-6 py-4">
+            <h2 className="text-lg font-bold text-black">Document Details</h2>
+          </div>
 
-          <InfoCard
-            icon={<Receipt size={20} />}
-            title="Invoice Number"
-            value={invoice.invoice_no}
-          />
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse table-fixed">
+              <colgroup>
+                <col className="w-[17%]" />
+                <col className="w-[33%]" />
+                <col className="w-[17%]" />
+                <col className="w-[33%]" />
+              </colgroup>
+              <tbody>
+                <tr className="border-b">
+                  <StaticCell label="Document No" value={invoice.invoice_no} />
+                  <StaticCell
+                    label="Amount Exc. VAT"
+                    value={money(invoice.subtotal, invoice.currency)}
+                    isLast
+                  />
+                </tr>
 
-          <InfoCard
-            icon={<Tag size={20} />}
-            title="Document Type"
-            value={documentTypeLabel(invoice.document_type)}
-          />
+                <tr className="border-b">
+                  <StaticCell
+                    label="Document Date"
+                    value={formatDateDisplay(invoice.invoice_date)}
+                  />
+                  <StaticCell
+                    label="VAT Amount"
+                    value={money(invoice.vat_amount, invoice.currency)}
+                    isLast
+                  />
+                </tr>
 
-          <InfoCard
-            icon={<Building2 size={20} />}
-            title="Client"
-            value={invoice.client_name}
-          />
+                <tr className="border-b">
+                  <StaticCell
+                    label="Document Type"
+                    value={documentTypeLabel(invoice.document_type)}
+                  />
+                  <StaticCell
+                    label="Amount Inc. VAT"
+                    value={money(invoice.total_amount, invoice.currency)}
+                    isLast
+                  />
+                </tr>
 
-          <InfoCard
-            icon={<Calendar size={20} />}
-            title="Invoice Date"
-            value={formatDateDisplay(invoice.invoice_date)}
-          />
+                <tr className="border-b">
+                  <StaticCell label="Due Date" value={formatDateDisplay(invoice.due_date) || "-"} />
+                  <StaticCell label="Currency" value={invoice.currency} isLast />
+                </tr>
 
-          <InfoCard
-            icon={<CreditCard size={20} />}
-            title="Currency"
-            value={invoice.currency}
-          />
+                <tr className="border-b">
+                  <StaticCell label="Client" value={invoice.client_name} />
+                  <StaticCell label="TRN Number" value={invoice.trn || "-"} isLast />
+                </tr>
 
-          <InfoCard
-            icon={<BadgeDollarSign size={20} />}
-            title="Total Amount"
-            value={`${invoice.currency} ${Number(
-              invoice.total_amount
-            ).toFixed(2)}`}
-          />
+                <tr className="border-b">
+                  <StaticCell label="Phone" value={invoice.phoneNumber || "-"} />
+                  <StaticCell label="VAT Rate (%)" value={`${invoice.vat_rate}%`} isLast />
+                </tr>
 
-          <InfoCard
-            icon={<Receipt size={20} />}
-            title="VAT"
-            value={`${invoice.currency} ${Number(
-              invoice.vat_amount
-            ).toFixed(2)}`}
-          />
+                <tr>
+                  <StaticCell label="Location" value={invoice.location || "-"} />
+                  <td colSpan={2} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-          <InfoCard
-            icon={<Phone size={20} />}
-            title="Phone"
-            value={invoice.phoneNumber || "-"}
-          />
+          <div className="border-t px-6 py-4">
+            <h2 className="text-lg font-bold text-black">
+              Line Items ({lineItems.length})
+            </h2>
+          </div>
 
-          <InfoCard
-            icon={<FileText size={20} />}
-            title="TRN"
-            value={invoice.trn || "-"}
-          />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px]">
+              <thead>
+                <tr className="border-y-[3px] border-double border-slate-800 bg-slate-50">
+                  <th className="text-left px-6 py-3 text-black font-bold">
+                    Description
+                  </th>
+                  <th className="text-center px-6 py-3 text-black font-bold w-28">
+                    Qty
+                  </th>
+                  <th className="text-right px-6 py-3 text-black font-bold w-40">
+                    Unit Price
+                  </th>
+                  <th className="text-right px-6 py-3 text-black font-bold w-32">
+                    Amount Exc. VAT
+                  </th>
+                  <th className="text-right px-6 py-3 text-black font-bold w-28">
+                    VAT
+                  </th>
+                  <th className="text-right px-6 py-3 text-black font-bold w-32">
+                    Amount Inc. VAT
+                  </th>
+                </tr>
+              </thead>
 
-          <InfoCard
-            icon={<MapPin size={20} />}
-            title="Location"
-            value={invoice.location || "-"}
-          />
-
-        </div>
-
-      </div>
-
-      {validation && <ExtractionQualityCard validation={validation} />}
-
-      {/* Description */}
-
-      {/* <div className="bg-white rounded-3xl shadow border p-8">
-
-        <h2 className="text-xl font-semibold mb-4">
-          Description
-        </h2>
-
-        <p className="text-slate-600 whitespace-pre-wrap">
-          {invoice.description || "-"}
-        </p>
-
-      </div> */}
-
-      {/* Totals */}
-
-      <div className="bg-white rounded-3xl shadow border p-8">
-
-        <h2 className="text-xl font-semibold mb-6">
-          Financial Summary
-        </h2>
-
-        <div className="grid md:grid-cols-4 gap-5">
-
-          <SummaryCard
-            title="Subtotal"
-            value={invoice.subtotal}
-            currency={invoice.currency}
-          />
-
-          <SummaryCard
-            title="VAT Rate"
-            value={`${invoice.vat_rate}%`}
-          />
-
-          <SummaryCard
-            title="VAT Amount"
-            value={invoice.vat_amount}
-            currency={invoice.currency}
-          />
-
-          <SummaryCard
-            title="Total"
-            value={invoice.total_amount}
-            currency={invoice.currency}
-          />
-
-        </div>
-
-      </div>
-
-      {/* Line Items — paired side-by-side with the original document
-          (when one exists) so the extracted numbers are easy to check
-          against the source file at a glance. */}
-
-      <div className={`grid gap-6 items-start ${hasSource ? "lg:grid-cols-2" : ""}`}>
-
-      <div className="bg-white rounded-3xl shadow border overflow-hidden">
-
-        <div className="p-6 border-b">
-
-          <h2 className="text-xl font-semibold text-black">
-            Line Items ({lineItems.length})
-          </h2>
-
-        </div>
-
-        <div className="overflow-x-auto">
-
-          <table className="w-full">
-
-            <thead className="bg-slate-50">
-
-              <tr>
-
-                <th className="text-left px-6 py-4 text-black">Description</th>
-
-                <th className="text-center px-6 py-4 text-black">
-                  Qty
-                </th>
-
-                <th className="text-right px-6 py-4 text-black">
-                  Unit Price
-                </th>
-
-                <th className="text-right px-6 py-4 text-black">
-                  Without VAT
-                </th>
-
-                <th className="text-right px-6 py-4 text-black">
-                  VAT
-                </th>
-
-                <th className="text-right px-6 py-4 text-black">
-                  Total
-                </th>
-
-              </tr>
-
-            </thead>
-
-            <tbody>
-
-              {lineItems.map((item, index) => {
-                // item.total_price is stored pre-VAT (it sums to the
-                // invoice's Subtotal, not its VAT-inclusive Total) — line
-                // items don't store their own VAT split, so VAT and the
-                // inclusive total are derived from the invoice's overall
-                // VAT rate applied to this line's pre-tax amount.
-                const vatRate = Number(invoice.vat_rate) || 0;
-                const withoutVat = Number(item.total_price) || 0;
-                const vatAmount = withoutVat * (vatRate / 100);
-                const totalPrice = withoutVat + vatAmount;
-
-                return (
-                  <tr
-                    key={index}
-                    className="border-t hover:bg-slate-50"
-                  >
-
-                    <td className="px-6 py-4 text-black">
-                      {item.description}
+              <tbody>
+                {lineItems.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-6 py-8 text-center text-slate-400"
+                    >
+                      No line items.
                     </td>
-
-                    <td className="px-6 py-4 text-center text-black">
-                      {item.quantity}
-                    </td>
-
-                    <td className="px-6 py-4 text-right text-black">
-                      {Number(item.unit_price).toFixed(2)}
-                    </td>
-
-                    <td className="px-6 py-4 text-right text-black">
-                      {withoutVat.toFixed(2)}
-                    </td>
-
-                    <td className="px-6 py-4 text-right text-black">
-                      {vatAmount.toFixed(2)}
-                    </td>
-
-                    <td className="px-6 py-4 text-right font-semibold text-black">
-                      {totalPrice.toFixed(2)}
-                    </td>
-
                   </tr>
-                );
-              })}
+                ) : (
+                  lineItems.map((item, index) => {
+                    // item.total_price is stored pre-VAT (it sums to the
+                    // invoice's Subtotal, not its VAT-inclusive Total) — line
+                    // items don't store their own VAT split, so VAT and the
+                    // inclusive total are derived from the invoice's overall
+                    // VAT rate applied to this line's pre-tax amount.
+                    const vatRate = Number(invoice.vat_rate) || 0;
+                    const withoutVat = Number(item.total_price) || 0;
+                    const vatAmount = withoutVat * (vatRate / 100);
+                    const totalPrice = withoutVat + vatAmount;
 
-            </tbody>
+                    return (
+                      <tr key={index} className="border-t">
+                        <td className="px-6 py-3 text-black">
+                          {item.description}
+                        </td>
 
-          </table>
+                        <td className="px-6 py-3 text-center text-black">
+                          {item.quantity}
+                        </td>
+
+                        <td className="px-6 py-3 text-right text-black">
+                          {Number(item.unit_price).toFixed(2)}
+                        </td>
+
+                        <td className="px-6 py-3 text-right text-black">
+                          {withoutVat.toFixed(2)}
+                        </td>
+
+                        <td className="px-6 py-3 text-right text-black">
+                          {vatAmount.toFixed(2)}
+                        </td>
+
+                        <td className="px-6 py-3 text-right font-semibold text-black">
+                          {totalPrice.toFixed(2)}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
 
         </div>
 
-      </div>
-
-      {hasSource && (
-        <div className="bg-white rounded-3xl shadow border p-8 lg:sticky lg:top-8">
-          <h2 className="text-xl font-semibold mb-4 text-black">
-            Original Document
+        <div className="bg-slate-200 rounded-2xl shadow border p-6 lg:sticky lg:top-8">
+          <h2 className="text-lg font-bold text-black text-center mb-4">
+            Invoice View
           </h2>
 
           {sourceLoading && (
-            <p className="text-slate-500">Loading document...</p>
+            <p className="text-slate-500 text-center">Loading document...</p>
           )}
 
           {!sourceLoading && sourceUrl && sourceKind === "image" && (
             <img
               src={sourceUrl}
               alt="Uploaded invoice"
-              className="max-w-full rounded-xl border"
+              className="max-w-full rounded-xl border mx-auto"
             />
           )}
 
           {!sourceLoading && sourceUrl && sourceKind === "pdf" && (
             // #toolbar=0&navpanes=0 strips the browser's native PDF
             // viewer chrome (toolbar, page thumbnails) so this shows
-            // just the file itself alongside the line items table.
+            // just the file itself in the preview panel.
             <iframe
               title="Uploaded invoice PDF"
               src={`${sourceUrl}#toolbar=0&navpanes=0`}
@@ -396,12 +308,13 @@ export default function InvoiceDetails() {
           )}
 
           {!sourceLoading && !sourceUrl && (
-            <p className="text-slate-500">
-              Original file is not available on the server.
+            <p className="text-slate-500 text-center">
+              {hasSource
+                ? "Original file is not available on the server."
+                : "No source file was uploaded for this document."}
             </p>
           )}
         </div>
-      )}
 
       </div>
 
@@ -409,31 +322,25 @@ export default function InvoiceDetails() {
   );
 }
 
-function InfoCard({ icon, title, value }) {
+function StaticCell({ label, value, isLast = false }) {
   return (
-    <div className="border rounded-2xl p-5">
-      <div className="flex items-center gap-2 text-blue-600 mb-3">
-        {icon}
-        <span className="font-medium">{title}</span>
-      </div>
-
-      <div className="font-semibold break-words text-black">
-        {value}
-      </div>
-    </div>
+    <>
+      <td className="px-3 py-3 text-slate-500 font-medium bg-slate-50/60 border-r align-top">
+        {label}
+      </td>
+      <td
+        className={`px-3 py-3 text-black font-semibold break-words align-top ${
+          isLast ? "" : "border-r"
+        }`}
+      >
+        {value ?? "-"}
+      </td>
+    </>
   );
 }
 
-function SummaryCard({ title, value, currency }) {
-  return (
-    <div className="rounded-2xl bg-slate-50 p-5 border">
-      <div className="text-sm text-slate-500">
-        {title}
-      </div>
-
-      <div className="mt-2 text-2xl font-bold text-slate-800">
-        {currency ? `${currency} ${value}` : value}
-      </div>
-    </div>
-  );
+function money(value, currency) {
+  if (value === null || value === undefined || value === "") return "-";
+  const formatted = Number(value).toFixed(2);
+  return currency ? `${currency} ${formatted}` : formatted;
 }

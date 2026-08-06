@@ -9,7 +9,6 @@ import toast from "react-hot-toast";
 import { uploadInvoice } from "../../services/invoiceApi";
 import clientApi from "../../services/clientApi";
 import { useParams, useNavigate } from "react-router-dom";
-import ExtractionQualityCard from "../../components/invoices/ExtractionQualityCard";
 import { DOCUMENT_TYPES, documentTypeLabel } from "../../utils/documentTypes";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
@@ -351,8 +350,6 @@ export default function Upload() {
               </p>
             </div>
           </div>
-
-          <ExtractionQualityCard validation={result.validation} />
         </>
       )}
 

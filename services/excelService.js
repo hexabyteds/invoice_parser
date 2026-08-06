@@ -5,11 +5,11 @@ class ExcelService {
     async export(invoices, filePath = "invoices_" + new Date().toISOString().split("T")[0] + ".xlsx") {
 
         const workbook = new ExcelJS.Workbook();
-        const usedSheetNames = new Set();
+
         // One row per product / description (item-wise)
         const itemsSheet = workbook.addWorksheet("Line Items");
 
-        // One row per invoice (summary totals)
+        // One row per invoice — totals only, no line items
         const summarySheet = workbook.addWorksheet("Invoice Summary");
 
         itemsSheet.columns = [
@@ -29,11 +29,9 @@ class ExcelService {
             { header: "Invoice ID", key: "invoiceNo", width: 20 },
             { header: "Client Name", key: "clientName", width: 28 },
             { header: "Date", key: "invoiceDate", width: 14 },
-            { header: "Items", key: "itemCount", width: 10 },
-            { header: "Subtotal", key: "subtotal", width: 14 },
-            { header: "VAT %", key: "vatRate", width: 10 },
-            { header: "VAT Amount", key: "vatAmount", width: 14 },
-            { header: "Total", key: "totalAmount", width: 14 },
+            { header: "Amount Exc. VAT", key: "subtotal", width: 16 },
+            { header: "VAT", key: "vatAmount", width: 14 },
+            { header: "Amount Inc. VAT", key: "totalAmount", width: 16 },
             { header: "Currency", key: "currency", width: 10 },
         ];
 
@@ -49,195 +47,64 @@ class ExcelService {
             };
         });
 
-        // invoices.forEach((invoice) => {
-        //     const lineItems = invoice.lineItems || [];
-        //     const vatRate = invoice.vatRate || "";
-        //     const date = invoice.invoiceDate
-        //         ? formatExcelDate(invoice.invoiceDate)
-        //         : "";
+        invoices.forEach((invoice) => {
+            const lineItems = invoice.lineItems || [];
+            const vatRate = invoice.vatRate || "";
+            const date = invoice.invoiceDate
+                ? formatExcelDate(invoice.invoiceDate)
+                : "";
 
-        //     if (lineItems.length > 0) {
-        //         lineItems.forEach((item) => {
-        //             itemsSheet.addRow({
-        //                 itemId: item.id || "",
-        //                 invoiceNo: invoice.invoiceNo,
-        //                 clientName: invoice.clientName,
-        //                 invoiceDate: date,
-        //                 description: item.description || "",
-        //                 quantity: item.quantity || 0,
-        //                 unitPrice: Number(item.unitPrice || 0).toFixed(2),
-        //                 amount: Number(
-        //                     item.totalPrice ?? item.amount ?? 0
-        //                 ).toFixed(2),
-        //                 vatRate,
-        //                 currency: invoice.currency,
-        //             });
-        //         });
-        //     } else if (invoice.description) {
-        //         // Fallback: split joined descriptions if no line items stored
-        //         const parts = String(invoice.description)
-        //             .split(";")
-        //             .map((s) => s.trim())
-        //             .filter(Boolean);
+            if (lineItems.length > 0) {
+                lineItems.forEach((item) => {
+                    itemsSheet.addRow({
+                        itemId: item.id || "",
+                        invoiceNo: invoice.invoiceNo,
+                        clientName: invoice.clientName,
+                        invoiceDate: date,
+                        description: item.description || "",
+                        quantity: item.quantity || 0,
+                        unitPrice: Number(item.unitPrice || 0).toFixed(2),
+                        amount: Number(
+                            item.totalPrice ?? item.amount ?? 0
+                        ).toFixed(2),
+                        vatRate,
+                        currency: invoice.currency,
+                    });
+                });
+            } else if (invoice.description) {
+                // Fallback: split joined descriptions if no line items stored
+                const parts = String(invoice.description)
+                    .split(";")
+                    .map((s) => s.trim())
+                    .filter(Boolean);
 
-        //         parts.forEach((description, index) => {
-        //             itemsSheet.addRow({
-        //                 itemId: index + 1,
-        //                 invoiceNo: invoice.invoiceNo,
-        //                 clientName: invoice.clientName,
-        //                 invoiceDate: date,
-        //                 description,
-        //                 quantity: "",
-        //                 unitPrice: "",
-        //                 amount: "",
-        //                 vatRate,
-        //                 currency: invoice.currency,
-        //             });
-        //         });
-        //     }
-
-        //     summarySheet.addRow({
-        //         invoiceNo: invoice.invoiceNo,
-        //         clientName: invoice.clientName,
-        //         invoiceDate: date,
-        //         itemCount: lineItems.length || (
-        //             invoice.description
-        //                 ? String(invoice.description).split(";").filter((s) => s.trim()).length
-        //                 : 0
-        //         ),
-        //         subtotal: Number(invoice.subtotal || 0).toFixed(2),
-        //         vatRate,
-        //         vatAmount: Number(invoice.vatAmount || 0).toFixed(2),
-        //         totalAmount: Number(invoice.totalAmount || 0).toFixed(2),
-        //         currency: invoice.currency,
-        //     });
-        // });
-
-
-        invoices.forEach((invoice, index) => {
-
-            // Create a safe worksheet name
-            let sheetName = String(invoice.invoiceNo || `Invoice_${index + 1}`)
-                .replace(/[\\/*?:[\]]/g, "_") // Invalid Excel chars
-                .substring(0, 31);            // Excel max length
-
-            if (!sheetName) {
-                sheetName = `Invoice_${index + 1}`;
+                parts.forEach((description, index) => {
+                    itemsSheet.addRow({
+                        itemId: index + 1,
+                        invoiceNo: invoice.invoiceNo,
+                        clientName: invoice.clientName,
+                        invoiceDate: date,
+                        description,
+                        quantity: "",
+                        unitPrice: "",
+                        amount: "",
+                        vatRate,
+                        currency: invoice.currency,
+                    });
+                });
             }
 
-            // Ensure unique names
-            let originalName = sheetName;
-            let counter = 1;
-
-            while (usedSheetNames.has(sheetName)) {
-                sheetName = `${originalName}_${counter}`;
-                sheetName = sheetName.substring(0, 31);
-                counter++;
-            }
-
-            usedSheetNames.add(sheetName);
-
-            const sheet = workbook.addWorksheet(sheetName);
-
-
-
-
-            sheet.columns = [
-                { width: 45 },
-                { width: 15 },
-                { width: 18 },
-                { width: 18 }
-            ];
-
-            // Title
-
-            sheet.mergeCells("A1:D1");
-
-            sheet.getCell("A1").value = "Invoice Details";
-
-            sheet.getCell("A1").font = {
-                bold: true,
-                size: 20
-            };
-
-            sheet.getCell("A1").alignment = {
-                horizontal: "center"
-            };
-
-            // Information
-
-            sheet.addRow([]);
-            sheet.addRow(["Invoice Number", invoice.invoiceNo]);
-            sheet.addRow(["Client", invoice.clientName]);
-            sheet.addRow(["Invoice Date", formatExcelDate(invoice.invoiceDate)]);
-            sheet.addRow(["Currency", invoice.currency]);
-            sheet.addRow(["TRN", invoice.trn]);
-            sheet.addRow(["Phone", invoice.phoneNumber]);
-            sheet.addRow(["Location", invoice.location]);
-
-            sheet.addRow([]);
-
-            // Table Header
-
-            const header = sheet.addRow([
-                "Description",
-                "Qty",
-                "Unit Price",
-                "Total"
-            ]);
-
-            header.font = {
-                bold: true,
-                color: { argb: "FFFFFFFF" }
-            };
-
-            header.fill = {
-                type: "pattern",
-                pattern: "solid",
-                fgColor: { argb: "366092" }
-            };
-
-            // Items
-
-            (invoice.lineItems || []).forEach(item => {
-
-                sheet.addRow([
-                    item.description,
-                    item.quantity,
-                    item.unitPrice,
-                    item.totalPrice
-                ]);
-
+            summarySheet.addRow({
+                invoiceNo: invoice.invoiceNo,
+                clientName: invoice.clientName,
+                invoiceDate: date,
+                subtotal: Number(invoice.subtotal || 0).toFixed(2),
+                vatAmount: Number(invoice.vatAmount || 0).toFixed(2),
+                totalAmount: Number(invoice.totalAmount || 0).toFixed(2),
+                currency: invoice.currency,
             });
-
-            sheet.addRow([]);
-
-            sheet.addRow([
-                "",
-                "",
-                "Subtotal",
-                invoice.subtotal
-            ]);
-
-            sheet.addRow([
-                "",
-                "",
-                "VAT (" + invoice.vatRate + "%)",
-                invoice.vatAmount
-            ]);
-
-            const total = sheet.addRow([
-                "",
-                "",
-                "Grand Total",
-                invoice.totalAmount
-            ]);
-
-            total.font = {
-                bold: true
-            };
-
         });
+
         await workbook.xlsx.writeFile(filePath);
 
         console.log(`✅ Saved to ${filePath}`);

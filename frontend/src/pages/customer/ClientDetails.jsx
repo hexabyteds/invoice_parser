@@ -8,15 +8,19 @@ import {
     AlertCircle,
     ChevronLeft,
     ChevronRight,
+    Eye,
+    FileText,
     Loader2,
     Pencil,
     Trash2,
 } from "lucide-react";
 
-
 import {
+    deleteInvoices,
     getInvoicesByClient,
   } from "../../services/invoiceApi";
+import { formatDateDisplay } from "../../utils/formatDate";
+import { documentTypeLabel, documentTypeBadgeClass } from "../../utils/documentTypes";
 
 const ROWS_PER_PAGE = 10;
 
@@ -32,6 +36,8 @@ export default function ClientDetails() {
     const [downloading, setDownloading] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const [deleteInvoiceTarget, setDeleteInvoiceTarget] = useState(null);
+    const [deletingInvoice, setDeletingInvoice] = useState(false);
     const navigate = useNavigate();
 
     async function handleDelete() {
@@ -48,6 +54,25 @@ export default function ClientDetails() {
         } finally {
             setDeleting(false);
             setConfirmOpen(false);
+        }
+    }
+
+    async function confirmDeleteInvoice() {
+        if (!deleteInvoiceTarget) return;
+
+        try {
+            setDeletingInvoice(true);
+            await deleteInvoices(deleteInvoiceTarget.id);
+            await load();
+            toast.success("Invoice deleted.");
+        } catch (err) {
+            toast.error(
+                err.response?.data?.error ||
+                    "Could not delete invoice. Please try again."
+            );
+        } finally {
+            setDeletingInvoice(false);
+            setDeleteInvoiceTarget(null);
         }
     }
 
@@ -98,53 +123,53 @@ export default function ClientDetails() {
     async function handleDownloadExcel() {
 
         try {
-    
+
             setDownloading(true);
-    
+
             const blob = await clientApi.downloadExcel(id);
-    
+
             // Backend returned an error as JSON
             if (blob.type?.includes("application/json")) {
-    
+
                 const text = await blob.text();
                 const json = JSON.parse(text);
-    
+
                 throw new Error(json.error);
-    
+
             }
-    
+
             const url = window.URL.createObjectURL(blob);
-    
+
             const link = document.createElement("a");
-    
+
             link.href = url;
             link.download = `${client.company_name}-invoices.xlsx`;
-    
+
             document.body.appendChild(link);
-    
+
             link.click();
-    
+
             link.remove();
-    
+
             window.URL.revokeObjectURL(url);
-    
+
         } catch (err) {
-    
-    
+
+
             alert(err.message);
-    
+
         } finally {
-    
+
             setDownloading(false);
-    
+
         }
-    
+
     }
     if (loading) {
         return (
             <div className="py-20 flex flex-col items-center justify-center">
-                <Loader2 size={36} className="animate-spin text-blue-500" />
-                <p className="mt-4 text-gray-400">
+                <Loader2 size={36} className="animate-spin text-indigo-600" />
+                <p className="mt-4 text-slate-500">
                     Loading client...
                 </p>
             </div>
@@ -155,24 +180,24 @@ export default function ClientDetails() {
         return (
             <div className="py-20 flex flex-col items-center justify-center text-center">
                 <AlertCircle size={48} className="text-red-500" />
-                <h3 className="mt-4 text-xl font-semibold">
+                <h3 className="mt-4 text-xl font-semibold text-slate-900">
                     Couldn't load client
                 </h3>
-                <p className="mt-2 text-gray-400 max-w-sm">
+                <p className="mt-2 text-slate-500 max-w-sm">
                     {error || "This client no longer exists."}
                 </p>
                 <div className="mt-5 flex items-center gap-3">
                     <button
                         type="button"
                         onClick={load}
-                        className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700"
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition-all"
                     >
                         Retry
                     </button>
                     <button
                         type="button"
                         onClick={() => navigate("/dashboard/clients")}
-                        className="px-5 py-2.5 rounded-xl border border-slate-600 bg-slate-800 hover:bg-slate-700"
+                        className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition"
                     >
                         Back to clients
                     </button>
@@ -185,18 +210,18 @@ export default function ClientDetails() {
 
         <div className="space-y-8">
 
-            <div className="bg-slate-900 rounded-2xl p-8">
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
 
                 <div className="flex items-start justify-between gap-4">
 
                     <div>
-                        <h1 className="text-4xl font-bold">
+                        <h1 className="text-4xl font-bold text-slate-900">
 
                             {client.company_name}
 
                         </h1>
 
-                        <p className="text-gray-400 mt-3">
+                        <p className="text-slate-500 mt-3">
 
                             {client.contact_person}
 
@@ -210,7 +235,7 @@ export default function ClientDetails() {
                             onClick={() =>
                                 navigate(`/dashboard/clients/${id}/edit`)
                             }
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-600 bg-slate-800 hover:bg-slate-700 transition"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition"
                         >
                             <Pencil size={16} />
                             Edit
@@ -220,7 +245,7 @@ export default function ClientDetails() {
                             type="button"
                             onClick={() => setConfirmOpen(true)}
                             disabled={deleting}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-900 bg-red-950/40 text-red-400 hover:bg-red-950 transition disabled:opacity-60"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-60"
                         >
                             <Trash2 size={16} />
                             {deleting ? "Deleting..." : "Delete"}
@@ -234,13 +259,13 @@ export default function ClientDetails() {
 
                     <div>
 
-                        <h3 className="text-gray-500">
+                        <h3 className="text-slate-500 text-sm">
 
                             Email
 
                         </h3>
 
-                        <p>
+                        <p className="text-slate-900 mt-1">
 
                             {client.email}
 
@@ -250,13 +275,13 @@ export default function ClientDetails() {
 
                     <div>
 
-                        <h3 className="text-gray-500">
+                        <h3 className="text-slate-500 text-sm">
 
                             Phone
 
                         </h3>
 
-                        <p>
+                        <p className="text-slate-900 mt-1">
 
                             {client.phone}
 
@@ -266,13 +291,13 @@ export default function ClientDetails() {
 
                     <div>
 
-                        <h3 className="text-gray-500">
+                        <h3 className="text-slate-500 text-sm">
 
                             Country
 
                         </h3>
 
-                        <p>
+                        <p className="text-slate-900 mt-1">
 
                             {client.country}
 
@@ -282,13 +307,13 @@ export default function ClientDetails() {
 
                     <div>
 
-                        <h3 className="text-gray-500">
+                        <h3 className="text-slate-500 text-sm">
 
                             TRN
 
                         </h3>
 
-                        <p>
+                        <p className="text-slate-900 mt-1">
 
                             {client.trn}
 
@@ -300,167 +325,219 @@ export default function ClientDetails() {
 
             </div>
 
-            {/* <div className="grid md:grid-cols-4 gap-6">
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
 
-                <button
-                  onClick={() => navigate(`/dashboard/upload/${id}`)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl p-5 font-semibold transition"
-                >
-                    Upload Invoice
-                </button>
+                <div className="px-6 py-5 border-b">
+                    <h2 className="text-xl font-semibold text-slate-900">
+                        Client Invoices
+                    </h2>
+                </div>
 
-                <button
-                  onClick={handleDownloadExcel}
-                  disabled={downloading}
-                  className="bg-slate-800 hover:bg-slate-700 text-white rounded-xl p-5 font-semibold transition disabled:opacity-60"
-                >
-                    {downloading ? "Downloading..." : "Download Excel"}
-                </button>
-
-                <button className="bg-slate-800 rounded-xl p-5">
-
-                    Generate Report
-
-                </button>
-
-                <button
-                  onClick={() => navigate(`/dashboard/analytics?client=${id}`)}
-                  className="bg-slate-800 hover:bg-slate-700 text-white rounded-xl p-5 font-semibold transition"
-                >
-                    Analytics
-                </button>
-
-            </div> */}
-
-            <div className="bg-slate-900 rounded-2xl p-6">
-
-                <h2 className="text-2xl font-bold mb-6">
-
-                    Client Invoices
-
-                </h2>
-
-                <table className="w-full">
-
-                    <thead>
-
-                        <tr className="text-left border-b border-slate-700">
-
-                            <th className="py-3">
-
-                                Invoice
-
-                            </th>
-
-                            <th>
-
-                                Date
-
-                            </th>
-
-                            <th>
-
-                                Total
-
-                            </th>
-
-                            <th>
-
-                                VAT
-
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-                    <tbody>
-
-                        {paginatedInvoices.map((invoice) => (
-
-                                <tr
-                                    key={invoice.id}
-                                    className="border-b border-slate-800"
-                                >
-
-                                    <td className="py-4">
-
-                                        {invoice.invoiceNo}
-
-                                    </td>
-
-                                    <td>
-
-                                        {invoice.invoiceDate}
-
-                                    </td>
-
-                                    <td>
-
-                                        {invoice.currency}
-
-                                        {" "}
-
-                                        {invoice.totalAmount}
-
-                                    </td>
-
-                                    <td>
-
-                                        {invoice.vatAmount}
-
-                                    </td>
-
-                                </tr>
-
-                            ))}
-
-                    </tbody>
-
-                </table>
-
-                {invoices.length > 0 && (
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-slate-700">
-                        <p className="text-sm text-gray-400">
-                            Showing{" "}
-                            {(safePage - 1) * ROWS_PER_PAGE + 1}–
-                            {Math.min(
-                                safePage * ROWS_PER_PAGE,
-                                invoices.length
-                            )}{" "}
-                            of {invoices.length} invoices
+                {invoices.length === 0 ? (
+                    <div className="py-20 text-center">
+                        <FileText
+                            size={60}
+                            className="mx-auto text-slate-300"
+                        />
+                        <h3 className="mt-5 text-xl font-semibold text-slate-700">
+                            No invoices found
+                        </h3>
+                        <p className="mt-2 text-slate-500">
+                            No invoices for this client yet.
                         </p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full">
+                            <thead className="bg-slate-50 border-b">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        #
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Invoice #
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Supplier
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Type
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Date
+                                    </th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
+                                        Without VAT
+                                    </th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
+                                        Amount
+                                    </th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
+                                        VAT
+                                    </th>
+                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
+                                        VAT Rate
+                                    </th>
+                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
+                                        Currency
+                                    </th>
+                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
 
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setPage((p) => Math.max(1, p - 1))
-                                }
-                                disabled={safePage <= 1}
-                                className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-600 bg-slate-800 text-sm font-medium text-gray-200 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none transition"
-                            >
-                                <ChevronLeft size={18} />
-                                Previous
-                            </button>
+                            <tbody>
 
-                            <span className="text-sm text-gray-400 px-2">
-                                Page {safePage} of {totalPages}
-                            </span>
+                                {paginatedInvoices.map((invoice, index) => (
 
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setPage((p) =>
-                                        Math.min(totalPages, p + 1)
-                                    )
-                                }
-                                disabled={safePage >= totalPages}
-                                className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-600 bg-slate-800 text-sm font-medium text-gray-200 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none transition"
-                            >
-                                Next
-                                <ChevronRight size={18} />
-                            </button>
+                                        <tr
+                                            key={invoice.id}
+                                            className="border-b hover:bg-slate-50 transition"
+                                        >
+
+                                            <td className="px-6 py-5 text-slate-500">
+                                                {(safePage - 1) * ROWS_PER_PAGE + index + 1}
+                                            </td>
+
+                                            <td className="px-6 py-5 font-semibold text-black">
+                                                {invoice.invoiceNo}
+                                            </td>
+
+                                            <td className="px-6 py-5 text-black">
+                                                {invoice.clientName}
+                                            </td>
+
+                                            <td className="px-6 py-5">
+                                                <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${documentTypeBadgeClass(invoice.documentType)}`}>
+                                                    {documentTypeLabel(invoice.documentType)}
+                                                </span>
+                                            </td>
+
+                                            <td className="px-6 py-5 text-black">
+                                                {formatDateDisplay(invoice.invoiceDate)}
+                                            </td>
+
+                                            <td className="px-6 py-5 text-right text-black">
+                                                {Number(
+                                                    invoice.subtotal || 0
+                                                ).toLocaleString(undefined, {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2,
+                                                })}
+                                            </td>
+
+                                            <td className="px-6 py-5 text-right font-semibold text-black">
+                                                {Number(
+                                                    invoice.totalAmount
+                                                ).toLocaleString(undefined, {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2,
+                                                })}
+                                            </td>
+
+                                            <td className="px-6 py-5 text-right text-black">
+                                                {Number(
+                                                    invoice.vatAmount || 0
+                                                ).toLocaleString(undefined, {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2,
+                                                })}
+                                            </td>
+
+                                            <td className="px-6 py-5 text-center text-black">
+                                                {invoice.vatRate ? `${invoice.vatRate}%` : "-"}
+                                            </td>
+
+                                            <td className="px-6 py-5 text-center">
+                                                <span className="inline-flex px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 text-xs font-semibold">
+                                                    {invoice.currency}
+                                                </span>
+                                            </td>
+
+                                            <td className="px-6 py-5">
+                                                <div className="flex justify-center gap-2">
+                                                    <button
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/dashboard/invoices/${invoice.id}`
+                                                            )
+                                                        }
+                                                        className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition"
+                                                    >
+                                                        <Eye size={18} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/dashboard/invoices/${invoice.id}/edit`
+                                                            )
+                                                        }
+                                                        className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition"
+                                                    >
+                                                        <Pencil size={18} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() =>
+                                                            setDeleteInvoiceTarget(invoice)
+                                                        }
+                                                        className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-red-100 text-red-600 flex items-center justify-center transition"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </div>
+                                            </td>
+
+                                        </tr>
+
+                                    ))}
+
+                            </tbody>
+
+                        </table>
+
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t bg-slate-50">
+                            <p className="text-sm text-slate-600">
+                                Showing{" "}
+                                {(safePage - 1) * ROWS_PER_PAGE + 1}–
+                                {Math.min(
+                                    safePage * ROWS_PER_PAGE,
+                                    invoices.length
+                                )}{" "}
+                                of {invoices.length} invoices
+                            </p>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setPage((p) => Math.max(1, p - 1))
+                                    }
+                                    disabled={safePage <= 1}
+                                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition"
+                                >
+                                    <ChevronLeft size={18} />
+                                    Previous
+                                </button>
+
+                                <span className="text-sm text-slate-600 px-2">
+                                    Page {safePage} of {totalPages}
+                                </span>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setPage((p) =>
+                                            Math.min(totalPages, p + 1)
+                                        )
+                                    }
+                                    disabled={safePage >= totalPages}
+                                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition"
+                                >
+                                    Next
+                                    <ChevronRight size={18} />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -478,6 +555,19 @@ export default function ClientDetails() {
                 loading={deleting}
                 onConfirm={handleDelete}
                 onCancel={() => setConfirmOpen(false)}
+            />
+
+            <ConfirmDialog
+                open={Boolean(deleteInvoiceTarget)}
+                title="Delete this invoice?"
+                message={
+                    deleteInvoiceTarget
+                        ? `Invoice ${deleteInvoiceTarget.invoiceNo || ""} will be permanently deleted. This cannot be undone.`
+                        : ""
+                }
+                loading={deletingInvoice}
+                onConfirm={confirmDeleteInvoice}
+                onCancel={() => setDeleteInvoiceTarget(null)}
             />
 
         </div>

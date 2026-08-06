@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import { useTheme } from "../../hooks/useTheme";
 
-export default function MonthlyProcessingChart({ data = [] }) {
+export default function MonthlyProcessingChart({ data = [], title = "Monthly Invoice Processing" }) {
   const { isDark } = useTheme();
 
   const gridColor = isDark ? "#1f2937" : "#e2e8f0";
@@ -22,7 +22,7 @@ export default function MonthlyProcessingChart({ data = [] }) {
   return (
     <div className="bg-white rounded-3xl shadow-sm border p-6">
       <h2 className="text-xl font-semibold text-black mb-6">
-        Monthly Invoice Processing
+        {title}
       </h2>
 
       <div className="h-80">

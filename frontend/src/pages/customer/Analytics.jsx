@@ -24,6 +24,8 @@ import MonthlyProcessingChart from "../../components/dashboard/MonthlyProcessing
 import MonthlyExpensesChart from "../../components/dashboard/MonthlyExpensesChart";
 import TopClientsChart from "../../components/dashboard/TopClientsChart";
 import ConfidenceDistributionChart from "../../components/dashboard/ConfidenceDistributionChart";
+import ExtractionAccuracyCard from "../../components/dashboard/ExtractionAccuracyCard";
+import ClientAnalyticsTable from "../../components/dashboard/ClientAnalyticsTable";
 import DashboardSkeleton from "../../components/dashboard/DashboardSkeleton";
 import { DOCUMENT_TYPES } from "../../utils/documentTypes";
 
@@ -46,6 +48,8 @@ export default function Analytics() {
   const [monthly, setMonthly] = useState({ invoices: [], clients: [] });
   const [topClients, setTopClients] = useState([]);
   const [confidenceDistribution, setConfidenceDistribution] = useState(null);
+  const [accuracy, setAccuracy] = useState(null);
+  const [clientAnalytics, setClientAnalytics] = useState([]);
   const [invoices, setInvoices] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -83,22 +87,33 @@ export default function Analytics() {
 
       const numericClientId = selectedClientId ? Number(selectedClientId) : null;
 
-      const [summaryRes, monthlyRes, confidenceRes, invoiceRes, topClientsRes] =
-        await Promise.all([
-          dashboardApi.getSummary(numericClientId, selectedDocumentType || null),
-          dashboardApi.getMonthly(numericClientId),
-          dashboardApi.getConfidenceDistribution(numericClientId),
-          numericClientId
-            ? getInvoicesByClient(numericClientId)
-            : getInvoices(),
-          numericClientId ? Promise.resolve(null) : dashboardApi.getTopClients(),
-        ]);
+      const [
+        summaryRes,
+        monthlyRes,
+        confidenceRes,
+        qualityRes,
+        invoiceRes,
+        topClientsRes,
+        clientAnalyticsRes,
+      ] = await Promise.all([
+        dashboardApi.getSummary(numericClientId, selectedDocumentType || null),
+        dashboardApi.getMonthly(numericClientId),
+        dashboardApi.getConfidenceDistribution(numericClientId),
+        dashboardApi.getQuality(numericClientId),
+        numericClientId
+          ? getInvoicesByClient(numericClientId)
+          : getInvoices(),
+        numericClientId ? Promise.resolve(null) : dashboardApi.getTopClients(),
+        numericClientId ? Promise.resolve(null) : dashboardApi.getClientAnalytics(),
+      ]);
 
       setSummary(summaryRes.data.summary);
       setMonthly(monthlyRes.data.monthly);
       setConfidenceDistribution(confidenceRes.data.distribution);
+      setAccuracy(qualityRes.data.accuracy);
       setInvoices(invoiceRes?.data?.invoices || []);
       setTopClients(topClientsRes?.data?.topClients || []);
+      setClientAnalytics(clientAnalyticsRes?.data?.clients || []);
     } catch (err) {
       // Widgets already render sensible empty states from default values.
     } finally {
@@ -307,6 +322,11 @@ export default function Analytics() {
         {!clientId && <TopClientsChart data={topClients} />}
         <ConfidenceDistributionChart data={confidenceDistribution} />
       </div>
+
+      <ExtractionAccuracyCard data={accuracy} />
+
+      {/* Per-client breakdown */}
+      {!clientId && <ClientAnalyticsTable clients={clientAnalytics} />}
 
       {/* Recent Invoices */}
       <div className="bg-white rounded-3xl shadow border overflow-hidden">

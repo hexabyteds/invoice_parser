@@ -1,9 +1,4 @@
-import { useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
-
 export default function ExtractionAccuracyCard({ data }) {
-  const navigate = useNavigate();
-
   const totalSuccessfullyExtracted = data?.totalSuccessfullyExtracted ?? 0;
   const hasData = totalSuccessfullyExtracted > 0;
 
@@ -41,14 +36,6 @@ export default function ExtractionAccuracyCard({ data }) {
         <Stat label="Success Rate" value={successRate === null ? "-" : `${successRate}%`} />
         <Stat label="Successfully Extracted" value={totalSuccessfullyExtracted} span />
       </div>
-
-      <button
-        onClick={() => navigate("/dashboard/analytics")}
-        className="mt-6 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-black font-medium transition"
-      >
-        View Analytics
-        <ArrowRight size={16} />
-      </button>
     </div>
   );
 }
