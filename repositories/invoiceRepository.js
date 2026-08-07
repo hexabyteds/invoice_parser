@@ -82,34 +82,55 @@ class InvoiceRepository {
     // Get invoice by ID
 
     // Get invoices of one user
-    async findByUser(userId, { limit = 20, offset = 0, documentType = null } = {}) {
+    async findByUser(userId, { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}) {
 
-        const documentTypeFilter = documentType ? "AND document_type = ?" : "";
-        const params = documentType
-            ? [userId, documentType, limit, offset]
-            : [userId, limit, offset];
+        let sql = `SELECT * FROM invoices WHERE user_id = ?`;
+        const params = [userId];
 
-        const [rows] = await db.query(
-            `SELECT *
-             FROM invoices
-             WHERE user_id = ? ${documentTypeFilter}
-             ORDER BY created_at DESC, id DESC
-             LIMIT ? OFFSET ?`,
-            params
-        );
+        if (documentType) {
+            sql += ` AND document_type = ?`;
+            params.push(documentType);
+        }
+
+        if (from) {
+            sql += ` AND invoice_date >= ?`;
+            params.push(formatDate(from) || from);
+        }
+
+        if (to) {
+            sql += ` AND invoice_date <= ?`;
+            params.push(formatDate(to) || to);
+        }
+
+        sql += ` ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`;
+        params.push(limit, offset);
+
+        const [rows] = await db.query(sql, params);
 
         return await this.mapInvoices(rows);
     }
 
-    async countByUser(userId, documentType = null) {
+    async countByUser(userId, { documentType = null, from = null, to = null } = {}) {
 
-        const documentTypeFilter = documentType ? "AND document_type = ?" : "";
-        const params = documentType ? [userId, documentType] : [userId];
+        let sql = `SELECT COUNT(*) AS total FROM invoices WHERE user_id = ?`;
+        const params = [userId];
 
-        const [rows] = await db.execute(
-            `SELECT COUNT(*) AS total FROM invoices WHERE user_id = ? ${documentTypeFilter}`,
-            params
-        );
+        if (documentType) {
+            sql += ` AND document_type = ?`;
+            params.push(documentType);
+        }
+
+        if (from) {
+            sql += ` AND invoice_date >= ?`;
+            params.push(formatDate(from) || from);
+        }
+
+        if (to) {
+            sql += ` AND invoice_date <= ?`;
+            params.push(formatDate(to) || to);
+        }
+
+        const [rows] = await db.execute(sql, params);
 
         return Number(rows[0]?.total || 0);
     }
@@ -255,42 +276,55 @@ class InvoiceRepository {
 
         return rows[0];
     }
-    async findByClient(userId, clientId, { limit = 20, offset = 0, documentType = null } = {}) {
+    async findByClient(userId, clientId, { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}) {
 
-        const documentTypeFilter = documentType ? "AND document_type = ?" : "";
-        const params = documentType
-            ? [userId, clientId, documentType, limit, offset]
-            : [userId, clientId, limit, offset];
+        let sql = `SELECT * FROM invoices WHERE user_id = ? AND client_id = ?`;
+        const params = [userId, clientId];
 
-        const [rows] = await db.query(
-            `
-            SELECT *
-            FROM invoices
-            WHERE user_id = ?
-            AND client_id = ?
-            ${documentTypeFilter}
-            ORDER BY created_at DESC, id DESC
-            LIMIT ? OFFSET ?
-            `,
-            params
-        );
+        if (documentType) {
+            sql += ` AND document_type = ?`;
+            params.push(documentType);
+        }
+
+        if (from) {
+            sql += ` AND invoice_date >= ?`;
+            params.push(formatDate(from) || from);
+        }
+
+        if (to) {
+            sql += ` AND invoice_date <= ?`;
+            params.push(formatDate(to) || to);
+        }
+
+        sql += ` ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`;
+        params.push(limit, offset);
+
+        const [rows] = await db.query(sql, params);
 
         return await this.mapInvoices(rows);
     }
 
-    async countByClient(userId, clientId, documentType = null) {
+    async countByClient(userId, clientId, { documentType = null, from = null, to = null } = {}) {
 
-        const documentTypeFilter = documentType ? "AND document_type = ?" : "";
-        const params = documentType
-            ? [userId, clientId, documentType]
-            : [userId, clientId];
+        let sql = `SELECT COUNT(*) AS total FROM invoices WHERE user_id = ? AND client_id = ?`;
+        const params = [userId, clientId];
 
-        const [rows] = await db.execute(
-            `SELECT COUNT(*) AS total
-             FROM invoices
-             WHERE user_id = ? AND client_id = ? ${documentTypeFilter}`,
-            params
-        );
+        if (documentType) {
+            sql += ` AND document_type = ?`;
+            params.push(documentType);
+        }
+
+        if (from) {
+            sql += ` AND invoice_date >= ?`;
+            params.push(formatDate(from) || from);
+        }
+
+        if (to) {
+            sql += ` AND invoice_date <= ?`;
+            params.push(formatDate(to) || to);
+        }
+
+        const [rows] = await db.execute(sql, params);
 
         return Number(rows[0]?.total || 0);
     }

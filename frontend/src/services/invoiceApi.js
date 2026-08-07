@@ -17,9 +17,13 @@ export const uploadInvoice = (formData) =>
 // Get All Invoices
 // ==========================
 
-export const getInvoices = (documentType) =>
+export const getInvoices = (documentType, from, to) =>
   api.get("/invoices", {
-    params: documentType ? { document_type: documentType } : {},
+    params: {
+      ...(documentType ? { document_type: documentType } : {}),
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
+    },
   });
 
 // ==========================
@@ -81,10 +85,12 @@ export const downloadReport = () =>
 // Get Invoices By Client
 // ==========================
 
-export const getInvoicesByClient = (clientId, documentType) =>
+export const getInvoicesByClient = (clientId, documentType, from, to) =>
   api.get("/invoices", {
     params: {
       client_id: clientId,
       ...(documentType ? { document_type: documentType } : {}),
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
     },
   });

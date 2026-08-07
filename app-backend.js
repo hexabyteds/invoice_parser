@@ -442,6 +442,30 @@ app.get("/api/invoices", authMiddleware, async (req, res) => {
       });
     }
 
+    const from = req.query.from || null;
+    const to = req.query.to || null;
+
+    if (from && !/^\d{4}-\d{2}-\d{2}$/.test(from)) {
+      return res.status(400).json({
+        success: false,
+        error: "from must be a date in YYYY-MM-DD format",
+      });
+    }
+
+    if (to && !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      return res.status(400).json({
+        success: false,
+        error: "to must be a date in YYYY-MM-DD format",
+      });
+    }
+
+    if (from && to && from > to) {
+      return res.status(400).json({
+        success: false,
+        error: "from date cannot be after to date",
+      });
+    }
+
     let result;
 
     if (clientId) {
@@ -457,10 +481,10 @@ app.get("/api/invoices", authMiddleware, async (req, res) => {
       result = await agent.getInvoicesByClient(
         req.user.id,
         parsedClientId,
-        { limit, offset, documentType }
+        { limit, offset, documentType, from, to }
       );
     } else {
-      result = await agent.getInvoices(req.user.id, { limit, offset, documentType });
+      result = await agent.getInvoices(req.user.id, { limit, offset, documentType, from, to });
     }
 
     res.json({

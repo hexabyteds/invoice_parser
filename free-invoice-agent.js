@@ -374,7 +374,7 @@ class FreeInvoiceAgent {
 
     async getInvoices(
         userId,
-        { limit = 20, offset = 0, documentType = null } = {}
+        { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}
     ) {
         const [invoices, total] =
             await Promise.all([
@@ -383,13 +383,15 @@ class FreeInvoiceAgent {
                     {
                         limit,
                         offset,
-                        documentType
+                        documentType,
+                        from,
+                        to
                     }
                 ),
 
                 invoiceRepository.countByUser(
                     userId,
-                    documentType
+                    { documentType, from, to }
                 )
             ]);
 
@@ -841,7 +843,7 @@ class FreeInvoiceAgent {
     async getInvoicesByClient(
         userId,
         clientId,
-        { limit = 20, offset = 0, documentType = null } = {}
+        { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}
     ) {
         const [invoices, total] =
             await Promise.all([
@@ -851,14 +853,16 @@ class FreeInvoiceAgent {
                     {
                         limit,
                         offset,
-                        documentType
+                        documentType,
+                        from,
+                        to
                     }
                 ),
 
                 invoiceRepository.countByClient(
                     userId,
                     clientId,
-                    documentType
+                    { documentType, from, to }
                 )
             ]);
 

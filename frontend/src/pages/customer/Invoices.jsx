@@ -8,6 +8,7 @@ import {
     Loader2,
     ChevronLeft,
     ChevronRight,
+    CalendarRange,
 } from "lucide-react";
 import {
     getInvoices,
@@ -23,11 +24,18 @@ import { DOCUMENT_TYPES, documentTypeLabel, documentTypeBadgeClass } from "../..
 
 const ROWS_PER_PAGE = 10;
 
+function toInputDate(date) {
+    return date.toISOString().split("T")[0];
+}
+
 export default function Invoices() {
     const [invoices, setInvoices] = useState([]);
     const [clients, setClients] = useState([]);
     const [clientId, setClientId] = useState("");
     const [documentType, setDocumentType] = useState("");
+    const [fromDate, setFromDate] = useState("");
+    const [toDate, setToDate] = useState("");
+    const [dateError, setDateError] = useState("");
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
@@ -43,13 +51,25 @@ export default function Invoices() {
         }
     }
 
-    async function loadInvoices(selectedClientId = clientId, selectedDocumentType = documentType) {
+    async function loadInvoices(
+        selectedClientId = clientId,
+        selectedDocumentType = documentType,
+        selectedFrom = fromDate,
+        selectedTo = toDate
+    ) {
+        if (selectedFrom && selectedTo && selectedFrom > selectedTo) {
+            setDateError("From date cannot be after To date.");
+            return;
+        }
+
+        setDateError("");
+
         try {
             setLoading(true);
 
             const res = selectedClientId
-                ? await getInvoicesByClient(selectedClientId, selectedDocumentType)
-                : await getInvoices(selectedDocumentType);
+                ? await getInvoicesByClient(selectedClientId, selectedDocumentType, selectedFrom, selectedTo)
+                : await getInvoices(selectedDocumentType, selectedFrom, selectedTo);
 
             setInvoices(res.data.invoices || []);
         } catch (err) {
@@ -58,15 +78,30 @@ export default function Invoices() {
         }
     }
 
+    function setQuickRange(days) {
+        const to = new Date();
+        const from = new Date();
+        from.setDate(to.getDate() - days);
+
+        setFromDate(toInputDate(from));
+        setToDate(toInputDate(to));
+    }
+
+    function clearDateRange() {
+        setFromDate("");
+        setToDate("");
+        setDateError("");
+    }
+
     useEffect(() => {
         loadClients();
         loadInvoices();
     }, []);
 
     useEffect(() => {
-        loadInvoices(clientId, documentType);
+        loadInvoices(clientId, documentType, fromDate, toDate);
         setPage(1);
-    }, [clientId, documentType]);
+    }, [clientId, documentType, fromDate, toDate]);
 
     useEffect(() => {
         setPage(1);
@@ -138,7 +173,7 @@ export default function Invoices() {
             </div>
 
             {/* Search + Client filter */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
                 <div className="flex flex-col md:flex-row gap-4">
 
                     <div className="relative flex-1 max-w-md">
@@ -186,6 +221,47 @@ export default function Invoices() {
                     </div>
 
                 </div>
+
+                <div className="flex flex-col md:flex-row md:items-end gap-4 pt-4 border-t border-slate-100">
+                    <div className="md:w-56">
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+                            <CalendarRange size={16} className="text-indigo-600" />
+                            From
+                        </label>
+                        <input
+                            type="date"
+                            value={fromDate}
+                            max={toDate || undefined}
+                            onChange={(e) => setFromDate(e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
+                        />
+                    </div>
+
+                    <div className="md:w-56">
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+                            <CalendarRange size={16} className="text-indigo-600" />
+                            To
+                        </label>
+                        <input
+                            type="date"
+                            value={toDate}
+                            min={fromDate || undefined}
+                            onChange={(e) => setToDate(e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
+                        />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                        <QuickButton label="Last 7 days" onClick={() => setQuickRange(7)} />
+                        <QuickButton label="Last 30 days" onClick={() => setQuickRange(30)} />
+                        <QuickButton label="Last 90 days" onClick={() => setQuickRange(90)} />
+                        <QuickButton label="Clear dates" onClick={clearDateRange} />
+                    </div>
+                </div>
+
+                {dateError && (
+                    <p className="text-sm text-red-600">{dateError}</p>
+                )}
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -417,5 +493,17 @@ export default function Invoices() {
             />
 
         </div>
+    );
+}
+
+function QuickButton({ label, onClick }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition"
+        >
+            {label}
+        </button>
     );
 }
