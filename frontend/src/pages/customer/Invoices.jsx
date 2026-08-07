@@ -21,6 +21,7 @@ import { formatDateDisplay } from "../../utils/formatDate";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import toast from "react-hot-toast";
 import { DOCUMENT_TYPES, documentTypeLabel, documentTypeBadgeClass } from "../../utils/documentTypes";
+import { isClientActive } from "../../utils/clientStatus";
 
 const ROWS_PER_PAGE = 10;
 
@@ -107,6 +108,21 @@ export default function Invoices() {
         setPage(1);
     }, [search]);
 
+    const activeClients = useMemo(
+        () => clients.filter((c) => isClientActive(c.status)),
+        [clients]
+    );
+
+    const inactiveClientIds = useMemo(
+        () =>
+            new Set(
+                clients
+                    .filter((c) => !isClientActive(c.status))
+                    .map((c) => c.id)
+            ),
+        [clients]
+    );
+
     const selectedClient = clients.find(
         (c) => String(c.id) === String(clientId)
     );
@@ -114,16 +130,20 @@ export default function Invoices() {
     const filteredInvoices = useMemo(() => {
         const keyword = search.toLowerCase().trim();
 
-        if (!keyword) return invoices;
+        const visibleInvoices = invoices.filter(
+            (invoice) => !inactiveClientIds.has(invoice.clientId)
+        );
 
-        return invoices.filter((invoice) => {
+        if (!keyword) return visibleInvoices;
+
+        return visibleInvoices.filter((invoice) => {
             return (
                 invoice.invoiceNo?.toLowerCase().includes(keyword) ||
                 invoice.clientName?.toLowerCase().includes(keyword) ||
                 invoice.currency?.toLowerCase().includes(keyword)
             );
         });
-    }, [search, invoices]);
+    }, [search, invoices, inactiveClientIds]);
 
     const totalPages = Math.max(
         1,
@@ -197,7 +217,7 @@ export default function Invoices() {
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
                         >
                             <option value="">All Clients</option>
-                            {clients.map((client) => (
+                            {activeClients.map((client) => (
                                 <option key={client.id} value={client.id}>
                                     {client.company_name}
                                 </option>
