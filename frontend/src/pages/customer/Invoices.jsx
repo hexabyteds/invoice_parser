@@ -413,7 +413,7 @@ export default function Invoices() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-5 text-black">
-                                            {formatDateDisplay(invoice.invoiceDate)}
+                                            {formatDateDisplay(invoice.updatedAt)}
                                         </td>
                                         <td className="px-6 py-5">
                                             <div className="flex justify-center gap-2">
