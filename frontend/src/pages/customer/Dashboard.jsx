@@ -154,14 +154,7 @@ export default function Dashboard() {
               onClick={() => navigate("/dashboard/reports")}
               className="px-6 py-3 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition"
             >
-              View Reports
-            </button>
-
-            <button
-              onClick={() => navigate("/dashboard/analytics")}
-              className="px-6 py-3 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition"
-            >
-              Analytics
+              View Reports & Analysis
             </button>
           </div>
         </div>

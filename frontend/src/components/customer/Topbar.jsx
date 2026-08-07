@@ -167,7 +167,7 @@ export default function Topbar({
         "
             >
 
-                <div className="relative w-full">
+                {/* <div className="relative w-full">
 
                     <Search
                         size={18}
@@ -204,7 +204,7 @@ export default function Topbar({
             "
                     />
 
-                </div>
+                </div> */}
 
             </div>
 
