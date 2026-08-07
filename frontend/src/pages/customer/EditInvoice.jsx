@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -25,7 +25,13 @@ export default function EditInvoice() {
   const [lineItems, setLineItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const savedTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => clearTimeout(savedTimeoutRef.current);
+  }, []);
   const [hasSource, setHasSource] = useState(false);
   const [sourceUrl, setSourceUrl] = useState(null);
   const [sourceKind, setSourceKind] = useState(null);
@@ -159,8 +165,15 @@ export default function EditInvoice() {
     e.preventDefault();
 
     try {
-      setSaving(true);
+
+      // setTimeout(async () => {
+        setSaving(true);
+      // }, 1000);
+
+      // setSaving(true);
+      // setSaved(false);
       setError("");
+      clearTimeout(savedTimeoutRef.current);
 
       const payload = {
         ...form,
@@ -171,15 +184,26 @@ export default function EditInvoice() {
         lineItems,
       };
 
-      await updateInvoice(id, payload);
+      await updateInvoice(id, payload, { timeout: 10000 });
 
-      navigate(`/dashboard/invoices/${id}`);
+      // savedTimeoutRef.current = setTimeout(() => setSaved(true), 10000);
+
+      // navigate(`/dashboard/invoices/${id}`);
     } catch (err) {
+      const timedOut =
+        err.code === "ECONNABORTED" ||
+        /timeout/i.test(err.message || "");
+
       setError(
-        err.response?.data?.error || "Unable to save invoice."
+        timedOut
+          ? "Save timed out. Please try again."
+          : err.response?.data?.error || "Unable to save invoice."
       );
     } finally {
-      setSaving(false);
+      setTimeout(() => {
+        setSaving(false);
+      }, 1000);
+      // setSaving(false);
     }
   }
 
@@ -217,22 +241,10 @@ export default function EditInvoice() {
 
           <h1 className="text-3xl font-bold text-black">Edit Invoice</h1>
           <p className="text-slate-500 mt-2">
-            Update the invoice details and line items.
+            Update the Document details and line items.
           </p>
         </div>
 
-        <button
-          type="submit"
-          disabled={saving}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold disabled:opacity-60 transition"
-        >
-          {saving ? (
-            <Loader2 size={18} className="animate-spin" />
-          ) : (
-            <Save size={18} />
-          )}
-          {saving ? "Saving..." : "Save Changes"}
-        </button>
       </div>
 
       {error && (
@@ -241,296 +253,319 @@ export default function EditInvoice() {
         </div>
       )}
 
+      {saved && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-green-700">
+          Invoice saved.
+        </div>
+      )}
+
       {/* Document Details + Line Items (left) paired with the original
           document preview (right), matching the spreadsheet-style form
           used on the read-only invoice detail view — but editable. */}
       <div className="grid lg:grid-cols-3 gap-6 items-start">
 
-      <div className="lg:col-span-2 bg-white rounded-2xl shadow border overflow-hidden">
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow border overflow-hidden">
 
-        <div className="border-b bg-slate-50 px-6 py-4">
-          <h2 className="text-lg font-bold text-black">Document Details</h2>
-        </div>
+          <div className="border-b bg-slate-50 px-6 py-4">
+            <h2 className="text-lg font-bold text-black">Document Details</h2>
+          </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse table-fixed">
-            <colgroup>
-              <col className="w-[17%]" />
-              <col className="w-[33%]" />
-              <col className="w-[17%]" />
-              <col className="w-[33%]" />
-            </colgroup>
-            <tbody>
-              <tr className="border-b">
-                <EditCell label="Document No">
-                  <input
-                    value={form.invoice_no}
-                    onChange={(e) => handleField("invoice_no", e.target.value)}
-                    className={inputClass}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse table-fixed">
+              <colgroup>
+                <col className="w-[17%]" />
+                <col className="w-[33%]" />
+                <col className="w-[17%]" />
+                <col className="w-[33%]" />
+              </colgroup>
+              <tbody>
+                <tr className="border-b">
+                  <EditCell label="Document No">
+                    <input
+                      value={form.invoice_no}
+                      onChange={(e) => handleField("invoice_no", e.target.value)}
+                      className={inputClass}
+                    />
+                  </EditCell>
+                  <StaticCell
+                    label="Amount Exc. VAT"
+                    value={money(computed.subtotal, form.currency)}
+                    isLast
                   />
-                </EditCell>
-                <StaticCell
-                  label="Amount Exc. VAT"
-                  value={money(computed.subtotal, form.currency)}
-                  isLast
-                />
-              </tr>
-
-              <tr className="border-b">
-                <EditCell label="Document Date">
-                  <input
-                    type="date"
-                    value={form.invoice_date}
-                    onChange={(e) => handleField("invoice_date", e.target.value)}
-                    className={inputClass}
-                  />
-                </EditCell>
-                <StaticCell
-                  label="VAT Amount"
-                  value={money(computed.vatAmount, form.currency)}
-                  isLast
-                />
-              </tr>
-
-              <tr className="border-b">
-                <EditCell label="Document Type">
-                  <select
-                    value={form.document_type}
-                    onChange={(e) => handleField("document_type", e.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="">Not set</option>
-                    {DOCUMENT_TYPES.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
-                </EditCell>
-                <StaticCell
-                  label="Amount Inc. VAT"
-                  value={money(computed.total, form.currency)}
-                  isLast
-                />
-              </tr>
-
-              <tr className="border-b">
-                <EditCell label="Due Date">
-                  <input
-                    type="date"
-                    value={form.due_date}
-                    onChange={(e) => handleField("due_date", e.target.value)}
-                    className={inputClass}
-                  />
-                </EditCell>
-                <EditCell label="Currency" isLast>
-                  <input
-                    value={form.currency}
-                    onChange={(e) => handleField("currency", e.target.value)}
-                    className={inputClass}
-                  />
-                </EditCell>
-              </tr>
-
-              <tr className="border-b">
-                <EditCell label="Client">
-                  <input
-                    value={form.client_name}
-                    onChange={(e) => handleField("client_name", e.target.value)}
-                    className={inputClass}
-                  />
-                </EditCell>
-                <EditCell label="TRN Number" isLast>
-                  <input
-                    value={form.trn}
-                    onChange={(e) => handleField("trn", e.target.value)}
-                    className={inputClass}
-                  />
-                </EditCell>
-              </tr>
-
-              <tr className="border-b">
-                <EditCell label="Phone">
-                  <input
-                    value={form.phone_number}
-                    onChange={(e) => handleField("phone_number", e.target.value)}
-                    className={inputClass}
-                  />
-                </EditCell>
-                <EditCell label="VAT Rate (%)" isLast>
-                  <input
-                    type="number"
-                    value={form.vat_rate}
-                    onChange={(e) => handleField("vat_rate", e.target.value)}
-                    className={inputClass}
-                  />
-                </EditCell>
-              </tr>
-
-              <tr>
-                <EditCell label="Location">
-                  <input
-                    value={form.location}
-                    onChange={(e) => handleField("location", e.target.value)}
-                    className={inputClass}
-                  />
-                </EditCell>
-                <td colSpan={2} />
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="border-t px-6 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-black">
-            Line Items ({lineItems.length})
-          </h2>
-
-          <button
-            type="button"
-            onClick={addItem}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-semibold transition"
-          >
-            <Plus size={16} />
-            Add Item
-          </button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px]">
-            <thead>
-              <tr className="border-y-[3px] border-double border-slate-800 bg-slate-50">
-                <th className="text-left px-6 py-3 text-black font-bold">Description</th>
-                <th className="text-center px-6 py-3 text-black font-bold w-28">Qty</th>
-                <th className="text-right px-6 py-3 text-black font-bold w-40">
-                  Unit Price
-                </th>
-                <th className="text-right px-6 py-3 text-black font-bold w-32">
-                  Amount Exc. VAT
-                </th>
-                <th className="text-right px-6 py-3 text-black font-bold w-28">VAT</th>
-                <th className="text-right px-6 py-3 text-black font-bold w-32">
-                  Amount Inc. VAT
-                </th>
-                <th className="px-6 py-3 w-16"></th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {lineItems.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-6 py-8 text-center text-slate-400"
-                  >
-                    No line items. Click "Add Item" to create one.
-                  </td>
                 </tr>
-              ) : (
-                lineItems.map((item, index) => {
-                  // Mirrors the read-only invoice detail view: line items
-                  // don't store their own VAT split, so VAT and the
-                  // inclusive total are derived from the invoice's overall
-                  // VAT rate applied to this line's pre-tax amount.
-                  const vatRate = Number(form.vat_rate) || 0;
-                  const withoutVat = Number(item.total_price) || 0;
-                  const vatAmount = withoutVat * (vatRate / 100);
-                  const totalPrice = withoutVat + vatAmount;
 
-                  return (
-                  <tr key={index} className="border-t">
-                    <td className="px-6 py-3">
-                      <input
-                        value={item.description}
-                        onChange={(e) =>
-                          handleItemChange(index, "description", e.target.value)
-                        }
-                        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-black outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </td>
-                    <td className="px-6 py-3">
-                      <input
-                        type="number"
-                        min="0"
-                        value={item.quantity}
-                        onChange={(e) =>
-                          handleItemChange(index, "quantity", e.target.value)
-                        }
-                        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-black text-center outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </td>
-                    <td className="px-6 py-3">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.unit_price}
-                        onChange={(e) =>
-                          handleItemChange(index, "unit_price", e.target.value)
-                        }
-                        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-black text-right outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </td>
-                    <td className="px-6 py-3 text-right text-black">
-                      {withoutVat.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-3 text-right text-black">
-                      {vatAmount.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-3 text-right font-semibold text-black">
-                      {totalPrice.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => removeItem(index)}
-                        className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-rose-100 text-rose-600 inline-flex items-center justify-center transition"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                <tr className="border-b">
+                  <EditCell label="Document Date">
+                    <input
+                      type="date"
+                      value={form.invoice_date}
+                      onChange={(e) => handleField("invoice_date", e.target.value)}
+                      className={inputClass}
+                    />
+                  </EditCell>
+                  <StaticCell
+                    label="VAT Amount"
+                    value={money(computed.vatAmount, form.currency)}
+                    isLast
+                  />
+                </tr>
+
+                <tr className="border-b">
+                  <EditCell label="Document Type">
+                    <select
+                      value={form.document_type}
+                      onChange={(e) => handleField("document_type", e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">Not set</option>
+                      {DOCUMENT_TYPES.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </select>
+                  </EditCell>
+                  <StaticCell
+                    label="Amount Inc. VAT"
+                    value={money(computed.total, form.currency)}
+                    isLast
+                  />
+                </tr>
+
+                <tr className="border-b">
+                  <EditCell label="Due Date">
+                    <input
+                      type="date"
+                      value={form.due_date}
+                      onChange={(e) => handleField("due_date", e.target.value)}
+                      className={inputClass}
+                    />
+                  </EditCell>
+                  <EditCell label="Currency" isLast>
+                    <input
+                      value={form.currency}
+                      onChange={(e) => handleField("currency", e.target.value)}
+                      className={inputClass}
+                    />
+                  </EditCell>
+                </tr>
+
+                <tr className="border-b">
+                  <EditCell label="Client">
+                    <input
+                      value={form.client_name}
+                      onChange={(e) => handleField("client_name", e.target.value)}
+                      className={inputClass}
+                    />
+                  </EditCell>
+                  <EditCell label="TRN Number" isLast>
+                    <input
+                      value={form.trn}
+                      onChange={(e) => handleField("trn", e.target.value)}
+                      className={inputClass}
+                    />
+                  </EditCell>
+                </tr>
+
+                <tr className="border-b">
+                  <EditCell label="Phone">
+                    <input
+                      value={form.phone_number}
+                      onChange={(e) => handleField("phone_number", e.target.value)}
+                      className={inputClass}
+                    />
+                  </EditCell>
+                  <EditCell label="VAT Rate (%)" isLast>
+                    <input
+                      type="number"
+                      value={form.vat_rate}
+                      onChange={(e) => handleField("vat_rate", e.target.value)}
+                      className={inputClass}
+                    />
+                  </EditCell>
+                </tr>
+
+                <tr>
+                  <EditCell label="Location">
+                    <input
+                      value={form.location}
+                      onChange={(e) => handleField("location", e.target.value)}
+                      className={inputClass}
+                    />
+                  </EditCell>
+                  <td colSpan={2} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="border-t px-6 py-4 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-black">
+              Line Items ({lineItems.length})
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={addItem}
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-semibold transition"
+              >
+                <Plus size={16} />
+                Add Item
+              </button>
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold disabled:opacity-60 transition"
+              >
+                {saving ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Save size={18} />
+                )}
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px]">
+              <thead>
+                <tr className="border-y-[3px] border-double border-slate-800 bg-slate-50">
+                  <th className="text-left px-6 py-3 text-black font-bold">Description</th>
+                  <th className="text-center px-6 py-3 text-black font-bold w-28">Qty</th>
+                  <th className="text-right px-6 py-3 text-black font-bold w-40">
+                    Unit Price
+                  </th>
+                  <th className="text-right px-6 py-3 text-black font-bold w-32">
+                    Amount Exc. VAT
+                  </th>
+                  <th className="text-right px-6 py-3 text-black font-bold w-28">VAT</th>
+                  <th className="text-right px-6 py-3 text-black font-bold w-32">
+                    Amount Inc. VAT
+                  </th>
+                  <th className="px-6 py-3 w-16"></th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {lineItems.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-6 py-8 text-center text-slate-400"
+                    >
+                      No line items. Click "Add Item" to create one.
                     </td>
                   </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  lineItems.map((item, index) => {
+                    // Mirrors the read-only invoice detail view: line items
+                    // don't store their own VAT split, so VAT and the
+                    // inclusive total are derived from the invoice's overall
+                    // VAT rate applied to this line's pre-tax amount.
+                    const vatRate = Number(form.vat_rate) || 0;
+                    const withoutVat = Number(item.total_price) || 0;
+                    const vatAmount = withoutVat * (vatRate / 100);
+                    const totalPrice = withoutVat + vatAmount;
+
+                    return (
+                      <tr key={index} className="border-t">
+                        <td className="px-6 py-3">
+                          <input
+                            value={item.description}
+                            onChange={(e) =>
+                              handleItemChange(index, "description", e.target.value)
+                            }
+                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-black outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </td>
+                        <td className="px-6 py-3">
+                          <input
+                            type="number"
+                            min="0"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              handleItemChange(index, "quantity", e.target.value)
+                            }
+                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-black text-center outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </td>
+                        <td className="px-6 py-3">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.unit_price}
+                            onChange={(e) =>
+                              handleItemChange(index, "unit_price", e.target.value)
+                            }
+                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-black text-right outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </td>
+                        <td className="px-6 py-3 text-right text-black">
+                          {withoutVat.toFixed(2)}
+                         
+                        </td>
+                        <td className="px-6 py-3 text-right text-black">
+                          {vatAmount.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-3 text-right font-semibold text-black">
+                        {totalPrice.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => removeItem(index)}
+                            className="w-9 h-9 rounded-lg bg-slate-100 hover:bg-rose-100 text-rose-600 inline-flex items-center justify-center transition"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
 
-      <div className="bg-slate-200 rounded-2xl shadow border p-6 lg:sticky lg:top-8">
-        <h2 className="text-lg font-bold text-black text-center mb-4">
-          Invoice View
-        </h2>
+        <div className="bg-slate-200 rounded-2xl shadow border p-6 lg:sticky lg:top-8">
+          <h2 className="text-lg font-bold text-black text-center mb-4">
+            Invoice View
+          </h2>
 
-        {sourceLoading && (
-          <p className="text-slate-500 text-center">Loading document...</p>
-        )}
+          {sourceLoading && (
+            <p className="text-slate-500 text-center">Loading document...</p>
+          )}
 
-        {!sourceLoading && sourceUrl && sourceKind === "image" && (
-          <img
-            src={sourceUrl}
-            alt="Uploaded invoice"
-            className="max-w-full rounded-xl border mx-auto"
-          />
-        )}
+          {!sourceLoading && sourceUrl && sourceKind === "image" && (
+            <img
+              src={sourceUrl}
+              alt="Uploaded invoice"
+              className="max-w-full rounded-xl border mx-auto"
+            />
+          )}
 
-        {!sourceLoading && sourceUrl && sourceKind === "pdf" && (
-          <iframe
-            title="Uploaded invoice PDF"
-            src={`${sourceUrl}#toolbar=0&navpanes=0`}
-            className="w-full h-[600px] rounded-xl border"
-          />
-        )}
+          {!sourceLoading && sourceUrl && sourceKind === "pdf" && (
+            <iframe
+              title="Uploaded invoice PDF"
+              src={`${sourceUrl}#toolbar=0&navpanes=0`}
+              className="w-full h-[600px] rounded-xl border"
+            />
+          )}
 
-        {!sourceLoading && !sourceUrl && (
-          <p className="text-slate-500 text-center">
-            {hasSource
-              ? "Original file is not available on the server."
-              : "No source file was uploaded for this document."}
-          </p>
-        )}
-      </div>
+          {!sourceLoading && !sourceUrl && (
+            <p className="text-slate-500 text-center">
+              {hasSource
+                ? "Original file is not available on the server."
+                : "No source file was uploaded for this document."}
+            </p>
+          )}
+        </div>
 
       </div>
 
@@ -558,9 +593,8 @@ function StaticCell({ label, value, isLast = false }) {
         {label}
       </td>
       <td
-        className={`px-3 py-3 text-black font-semibold align-top ${
-          isLast ? "" : "border-r"
-        }`}
+        className={`px-3 py-3 text-black font-semibold align-top ${isLast ? "" : "border-r"
+          }`}
       >
         {value}
       </td>

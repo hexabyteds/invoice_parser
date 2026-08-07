@@ -103,6 +103,43 @@ class ClientController {
     
     }
     
+    async updateStatus(req, res) {
+
+        try {
+
+            const { status } = req.body;
+
+            if (!["ACTIVE", "INACTIVE"].includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Status must be ACTIVE or INACTIVE."
+                });
+            }
+
+            const client = await clientService.updateStatus(
+                req.params.id,
+                req.user.id,
+                status
+            );
+
+            res.json({
+                success: true,
+                client
+            });
+
+        } catch (err) {
+
+            const status = err.message === "Client not found." ? 404 : 400;
+
+            res.status(status).json({
+                success: false,
+                error: err.message
+            });
+
+        }
+
+    }
+
     async delete(req, res) {
 
         try {

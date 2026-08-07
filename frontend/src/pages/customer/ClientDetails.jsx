@@ -12,6 +12,8 @@ import {
     FileText,
     Loader2,
     Pencil,
+    Power,
+    PowerOff,
     Trash2,
 } from "lucide-react";
 
@@ -21,6 +23,7 @@ import {
   } from "../../services/invoiceApi";
 import { formatDateDisplay } from "../../utils/formatDate";
 import { documentTypeLabel, documentTypeBadgeClass } from "../../utils/documentTypes";
+import { isClientActive, clientStatusLabel, clientStatusBadgeClass } from "../../utils/clientStatus";
 
 const ROWS_PER_PAGE = 10;
 
@@ -38,6 +41,7 @@ export default function ClientDetails() {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [deleteInvoiceTarget, setDeleteInvoiceTarget] = useState(null);
     const [deletingInvoice, setDeletingInvoice] = useState(false);
+    const [togglingStatus, setTogglingStatus] = useState(false);
     const navigate = useNavigate();
 
     async function handleDelete() {
@@ -54,6 +58,28 @@ export default function ClientDetails() {
         } finally {
             setDeleting(false);
             setConfirmOpen(false);
+        }
+    }
+
+    async function handleToggleStatus() {
+        if (!client) return;
+
+        const nextStatus = isClientActive(client.status) ? "INACTIVE" : "ACTIVE";
+
+        try {
+            setTogglingStatus(true);
+            const res = await clientApi.updateStatus(id, nextStatus);
+            setClient(res.client);
+            toast.success(
+                nextStatus === "ACTIVE" ? "Client reactivated." : "Client deactivated."
+            );
+        } catch (err) {
+            toast.error(
+                err.response?.data?.error ||
+                    "Could not update client status. Please try again."
+            );
+        } finally {
+            setTogglingStatus(false);
         }
     }
 
@@ -215,11 +241,17 @@ export default function ClientDetails() {
                 <div className="flex items-start justify-between gap-4">
 
                     <div>
-                        <h1 className="text-4xl font-bold text-slate-900">
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-4xl font-bold text-slate-900">
 
-                            {client.company_name}
+                                {client.company_name}
 
-                        </h1>
+                            </h1>
+
+                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${clientStatusBadgeClass(client.status)}`}>
+                                {clientStatusLabel(client.status)}
+                            </span>
+                        </div>
 
                         <p className="text-slate-500 mt-3">
 
@@ -229,6 +261,28 @@ export default function ClientDetails() {
                     </div>
 
                     <div className="flex items-center gap-3">
+
+                        <button
+                            type="button"
+                            onClick={handleToggleStatus}
+                            disabled={togglingStatus}
+                            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border transition disabled:opacity-60 ${
+                                isClientActive(client.status)
+                                    ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                            }`}
+                        >
+                            {isClientActive(client.status) ? (
+                                <PowerOff size={16} />
+                            ) : (
+                                <Power size={16} />
+                            )}
+                            {togglingStatus
+                                ? "Updating..."
+                                : isClientActive(client.status)
+                                    ? "Deactivate"
+                                    : "Activate"}
+                        </button>
 
                         <button
                             type="button"
@@ -340,15 +394,15 @@ export default function ClientDetails() {
                             className="mx-auto text-slate-300"
                         />
                         <h3 className="mt-5 text-xl font-semibold text-slate-700">
-                            No invoices found
+                            No documents found
                         </h3>
                         <p className="mt-2 text-slate-500">
-                            No invoices for this client yet.
+                            No documents for this client yet.
                         </p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="min-w-full">
+                        {/* <table className="min-w-full">
                             <thead className="bg-slate-50 border-b">
                                 <tr>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
@@ -494,8 +548,146 @@ export default function ClientDetails() {
 
                             </tbody>
 
+                        </table> */}
+                        <table className="min-w-full">
+                            <thead className="bg-slate-50 border-b">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                       Sr. #
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Document No.
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Document Date
+                                    </th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
+                                       Amount Excl. VAT
+                                    </th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
+                                        Amount Incl. VAT
+                                    </th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
+                                        VAT Amount
+                                    </th>
+                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
+                                        VAT Rate
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Party Name
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Document Type
+                                    </th>
+                               
+                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
+                                        Currency
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Document Uploaded Date
+                                    </th>
+                                   
+                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedInvoices.map((invoice, index) => (
+                                    <tr
+                                        key={invoice.id}
+                                        className="border-b hover:bg-slate-50 transition"
+                                    >
+                                        <td className="px-6 py-5 text-slate-500">
+                                            {(safePage - 1) * ROWS_PER_PAGE + index + 1}
+                                        </td>
+                                        <td className="px-6 py-5 font-semibold text-black">
+                                            {invoice.invoiceNo}
+                                        </td>
+                                        <td className="px-6 py-5 text-black">
+                                            {formatDateDisplay(invoice.invoiceDate)}
+                                        </td>
+                                        <td className="px-6 py-5 text-right text-black">
+                                            {Number(
+                                                invoice.subtotal || 0
+                                            ).toLocaleString(undefined, {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            })}
+                                        </td>
+                                        <td className="px-6 py-5 text-right font-semibold text-black">
+                                            {Number(
+                                                invoice.totalAmount
+                                            ).toLocaleString(undefined, {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            })}
+                                        </td>
+                                        <td className="px-6 py-5 text-right text-black">
+                                            {Number(
+                                                invoice.vatAmount || 0
+                                            ).toLocaleString(undefined, {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            })}
+                                        </td>
+                                        <td className="px-6 py-5 text-center text-black">
+                                            {invoice.vatRate ? `${invoice.vatRate}%` : "-"}
+                                        </td>
+                                        <td className="px-6 py-5 text-black">
+                                            {invoice.clientName}
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${documentTypeBadgeClass(invoice.documentType)}`}>
+                                                {documentTypeLabel(invoice.documentType)}
+                                            </span>
+                                        </td>
+                                     
+                                       
+                                        <td className="px-6 py-5 text-center">
+                                            <span className="inline-flex px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-xs font-semibold">
+                                                {invoice.currency}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-5 text-black">
+                                            {formatDateDisplay(invoice.invoiceDate)}
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <div className="flex justify-center gap-2">
+                                                <button
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/dashboard/invoices/${invoice.id}`
+                                                        )
+                                                    }
+                                                    className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition"
+                                                >
+                                                    <Eye size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/dashboard/invoices/${invoice.id}/edit`
+                                                        )
+                                                    }
+                                                    className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition"
+                                                >
+                                                    <Pencil size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={() =>
+                                                        setDeleteTarget(invoice)
+                                                    }
+                                                    className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-red-100 text-red-600 flex items-center justify-center transition"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
                         </table>
-
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t bg-slate-50">
                             <p className="text-sm text-slate-600">
                                 Showing{" "}

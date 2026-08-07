@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Loader2, Users, AlertCircle, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Users, AlertCircle, Pencil, Trash2, Power, PowerOff } from "lucide-react";
 import toast from "react-hot-toast";
 import clientApi from "../../services/clientApi";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import { isClientActive, clientStatusLabel, clientStatusBadgeClass } from "../../utils/clientStatus";
 
 export default function Clients() {
 
@@ -14,6 +15,7 @@ export default function Clients() {
     const [search, setSearch] = useState("");
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
+    const [togglingId, setTogglingId] = useState(null);
 
     useEffect(() => {
         loadClients();
@@ -74,6 +76,31 @@ export default function Clients() {
         e.preventDefault();
         e.stopPropagation();
         navigate(`/dashboard/clients/${client.id}/edit`);
+    }
+
+    async function handleToggleStatus(client, e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const nextStatus = isClientActive(client.status) ? "INACTIVE" : "ACTIVE";
+
+        try {
+            setTogglingId(client.id);
+            await clientApi.updateStatus(client.id, nextStatus);
+            await loadClients();
+            toast.success(
+                nextStatus === "ACTIVE"
+                    ? `${client.company_name} reactivated.`
+                    : `${client.company_name} deactivated.`
+            );
+        } catch (err) {
+            toast.error(
+                err.response?.data?.error ||
+                    "Could not update client status. Please try again."
+            );
+        } finally {
+            setTogglingId(null);
+        }
     }
 
     const filtered = clients.filter(client =>
@@ -206,11 +233,28 @@ export default function Clients() {
 
                                             <div className="flex items-center gap-3">
 
-                                                <span className="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-400">
+                                                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${clientStatusBadgeClass(client.status)}`}>
 
-                                                    {client.status}
+                                                    {clientStatusLabel(client.status)}
 
                                                 </span>
+
+                                                <button
+                                                    onClick={(e) => handleToggleStatus(client, e)}
+                                                    disabled={togglingId === client.id}
+                                                    className={`transition disabled:opacity-50 ${
+                                                        isClientActive(client.status)
+                                                            ? "text-slate-400 hover:text-amber-500"
+                                                            : "text-slate-400 hover:text-emerald-500"
+                                                    }`}
+                                                    title={isClientActive(client.status) ? "Deactivate client" : "Activate client"}
+                                                >
+                                                    {isClientActive(client.status) ? (
+                                                        <PowerOff size={16} />
+                                                    ) : (
+                                                        <Power size={16} />
+                                                    )}
+                                                </button>
 
                                                 <button
                                                     onClick={(e) => handleEdit(client, e)}

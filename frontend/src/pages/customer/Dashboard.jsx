@@ -18,6 +18,7 @@ import NeedsAttentionCard from "../../components/dashboard/NeedsAttentionCard";
 import MonthlyProcessingChart from "../../components/dashboard/MonthlyProcessingChart";
 import RecentActivityFeed from "../../components/dashboard/RecentActivityFeed";
 import DashboardSkeleton from "../../components/dashboard/DashboardSkeleton";
+import { isClientActive } from "../../utils/clientStatus";
 
 function formatCurrency(value) {
   return `AED ${Number(value || 0).toLocaleString(undefined, {
@@ -84,6 +85,14 @@ export default function Dashboard() {
       return;
     }
 
+    const selectedClient = clients.find((c) => String(c.id) === String(clientId));
+    if (selectedClient && !isClientActive(selectedClient.status)) {
+      setUploadError(
+        "This client is inactive. Please activate the client before adding documents."
+      );
+      return;
+    }
+
     try {
       setUploading(true);
       setUploadError("");
@@ -119,6 +128,10 @@ export default function Dashboard() {
   if (loading) {
     return <DashboardSkeleton />;
   }
+
+  const selectedQuickUploadClient = clients.find((c) => String(c.id) === String(clientId));
+  const quickUploadClientInactive =
+    Boolean(selectedQuickUploadClient) && !isClientActive(selectedQuickUploadClient.status);
 
   const last6 = (arr, key) => (arr || []).slice(-6).map((row) => Number(row?.[key] || 0));
   const invoiceSeries = monthly.invoices || [];
@@ -233,11 +246,22 @@ export default function Dashboard() {
               >
                 <option value="">Select Client</option>
                 {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
+                  <option
+                    key={client.id}
+                    value={client.id}
+                    disabled={!isClientActive(client.status)}
+                  >
                     {client.company_name}
+                    {!isClientActive(client.status) ? " (Inactive)" : ""}
                   </option>
                 ))}
               </select>
+
+              {quickUploadClientInactive && (
+                <div className="mt-3 rounded-xl bg-red-50 text-red-600 p-3 text-sm">
+                  This client is inactive. Please activate the client before adding documents.
+                </div>
+              )}
             </div>
 
             <label className="block border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition">
@@ -275,7 +299,7 @@ export default function Dashboard() {
             )}
 
             <button
-              disabled={uploading}
+              disabled={uploading || quickUploadClientInactive}
               onClick={handleQuickUpload}
               className="mt-4 w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-60 transition-all shadow-lg shadow-indigo-950/30"
             >

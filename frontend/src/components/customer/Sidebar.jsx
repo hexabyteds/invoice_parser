@@ -29,12 +29,12 @@ const menuItems = [
     path: "/dashboard/clients",
   },
   {
-    title: "Quick Upload Invoice",
+    title: "Quick Upload Documents",
     icon: Upload,
     path: "/dashboard/upload",
   },
   {
-    title: "Invoices",
+    title: "Documents",
     icon: FileText,
     path: "/dashboard/invoices",
   },

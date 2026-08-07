@@ -105,6 +105,41 @@ class ClientService {
     
     }
 
+    async updateStatus(id, userId, status) {
+
+        const existing = await clientRepository.findById(id, userId);
+
+        if (!existing) {
+            throw new Error("Client not found.");
+        }
+
+        await clientRepository.updateStatus(id, userId, status);
+
+        return await clientRepository.findById(id, userId);
+    }
+
+    // Guards the invoice/document creation path — throws (with a 403
+    // statusCode) if the client has been deactivated, so a stale upload
+    // form or a direct API call can't add documents to it.
+    async assertActive(id, userId) {
+
+        const client = await clientRepository.findById(id, userId);
+
+        if (!client) {
+            throw new Error("Client not found.");
+        }
+
+        if (client.status !== "ACTIVE") {
+            const err = new Error(
+                "This client is inactive. Please activate the client before adding documents."
+            );
+            err.statusCode = 403;
+            throw err;
+        }
+
+        return client;
+    }
+
     async delete(id, userId) {
 
         const client = await clientRepository.findById(id, userId);

@@ -1,5 +1,5 @@
 export const DOCUMENT_TYPES = [
-  { value: "supplier_invoice", label: "Supplier Invoice" },
+  { value: "supplier_invoice", label: "Invoice" },
   { value: "bill", label: "Bill" },
 ];
 

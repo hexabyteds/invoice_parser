@@ -10,6 +10,7 @@ import { uploadInvoice } from "../../services/invoiceApi";
 import clientApi from "../../services/clientApi";
 import { useParams, useNavigate } from "react-router-dom";
 import { DOCUMENT_TYPES, documentTypeLabel } from "../../utils/documentTypes";
+import { isClientActive } from "../../utils/clientStatus";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
 const MAX_FILE_SIZE_MB = 15;
@@ -54,6 +55,7 @@ export default function Upload() {
   const selectedClient = clients.find(
     (c) => String(c.id) === String(clientId)
   );
+  const selectedClientInactive = Boolean(selectedClient) && !isClientActive(selectedClient.status);
 
   const acceptFile = (candidate) => {
     const validationError = validateFile(candidate);
@@ -112,6 +114,13 @@ export default function Upload() {
 
     if (!clientId) {
       setError("Please select a client.");
+      return;
+    }
+
+    if (selectedClientInactive) {
+      setError(
+        "This client is inactive. Please activate the client before adding documents."
+      );
       return;
     }
 
@@ -181,16 +190,27 @@ export default function Upload() {
             <option value="">Select Client</option>
 
             {clients.map((client) => (
-              <option key={client.id} value={client.id}>
+              <option
+                key={client.id}
+                value={client.id}
+                disabled={!isClientActive(client.status)}
+              >
                 {client.company_name}
+                {!isClientActive(client.status) ? " (Inactive)" : ""}
               </option>
             ))}
           </select>
 
-          {isClientLocked && (
+          {isClientLocked && !selectedClientInactive && (
             <p className="text-sm text-slate-500 mt-2">
               Client is already selected from Client Details.
             </p>
+          )}
+
+          {selectedClientInactive && (
+            <div className="mt-3 rounded-xl bg-red-50 text-red-600 p-3 text-sm">
+              This client is inactive. Please activate the client before adding documents.
+            </div>
           )}
         </div>
 
@@ -280,7 +300,7 @@ export default function Upload() {
         )}
 
         <button
-          disabled={loading}
+          disabled={loading || selectedClientInactive}
           onClick={upload}
           className="mt-8 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl flex items-center gap-2 disabled:opacity-60"
         >

@@ -112,6 +112,16 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
         return result.affectedRows;
     }
 
+    async updateStatus(id, userId, status) {
+
+        const [result] = await db.execute(
+            `UPDATE clients SET status=? WHERE id=? AND user_id=?`,
+            [status, id, userId]
+        );
+
+        return result.affectedRows;
+    }
+
     async delete(id, userId) {
 
         const [result] = await db.execute(

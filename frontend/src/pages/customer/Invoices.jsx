@@ -127,12 +127,12 @@ export default function Invoices() {
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800">
-                        Invoices
+                        Documents
                     </h1>
                     <p className="text-slate-500 mt-2">
                         {selectedClient
-                            ? `Showing invoices for ${selectedClient.company_name}`
-                            : "Manage and view all processed invoices."}
+                            ? `Showing documents for ${selectedClient.company_name}`
+                            : "Manage and view all processed documents."}
                     </p>
                 </div>
             </div>
@@ -148,7 +148,7 @@ export default function Invoices() {
                         />
                         <input
                             type="text"
-                            placeholder="Search invoice number, client..."
+                            placeholder="Search document number, client..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
@@ -196,7 +196,7 @@ export default function Invoices() {
                             className="animate-spin text-indigo-600"
                         />
                         <p className="mt-4 text-slate-500">
-                            Loading invoices...
+                            Loading documents...
                         </p>
                     </div>
                 ) : filteredInvoices.length === 0 ? (
@@ -206,7 +206,7 @@ export default function Invoices() {
                             className="mx-auto text-slate-300"
                         />
                         <h3 className="mt-5 text-xl font-semibold text-slate-700">
-                            No invoices found
+                            No documents found
                         </h3>
                         <p className="mt-2 text-slate-500">
                             {clientId
@@ -220,35 +220,40 @@ export default function Invoices() {
                             <thead className="bg-slate-50 border-b">
                                 <tr>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        #
+                                       Sr. #
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Invoice #
+                                        Document No.
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Supplier
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Type
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Date
+                                        Document Date
                                     </th>
                                     <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
-                                        Without VAT
+                                       Amount Excl. VAT
                                     </th>
                                     <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
-                                        Amount
+                                        Amount Incl. VAT
                                     </th>
                                     <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
-                                        VAT
+                                        VAT Amount
                                     </th>
                                     <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
                                         VAT Rate
                                     </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Party Name
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Document Type
+                                    </th>
+                               
                                     <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
                                         Currency
                                     </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Document Uploaded Date
+                                    </th>
+                                   
                                     <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
                                         Actions
                                     </th>
@@ -265,14 +270,6 @@ export default function Invoices() {
                                         </td>
                                         <td className="px-6 py-5 font-semibold text-black">
                                             {invoice.invoiceNo}
-                                        </td>
-                                        <td className="px-6 py-5 text-black">
-                                            {invoice.clientName}
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${documentTypeBadgeClass(invoice.documentType)}`}>
-                                                {documentTypeLabel(invoice.documentType)}
-                                            </span>
                                         </td>
                                         <td className="px-6 py-5 text-black">
                                             {formatDateDisplay(invoice.invoiceDate)}
@@ -304,10 +301,23 @@ export default function Invoices() {
                                         <td className="px-6 py-5 text-center text-black">
                                             {invoice.vatRate ? `${invoice.vatRate}%` : "-"}
                                         </td>
+                                        <td className="px-6 py-5 text-black">
+                                            {invoice.clientName}
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${documentTypeBadgeClass(invoice.documentType)}`}>
+                                                {documentTypeLabel(invoice.documentType)}
+                                            </span>
+                                        </td>
+                                     
+                                       
                                         <td className="px-6 py-5 text-center">
                                             <span className="inline-flex px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-xs font-semibold">
                                                 {invoice.currency}
                                             </span>
+                                        </td>
+                                        <td className="px-6 py-5 text-black">
+                                            {formatDateDisplay(invoice.invoiceDate)}
                                         </td>
                                         <td className="px-6 py-5">
                                             <div className="flex justify-center gap-2">

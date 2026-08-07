@@ -41,6 +41,12 @@ const clientApi = {
     return data;
   },
 
+  // Activate / deactivate client
+  updateStatus: async (id, status) => {
+    const { data } = await api.patch(`/clients/${id}/status`, { status });
+    return data;
+  },
+
   // Delete client
   delete: async (id) => {
     const { data } = await api.delete(`/clients/${id}`);

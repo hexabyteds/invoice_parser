@@ -58,8 +58,8 @@ export const getInvoiceSource = (id) =>
 // Update Invoice
 // ==========================
 
-export const updateInvoice = (id, data) =>
-  api.put(`/invoices/${id}`, data);
+export const updateInvoice = (id, data, config = {}) =>
+  api.put(`/invoices/${id}`, data, config);
 
 // ==========================
 // Delete Invoice

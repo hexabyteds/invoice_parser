@@ -21,6 +21,7 @@ const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const usageRoutes = require("./routes/usageRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const usageService = require("./services/usageService");
+const clientService = require("./services/clientService");
 const validationService = require("./services/validationService");
 const auditLogRepository = require("./repositories/auditLogRepository");
 const db = require("./config/database");
@@ -186,6 +187,11 @@ app.post(
         });
       }
 
+      // ===========================
+      // NEW: Reject uploads against a deactivated client
+      // ===========================
+      await clientService.assertActive(clientId, req.user.id);
+
       await usageService.checkStorageLimit(req.user.id, req.file.size);
       await usageService.addStorage(req.user.id, req.file.size);
 
@@ -334,7 +340,8 @@ app.post(
       console.error("Upload error:", error);
 
       const statusCode =
-        error.message?.includes("limit reached") ? 403 : 500;
+        error.statusCode ||
+        (error.message?.includes("limit reached") ? 403 : 500);
 
       return res.status(statusCode).json({
         success: false,

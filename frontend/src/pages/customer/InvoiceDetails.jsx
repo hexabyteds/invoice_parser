@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { getInvoice, getInvoiceSource } from "../../services/invoiceApi";
 import { formatDateDisplay } from "../../utils/formatDate";
 import { documentTypeLabel } from "../../utils/documentTypes";
+import ImageMagnifier from "../../components/common/ImageMagnifier";
 
 export default function InvoiceDetails() {
   const { id } = useParams();
@@ -17,6 +18,7 @@ export default function InvoiceDetails() {
   const [sourceUrl, setSourceUrl] = useState(null);
   const [sourceKind, setSourceKind] = useState(null);
   const [sourceLoading, setSourceLoading] = useState(false);
+  const [pdfZoom, setPdfZoom] = useState(100);
 
   useEffect(() => {
     async function loadInvoice() {
@@ -106,11 +108,11 @@ export default function InvoiceDetails() {
           </button>
 
           <h1 className="text-3xl font-bold text-black">
-            Invoice Details
+            Document Details
           </h1>
 
           <p className="text-slate-500 mt-2">
-            Complete extracted invoice information.
+            Complete extracted document information.
           </p>
         </div>
       </div>
@@ -156,6 +158,7 @@ export default function InvoiceDetails() {
                   />
                 </tr>
 
+
                 <tr className="border-b">
                   <StaticCell
                     label="Document Type"
@@ -167,7 +170,10 @@ export default function InvoiceDetails() {
                     isLast
                   />
                 </tr>
-
+                <tr className="border-b">
+                  <StaticCell label="Phone" value={invoice.phoneNumber || "-"} />
+                  <StaticCell label="VAT Rate (%)" value={`${invoice.vat_rate}%`} isLast />
+                </tr>
                 <tr className="border-b">
                   <StaticCell label="Due Date" value={formatDateDisplay(invoice.due_date) || "-"} />
                   <StaticCell label="Currency" value={invoice.currency} isLast />
@@ -178,10 +184,7 @@ export default function InvoiceDetails() {
                   <StaticCell label="TRN Number" value={invoice.trn || "-"} isLast />
                 </tr>
 
-                <tr className="border-b">
-                  <StaticCell label="Phone" value={invoice.phoneNumber || "-"} />
-                  <StaticCell label="VAT Rate (%)" value={`${invoice.vat_rate}%`} isLast />
-                </tr>
+
 
                 <tr>
                   <StaticCell label="Location" value={invoice.location || "-"} />
@@ -281,7 +284,7 @@ export default function InvoiceDetails() {
 
         <div className="bg-slate-200 rounded-2xl shadow border p-6 lg:sticky lg:top-8">
           <h2 className="text-lg font-bold text-black text-center mb-4">
-            Invoice View
+            Document View
           </h2>
 
           {sourceLoading && (
@@ -329,9 +332,8 @@ function StaticCell({ label, value, isLast = false }) {
         {label}
       </td>
       <td
-        className={`px-3 py-3 text-black font-semibold break-words align-top ${
-          isLast ? "" : "border-r"
-        }`}
+        className={`px-3 py-3 text-black font-semibold break-words align-top ${isLast ? "" : "border-r"
+          }`}
       >
         {value ?? "-"}
       </td>

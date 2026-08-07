@@ -23,12 +23,8 @@ router.put("/:id", (req, res) =>
     clientController.update(req, res)
 );
 
-router.delete("/:id", (req, res) =>
-    clientController.delete(req, res)
-);
-
-router.put("/:id", (req, res) =>
-    clientController.update(req, res)
+router.patch("/:id/status", (req, res) =>
+    clientController.updateStatus(req, res)
 );
 
 router.delete("/:id", (req, res) =>
