@@ -19,6 +19,7 @@ import Analytics from "./pages/customer/Analytics";
 import Settings from "./pages/customer/Settings";
 import Profile from "./pages/customer/Profile";
 import InvoiceDetails from "./pages/customer/InvoiceDetails";
+import BankStatementDetails from "./pages/customer/BankStatementDetails";
 import Clients from "./pages/customer/Clients";
 import ClientDetails from "./pages/customer/ClientDetails";
 import AddClient from "./pages/customer/AddClient";
@@ -69,6 +70,7 @@ function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="profile" element={<Profile />} />
           <Route path="invoices/:id" element={<InvoiceDetails />} />
+          <Route path="bank-statements/:id" element={<BankStatementDetails />} />
           <Route path="clients" element={<Clients />} />
           <Route path="clients/:id" element={<ClientDetails />} />
           <Route path="clients/new" element={<AddClient />} />

@@ -42,6 +42,57 @@ CREATE TABLE `audit_logs` (
   CONSTRAINT `fk_audit_logs_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `bank_statement_transactions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bank_statement_transactions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `bank_statement_id` int NOT NULL,
+  `transaction_date` date DEFAULT NULL,
+  `description` text,
+  `credit` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `debit` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `available_balance` decimal(14,2) DEFAULT NULL,
+  `reference_no` varchar(100) DEFAULT NULL,
+  `page_number` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_bank_statement_transaction_statement` (`bank_statement_id`),
+  KEY `idx_bank_statement_transactions_date` (`bank_statement_id`,`transaction_date`),
+  CONSTRAINT `fk_bank_statement_transaction_statement` FOREIGN KEY (`bank_statement_id`) REFERENCES `bank_statements` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `bank_statements`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bank_statements` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `client_id` int DEFAULT NULL,
+  `original_filename` varchar(255) DEFAULT NULL,
+  `image_path` text,
+  `status` enum('PENDING','PROCESSED','FAILED') DEFAULT 'PROCESSED',
+  `page_count` int DEFAULT NULL,
+  `bank_name` varchar(255) DEFAULT NULL,
+  `account_title` varchar(255) DEFAULT NULL,
+  `account_number` varchar(100) DEFAULT NULL,
+  `iban` varchar(50) DEFAULT NULL,
+  `currency` varchar(20) DEFAULT NULL,
+  `from_date` date DEFAULT NULL,
+  `to_date` date DEFAULT NULL,
+  `opening_balance` decimal(14,2) DEFAULT NULL,
+  `closing_balance` decimal(14,2) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_bank_statement_user` (`user_id`),
+  KEY `fk_bank_statement_client` (`client_id`),
+  KEY `idx_bank_statements_user_created` (`user_id`,`created_at`),
+  CONSTRAINT `fk_bank_statement_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_bank_statement_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `clients`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -196,6 +247,7 @@ CREATE TABLE `usage_stats` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
   `invoices_used` int DEFAULT '0',
+  `bank_statements_used` int DEFAULT '0',
   `clients_used` int DEFAULT '0',
   `ocr_pages_used` int DEFAULT '0',
   `storage_used` bigint DEFAULT '0',

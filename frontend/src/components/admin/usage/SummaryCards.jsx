@@ -3,6 +3,7 @@ import {
   UserCheck,
   UserMinus,
   FileText,
+  Landmark,
   ScanText,
   HardDrive,
 } from "lucide-react";
@@ -31,6 +32,12 @@ const cardConfig = [
     title: "Invoices",
     icon: FileText,
     color: "from-blue-500 to-indigo-600",
+  },
+  {
+    key: "totalBankStatements",
+    title: "Bank Statements",
+    icon: Landmark,
+    color: "from-emerald-500 to-green-600",
   },
   {
     key: "totalOCR",

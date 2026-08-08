@@ -147,12 +147,21 @@ export default function Upload() {
         if (isClientLocked) {
           navigate(`/dashboard/clients/${clientId}`);
         }
+      } else if (response.data.bankStatement) {
+        setResult(response.data);
+        toast.success(
+          `Bank statement processed (${response.data.transactionCount} transaction(s)).`
+        );
+
+        if (isClientLocked) {
+          navigate(`/dashboard/clients/${clientId}`);
+        }
       } else {
         setResult(response.data);
       }
     } catch (err) {
       setError(
-        err.response?.data?.error || "Unable to upload invoice."
+        err.response?.data?.error || "Unable to upload document."
       );
     } finally {
       setLoading(false);
@@ -234,7 +243,7 @@ export default function Upload() {
           </select>
 
           <p className="text-sm text-slate-500 mt-2">
-            Select whether this document is a supplier invoice or a bill.
+            Select whether this document is a supplier invoice, a bill, or a bank statement.
           </p>
         </div>
 
@@ -318,59 +327,128 @@ export default function Upload() {
         </button>
       </div>
 
-      {result && (
-        <>
-          <div className="bg-white rounded-3xl shadow border p-8 grid md:grid-cols-2 gap-6">
+      {result && result.bankStatement && (
+        <div className="bg-white rounded-3xl shadow border p-8">
+          <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <label className="text-slate-500">Invoice Number</label>
+              <label className="text-slate-500">Bank Name</label>
               <p className="font-semibold text-black">
-                {result.invoice?.invoiceNo}
+                {result.bankStatement.bankName || "-"}
               </p>
             </div>
 
             <div>
-              <label className="text-slate-500">Document Type</label>
+              <label className="text-slate-500">Account Title</label>
               <p className="font-semibold text-black">
-                {documentTypeLabel(result.invoice?.document_type)}
+                {result.bankStatement.accountTitle || "-"}
               </p>
             </div>
 
             <div>
-              <label className="text-slate-500">Client</label>
+              <label className="text-slate-500">Account Number</label>
               <p className="font-semibold text-black">
-                {result.invoice?.clientName || selectedClient?.company_name}
+                {result.bankStatement.accountNumber || "-"}
               </p>
             </div>
 
             <div>
-              <label className="text-slate-500">Invoice Date</label>
+              <label className="text-slate-500">IBAN</label>
               <p className="font-semibold text-black">
-                {result.invoice?.invoiceDate}
+                {result.bankStatement.iban || "-"}
               </p>
             </div>
 
             <div>
-              <label className="text-slate-500">Total Amount</label>
+              <label className="text-slate-500">Statement Period</label>
               <p className="font-semibold text-black">
-                {result.invoice?.currency} {result.invoice?.totalAmount}
+                {result.bankStatement.fromDate || "-"} to {result.bankStatement.toDate || "-"}
               </p>
             </div>
 
             <div>
-              <label className="text-slate-500">VAT Amount</label>
+              <label className="text-slate-500">Opening Balance</label>
               <p className="font-semibold text-black">
-                {result.invoice?.vatAmount}
+                {result.bankStatement.currency} {result.bankStatement.openingBalance ?? "-"}
               </p>
             </div>
 
             <div>
-              <label className="text-slate-500">TRN</label>
+              <label className="text-slate-500">Closing Balance</label>
               <p className="font-semibold text-black">
-                {result.invoice?.trn}
+                {result.bankStatement.currency} {result.bankStatement.closingBalance ?? "-"}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-slate-500">Transactions Extracted</label>
+              <p className="font-semibold text-black">
+                {result.transactionCount}
               </p>
             </div>
           </div>
-        </>
+
+          <button
+            onClick={() =>
+              navigate(`/dashboard/bank-statements/${result.bankStatement.id}`)
+            }
+            className="mt-8 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl transition"
+          >
+            View Bank Statement
+          </button>
+        </div>
+      )}
+
+      {result && result.invoice && (
+        <div className="bg-white rounded-3xl shadow border p-8 grid md:grid-cols-2 gap-6">
+          <div>
+            <label className="text-slate-500">Invoice Number</label>
+            <p className="font-semibold text-black">
+              {result.invoice?.invoiceNo}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-slate-500">Document Type</label>
+            <p className="font-semibold text-black">
+              {documentTypeLabel(result.invoice?.document_type)}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-slate-500">Client</label>
+            <p className="font-semibold text-black">
+              {result.invoice?.clientName || selectedClient?.company_name}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-slate-500">Invoice Date</label>
+            <p className="font-semibold text-black">
+              {result.invoice?.invoiceDate}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-slate-500">Total Amount</label>
+            <p className="font-semibold text-black">
+              {result.invoice?.currency} {result.invoice?.totalAmount}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-slate-500">VAT Amount</label>
+            <p className="font-semibold text-black">
+              {result.invoice?.vatAmount}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-slate-500">TRN</label>
+            <p className="font-semibold text-black">
+              {result.invoice?.trn}
+            </p>
+          </div>
+        </div>
       )}
 
     </div>

@@ -6,11 +6,15 @@ import {
   RefreshCw,
   Pencil,
   ExternalLink,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminPageShell from "../../components/admin/AdminPageShell";
 import ChangeSubscriptionModal from "../../components/admin/ChangeSubscriptionModal";
 import adminApi from "../../services/adminApi";
+
+const ROWS_PER_PAGE = 20;
 
 function formatDate(value) {
   if (!value) return "—";
@@ -48,6 +52,7 @@ export default function Subscriptions() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [changeModalOpen, setChangeModalOpen] = useState(false);
 
@@ -69,6 +74,10 @@ export default function Subscriptions() {
     loadSubscriptions();
   }, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
   const filteredSubscriptions = useMemo(() => {
     const keyword = search.toLowerCase();
 
@@ -86,6 +95,17 @@ export default function Subscriptions() {
       return matchesSearch && matchesStatus;
     });
   }, [subscriptions, search, statusFilter]);
+
+  const total = filteredSubscriptions.length;
+  const totalPages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const rangeStart = total === 0 ? 0 : (safePage - 1) * ROWS_PER_PAGE + 1;
+  const rangeEnd = Math.min(safePage * ROWS_PER_PAGE, total);
+
+  const paginatedSubscriptions = useMemo(() => {
+    const start = (safePage - 1) * ROWS_PER_PAGE;
+    return filteredSubscriptions.slice(start, start + ROWS_PER_PAGE);
+  }, [filteredSubscriptions, safePage]);
 
   const handleChangePlan = (subscription) => {
     setSelectedSubscription(subscription);
@@ -156,14 +176,14 @@ export default function Subscriptions() {
                     <Loader2 className="mx-auto animate-spin" size={28} />
                   </td>
                 </tr>
-              ) : filteredSubscriptions.length === 0 ? (
+              ) : paginatedSubscriptions.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-16 text-center text-slate-500">
                     No subscriptions found.
                   </td>
                 </tr>
               ) : (
-                filteredSubscriptions.map((subscription) => (
+                paginatedSubscriptions.map((subscription) => (
                   <tr
                     key={subscription.id}
                     className="border-t border-slate-100 hover:bg-slate-50"
@@ -231,6 +251,40 @@ export default function Subscriptions() {
             </tbody>
           </table>
         </div>
+
+        {!loading && total > 0 && (
+          <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row">
+            <p className="text-sm text-slate-600">
+              Showing {rangeStart}–{rangeEnd} of {total} subscriptions
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-40"
+              >
+                <ChevronLeft size={18} />
+                Previous
+              </button>
+
+              <span className="px-2 text-sm text-slate-600">
+                Page {safePage} of {totalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-40"
+              >
+                Next
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <ChangeSubscriptionModal

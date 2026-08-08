@@ -89,6 +89,16 @@ export default function UsageDetailsModal({ customer, onClose }) {
               </span>
             </p>
           </div>
+
+          <div className="rounded-xl bg-slate-50 px-4 py-3">
+            <p className="text-sm font-medium text-slate-500">Bank Statements</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">
+              {Number(customer.bank_statements_used || 0)}
+              <span className="text-sm font-normal text-slate-400">
+                {" "}(no plan limit)
+              </span>
+            </p>
+          </div>
         </div>
       </div>
     </div>

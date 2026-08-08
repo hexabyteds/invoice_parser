@@ -6,8 +6,10 @@ const adminApi = {
     return data;
   },
 
-  getCustomers: async () => {
-    const { data } = await api.get("/admin/customers");
+  getCustomers: async ({ limit = 20, offset = 0 } = {}) => {
+    const { data } = await api.get("/admin/customers", {
+      params: { limit, offset },
+    });
     return data;
   },
 

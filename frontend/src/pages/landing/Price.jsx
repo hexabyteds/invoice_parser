@@ -132,7 +132,7 @@ export default function Pricing() {
 
       </section>
 
-      <ComparisonTable />
+      {/* <ComparisonTable /> */}
 
       <Footer />
 

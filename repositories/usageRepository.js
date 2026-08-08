@@ -10,13 +10,14 @@ class UsageRepository {
       (
         user_id,
         invoices_used,
+        bank_statements_used,
         clients_used,
         ocr_pages_used,
         storage_used,
         api_calls_used,
         team_members_used
       )
-      VALUES (?,0,0,0,0,0,1)
+      VALUES (?,0,0,0,0,0,0,1)
       `,
       [userId]
     );
@@ -109,6 +110,7 @@ class UsageRepository {
             p.user_limit,
 
             us.invoices_used,
+            us.bank_statements_used,
             us.clients_used,
             us.ocr_pages_used,
             us.storage_used,
@@ -156,6 +158,31 @@ async decrementInvoices(userId) {
   await db.execute(`
       UPDATE usage_stats
       SET invoices_used = GREATEST(invoices_used-1,0)
+      WHERE user_id = ?
+  `,[userId]);
+
+}
+
+// Bank statements are tracked separately from invoices_used/invoice_limit
+// (see migrations/0007_add_bank_statements_used_to_usage_stats.js) — no
+// plan limit gates this yet, so a plain increment/decrement is enough;
+// unlike incrementInvoicesIfUnderLimit there's no atomic check-and-cap
+// needed here.
+async incrementBankStatements(userId) {
+
+  await db.execute(`
+      UPDATE usage_stats
+      SET bank_statements_used = bank_statements_used + 1
+      WHERE user_id = ?
+  `,[userId]);
+
+}
+
+async decrementBankStatements(userId) {
+
+  await db.execute(`
+      UPDATE usage_stats
+      SET bank_statements_used = GREATEST(bank_statements_used-1,0)
       WHERE user_id = ?
   `,[userId]);
 
@@ -243,6 +270,8 @@ async getDashboardSummary() {
           ) AS paidUsers,
 
           COALESCE(SUM(us.invoices_used), 0) AS totalInvoices,
+
+          COALESCE(SUM(us.bank_statements_used), 0) AS totalBankStatements,
 
           COALESCE(SUM(us.clients_used), 0) AS totalClients,
 

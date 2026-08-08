@@ -10,11 +10,9 @@ import {
     ChevronRight,
     CalendarRange,
 } from "lucide-react";
-import {
-    getInvoices,
-    getInvoicesByClient,
-    deleteInvoices,
-} from "../../services/invoiceApi";
+import { getDocuments } from "../../services/documentsApi";
+import { deleteInvoices } from "../../services/invoiceApi";
+import { deleteBankStatement } from "../../services/bankStatementApi";
 import clientApi from "../../services/clientApi";
 import { useNavigate } from "react-router-dom";
 import { formatDateDisplay } from "../../utils/formatDate";
@@ -24,13 +22,14 @@ import { DOCUMENT_TYPES, documentTypeLabel, documentTypeBadgeClass } from "../..
 import { isClientActive } from "../../utils/clientStatus";
 
 const ROWS_PER_PAGE = 10;
+const BANK_STATEMENT = "bank_statement";
 
 function toInputDate(date) {
     return date.toISOString().split("T")[0];
 }
 
 export default function Invoices() {
-    const [invoices, setInvoices] = useState([]);
+    const [documents, setDocuments] = useState([]);
     const [clients, setClients] = useState([]);
     const [clientId, setClientId] = useState("");
     const [documentType, setDocumentType] = useState("");
@@ -52,7 +51,7 @@ export default function Invoices() {
         }
     }
 
-    async function loadInvoices(
+    async function loadDocuments(
         selectedClientId = clientId,
         selectedDocumentType = documentType,
         selectedFrom = fromDate,
@@ -68,11 +67,14 @@ export default function Invoices() {
         try {
             setLoading(true);
 
-            const res = selectedClientId
-                ? await getInvoicesByClient(selectedClientId, selectedDocumentType, selectedFrom, selectedTo)
-                : await getInvoices(selectedDocumentType, selectedFrom, selectedTo);
+            const res = await getDocuments({
+                clientId: selectedClientId || undefined,
+                documentType: selectedDocumentType || undefined,
+                from: selectedFrom || undefined,
+                to: selectedTo || undefined,
+            });
 
-            setInvoices(res.data.invoices || []);
+            setDocuments(res.data.documents || []);
         } catch (err) {
         } finally {
             setLoading(false);
@@ -96,11 +98,11 @@ export default function Invoices() {
 
     useEffect(() => {
         loadClients();
-        loadInvoices();
+        loadDocuments();
     }, []);
 
     useEffect(() => {
-        loadInvoices(clientId, documentType, fromDate, toDate);
+        loadDocuments(clientId, documentType, fromDate, toDate);
         setPage(1);
     }, [clientId, documentType, fromDate, toDate]);
 
@@ -127,48 +129,63 @@ export default function Invoices() {
         (c) => String(c.id) === String(clientId)
     );
 
-    const filteredInvoices = useMemo(() => {
+    const filteredDocuments = useMemo(() => {
         const keyword = search.toLowerCase().trim();
 
-        const visibleInvoices = invoices.filter(
-            (invoice) => !inactiveClientIds.has(invoice.clientId)
+        const visibleDocuments = documents.filter(
+            (doc) => !inactiveClientIds.has(doc.clientId)
         );
 
-        if (!keyword) return visibleInvoices;
+        if (!keyword) return visibleDocuments;
 
-        return visibleInvoices.filter((invoice) => {
+        return visibleDocuments.filter((doc) => {
             return (
-                invoice.invoiceNo?.toLowerCase().includes(keyword) ||
-                invoice.clientName?.toLowerCase().includes(keyword) ||
-                invoice.currency?.toLowerCase().includes(keyword)
+                doc.number?.toLowerCase().includes(keyword) ||
+                doc.fileName?.toLowerCase().includes(keyword) ||
+                doc.partyOrBank?.toLowerCase().includes(keyword) ||
+                doc.currency?.toLowerCase().includes(keyword)
             );
         });
-    }, [search, invoices, inactiveClientIds]);
+    }, [search, documents, inactiveClientIds]);
 
     const totalPages = Math.max(
         1,
-        Math.ceil(filteredInvoices.length / ROWS_PER_PAGE)
+        Math.ceil(filteredDocuments.length / ROWS_PER_PAGE)
     );
 
     const safePage = Math.min(page, totalPages);
 
-    const paginatedInvoices = useMemo(() => {
+    const paginatedDocuments = useMemo(() => {
         const start = (safePage - 1) * ROWS_PER_PAGE;
-        return filteredInvoices.slice(start, start + ROWS_PER_PAGE);
-    }, [filteredInvoices, safePage]);
+        return filteredDocuments.slice(start, start + ROWS_PER_PAGE);
+    }, [filteredDocuments, safePage]);
+
+    function viewDocument(doc) {
+        if (doc.documentType === BANK_STATEMENT) {
+            navigate(`/dashboard/bank-statements/${doc.id}`);
+        } else {
+            navigate(`/dashboard/invoices/${doc.id}`);
+        }
+    }
 
     async function confirmDelete() {
         if (!deleteTarget) return;
 
         try {
             setDeleting(true);
-            await deleteInvoices(deleteTarget.id);
-            await loadInvoices(clientId);
-            toast.success("Invoice deleted.");
+
+            if (deleteTarget.documentType === BANK_STATEMENT) {
+                await deleteBankStatement(deleteTarget.id);
+            } else {
+                await deleteInvoices(deleteTarget.id);
+            }
+
+            await loadDocuments(clientId);
+            toast.success("Document deleted.");
         } catch (err) {
             toast.error(
                 err.response?.data?.error ||
-                    "Could not delete invoice. Please try again."
+                    "Could not delete document. Please try again."
             );
         } finally {
             setDeleting(false);
@@ -203,7 +220,7 @@ export default function Invoices() {
                         />
                         <input
                             type="text"
-                            placeholder="Search document number, client..."
+                            placeholder="Search document, client, bank..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
@@ -295,7 +312,7 @@ export default function Invoices() {
                             Loading documents...
                         </p>
                     </div>
-                ) : filteredInvoices.length === 0 ? (
+                ) : filteredDocuments.length === 0 ? (
                     <div className="py-20 text-center">
                         <FileText
                             size={60}
@@ -306,8 +323,8 @@ export default function Invoices() {
                         </h3>
                         <p className="mt-2 text-slate-500">
                             {clientId
-                                ? "No invoices for this client yet."
-                                : "Upload your first invoice to get started."}
+                                ? "No documents for this client yet."
+                                : "Upload your first document to get started."}
                         </p>
                     </div>
                 ) : (
@@ -319,136 +336,106 @@ export default function Invoices() {
                                        Sr. #
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Document No.
+                                        Document
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Document Date
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
-                                       Amount Excl. VAT
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
-                                        Amount Incl. VAT
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
-                                        VAT Amount
-                                    </th>
-                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
-                                        VAT Rate
+                                        Type
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Party Name
+                                        Party / Bank
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Document Type
+                                        Date
                                     </th>
-                               
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
+                                        Amount
+                                    </th>
                                     <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
                                         Currency
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Document Uploaded Date
+                                        Uploaded
                                     </th>
-                                   
                                     <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
                                         Actions
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {paginatedInvoices.map((invoice, index) => (
-                                    <tr
-                                        key={invoice.id}
-                                        className="border-b hover:bg-slate-50 transition"
-                                    >
-                                        <td className="px-6 py-5 text-slate-500">
-                                            {(safePage - 1) * ROWS_PER_PAGE + index + 1}
-                                        </td>
-                                        <td className="px-6 py-5 font-semibold text-black">
-                                            {invoice.invoiceNo}
-                                        </td>
-                                        <td className="px-6 py-5 text-black">
-                                            {formatDateDisplay(invoice.invoiceDate)}
-                                        </td>
-                                        <td className="px-6 py-5 text-right text-black">
-                                            {Number(
-                                                invoice.subtotal || 0
-                                            ).toLocaleString(undefined, {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2,
-                                            })}
-                                        </td>
-                                        <td className="px-6 py-5 text-right font-semibold text-black">
-                                            {Number(
-                                                invoice.totalAmount
-                                            ).toLocaleString(undefined, {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2,
-                                            })}
-                                        </td>
-                                        <td className="px-6 py-5 text-right text-black">
-                                            {Number(
-                                                invoice.vatAmount || 0
-                                            ).toLocaleString(undefined, {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2,
-                                            })}
-                                        </td>
-                                        <td className="px-6 py-5 text-center text-black">
-                                            {invoice.vatRate ? `${invoice.vatRate}%` : "-"}
-                                        </td>
-                                        <td className="px-6 py-5 text-black">
-                                            {invoice.clientName}
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${documentTypeBadgeClass(invoice.documentType)}`}>
-                                                {documentTypeLabel(invoice.documentType)}
-                                            </span>
-                                        </td>
-                                     
-                                       
-                                        <td className="px-6 py-5 text-center">
-                                            <span className="inline-flex px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-xs font-semibold">
-                                                {invoice.currency}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-5 text-black">
-                                            {formatDateDisplay(invoice.updatedAt)}
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex justify-center gap-2">
-                                                <button
-                                                    onClick={() =>
-                                                        navigate(
-                                                            `/dashboard/invoices/${invoice.id}`
-                                                        )
-                                                    }
-                                                    className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition"
-                                                >
-                                                    <Eye size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() =>
-                                                        navigate(
-                                                            `/dashboard/invoices/${invoice.id}/edit`
-                                                        )
-                                                    }
-                                                    className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition"
-                                                >
-                                                    <Pencil size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() =>
-                                                        setDeleteTarget(invoice)
-                                                    }
-                                                    className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-red-100 text-red-600 flex items-center justify-center transition"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {paginatedDocuments.map((doc, index) => {
+                                    const isBankStatement = doc.documentType === BANK_STATEMENT;
+
+                                    return (
+                                        <tr
+                                            key={`${doc.documentType}-${doc.id}`}
+                                            className="border-b hover:bg-slate-50 transition"
+                                        >
+                                            <td className="px-6 py-5 text-slate-500">
+                                                {(safePage - 1) * ROWS_PER_PAGE + index + 1}
+                                            </td>
+                                            <td className="px-6 py-5 font-semibold text-black">
+                                                {doc.number || doc.fileName || "-"}
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${documentTypeBadgeClass(doc.documentType)}`}>
+                                                    {documentTypeLabel(doc.documentType)}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-5 text-black">
+                                                {doc.partyOrBank || "-"}
+                                            </td>
+                                            <td className="px-6 py-5 text-black">
+                                                {formatDateDisplay(doc.date)}
+                                            </td>
+                                            <td className="px-6 py-5 text-right font-semibold text-black">
+                                                {doc.amount === null || doc.amount === undefined
+                                                    ? "-"
+                                                    : Number(doc.amount).toLocaleString(undefined, {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2,
+                                                    })}
+                                            </td>
+                                            <td className="px-6 py-5 text-center">
+                                                <span className="inline-flex px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-xs font-semibold">
+                                                    {doc.currency || "-"}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-5 text-black">
+                                                {formatDateDisplay(doc.uploadedAt)}
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <div className="flex justify-center gap-2">
+                                                    <button
+                                                        onClick={() => viewDocument(doc)}
+                                                        className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition"
+                                                    >
+                                                        <Eye size={18} />
+                                                    </button>
+                                                    {!isBankStatement && (
+                                                        <button
+                                                            onClick={() =>
+                                                                navigate(
+                                                                    `/dashboard/invoices/${doc.id}/edit`
+                                                                )
+                                                            }
+                                                            className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition"
+                                                        >
+                                                            <Pencil size={18} />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() =>
+                                                            setDeleteTarget(doc)
+                                                        }
+                                                        className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-red-100 text-red-600 flex items-center justify-center transition"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
 
@@ -458,9 +445,9 @@ export default function Invoices() {
                                 {(safePage - 1) * ROWS_PER_PAGE + 1}–
                                 {Math.min(
                                     safePage * ROWS_PER_PAGE,
-                                    filteredInvoices.length
+                                    filteredDocuments.length
                                 )}{" "}
-                                of {filteredInvoices.length} invoices
+                                of {filteredDocuments.length} documents
                             </p>
 
                             <div className="flex items-center gap-2">
@@ -501,10 +488,10 @@ export default function Invoices() {
 
             <ConfirmDialog
                 open={Boolean(deleteTarget)}
-                title="Delete this invoice?"
+                title="Delete this document?"
                 message={
                     deleteTarget
-                        ? `Invoice ${deleteTarget.invoiceNo || ""} will be permanently deleted. This cannot be undone.`
+                        ? `${deleteTarget.number || deleteTarget.fileName || "This document"} will be permanently deleted. This cannot be undone.`
                         : ""
                 }
                 loading={deleting}

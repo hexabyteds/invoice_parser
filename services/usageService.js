@@ -276,6 +276,11 @@ class UsageService {
         )
       },
 
+      // No plan limit backs this yet — reported as a plain count.
+      bankStatements: {
+        used: Number(row.bank_statements_used || 0)
+      },
+
       clients: {
         used: Number(row.clients_used || 0),
         limit: Number(row.client_limit || 0),
@@ -323,6 +328,22 @@ class UsageService {
   async decrementInvoices(userId) {
 
     await usageRepository.decrementInvoices(userId);
+
+  }
+
+  // Bank statements consume OCR pages (reserveOCRPages/decrementOCR,
+  // unchanged above) but never invoices_used/invoice_limit — this is a
+  // separate, uncapped counter for admin/dashboard reporting only.
+  async incrementBankStatements(userId) {
+
+    await this.ensureUsageRecord(userId);
+    await usageRepository.incrementBankStatements(userId);
+
+  }
+
+  async decrementBankStatements(userId) {
+
+    await usageRepository.decrementBankStatements(userId);
 
   }
 

@@ -25,7 +25,15 @@ const clientService = require("./services/clientService");
 const validationService = require("./services/validationService");
 const auditLogRepository = require("./repositories/auditLogRepository");
 const db = require("./config/database");
-const { DOCUMENT_TYPES, isValidDocumentType } = require("./utils/documentTypes");
+const {
+  DOCUMENT_TYPES,
+  ALL_DOCUMENT_TYPES,
+  INVOICE_DOCUMENT_TYPES,
+  isValidDocumentType,
+  isValidInvoiceDocumentType,
+  isBankStatementType,
+} = require("./utils/documentTypes");
+const bankStatementService = require("./services/bankStatementService");
 
 const app = express();
 const UPLOADS_DIR = path.join(__dirname, "uploads");
@@ -53,6 +61,8 @@ app.use("/api/plans", planRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/usage", require("./routes/usageRoutes"));
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/bank-statements", require("./routes/bankStatementRoutes"));
+app.use("/api/documents", require("./routes/documentsRoutes"));
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -183,7 +193,7 @@ app.post(
       if (documentType && !isValidDocumentType(documentType)) {
         return res.status(400).json({
           success: false,
-          error: `Invalid document type. Must be one of: ${DOCUMENT_TYPES.join(", ")}.`,
+          error: `Invalid document type. Must be one of: ${ALL_DOCUMENT_TYPES.join(", ")}.`,
         });
       }
 
@@ -200,6 +210,70 @@ app.post(
       const extension = path
         .extname(req.file.originalname)
         .toLowerCase();
+
+      // ===========================
+      // NEW: Bank Statement upload
+      // ===========================
+      // Handled entirely separately from the invoice/bill branch below —
+      // different service, different persisted tables, different response
+      // shape — so the existing invoice/bill flow stays byte-identical.
+      if (isBankStatementType(documentType)) {
+
+        const bsResult = extension === ".pdf"
+          ? await bankStatementService.processPDF(
+              req.file.path,
+              req.user.id,
+              clientId,
+              req.file.path
+            )
+          : await bankStatementService.processImage(
+              req.file.path,
+              req.user.id,
+              clientId,
+              req.file.path
+            );
+
+        if (bsResult.status !== "success") {
+          try {
+            await auditLogRepository.create({
+              userId: req.user.id,
+              clientId,
+              action: "bank_statement_error",
+              description: bsResult.message,
+            });
+          } catch (logErr) {}
+
+          return res.status(400).json({
+            success: false,
+            error: bsResult.message,
+          });
+        }
+
+        try {
+          await auditLogRepository.create({
+            userId: req.user.id,
+            clientId,
+            action: "bank_statement_uploaded",
+            description: `Bank statement (${bsResult.transactionCount} transaction(s))`,
+          });
+
+          if (bsResult.meta?.failedPages > 0) {
+            await auditLogRepository.create({
+              userId: req.user.id,
+              clientId,
+              action: "bank_statement_error",
+              description: `${bsResult.meta.failedPages} page(s) failed during extraction`,
+            });
+          }
+        } catch (logErr) {}
+
+        return res.json({
+          success: true,
+          bankStatement: bsResult.bankStatement,
+          transactionCount: bsResult.transactionCount,
+          message: `Bank statement processed successfully (${bsResult.transactionCount} transaction(s)).`,
+        });
+      }
 
       let result;
 
@@ -435,10 +509,10 @@ app.get("/api/invoices", authMiddleware, async (req, res) => {
 
     const documentType = req.query.document_type || null;
 
-    if (documentType && !isValidDocumentType(documentType)) {
+    if (documentType && !isValidInvoiceDocumentType(documentType)) {
       return res.status(400).json({
         success: false,
-        error: `Invalid document type. Must be one of: ${DOCUMENT_TYPES.join(", ")}.`,
+        error: `Invalid document type. Must be one of: ${INVOICE_DOCUMENT_TYPES.join(", ")}.`,
       });
     }
 
@@ -619,11 +693,11 @@ app.put(
 
       if (
         req.body.document_type &&
-        !isValidDocumentType(req.body.document_type)
+        !isValidInvoiceDocumentType(req.body.document_type)
       ) {
         return res.status(400).json({
           success: false,
-          error: `Invalid document type. Must be one of: ${DOCUMENT_TYPES.join(", ")}.`,
+          error: `Invalid document type. Must be one of: ${INVOICE_DOCUMENT_TYPES.join(", ")}.`,
         });
       }
 
@@ -773,10 +847,10 @@ function getExportFilters(query = {}) {
 function rejectInvalidExportDocumentType(req, res) {
   const documentType = req.query.document_type;
 
-  if (documentType && !isValidDocumentType(documentType)) {
+  if (documentType && !isValidInvoiceDocumentType(documentType)) {
     res.status(400).json({
       success: false,
-      error: `Invalid document type. Must be one of: ${DOCUMENT_TYPES.join(", ")}.`,
+      error: `Invalid document type. Must be one of: ${INVOICE_DOCUMENT_TYPES.join(", ")}.`,
     });
     return true;
   }

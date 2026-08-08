@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminPageShell from "../../components/admin/AdminPageShell";
 import adminApi from "../../services/adminApi";
+
+const ROWS_PER_PAGE = 20;
 
 function StatusBadge({ status }) {
   const normalized = String(status || "").toLowerCase();
@@ -21,12 +24,23 @@ function StatusBadge({ status }) {
 export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  const totalPages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
+  const safePage = Math.min(page, totalPages);
 
   useEffect(() => {
     async function loadCustomers() {
       try {
-        const data = await adminApi.getCustomers();
+        setLoading(true);
+        const offset = (safePage - 1) * ROWS_PER_PAGE;
+        const data = await adminApi.getCustomers({
+          limit: ROWS_PER_PAGE,
+          offset,
+        });
         setCustomers(data.customers || []);
+        setTotal(data.pagination?.total ?? data.customers?.length ?? 0);
       } catch (error) {
         toast.error(
           error.response?.data?.error || "Failed to load customers"
@@ -37,7 +51,10 @@ export default function Customers() {
     }
 
     loadCustomers();
-  }, []);
+  }, [safePage]);
+
+  const rangeStart = total === 0 ? 0 : (safePage - 1) * ROWS_PER_PAGE + 1;
+  const rangeEnd = Math.min(safePage * ROWS_PER_PAGE, total);
 
   return (
     <AdminPageShell
@@ -113,6 +130,40 @@ export default function Customers() {
             </tbody>
           </table>
         </div>
+
+        {!loading && total > 0 && (
+          <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row">
+            <p className="text-sm text-slate-600">
+              Showing {rangeStart}–{rangeEnd} of {total} customers
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-40"
+              >
+                <ChevronLeft size={18} />
+                Previous
+              </button>
+
+              <span className="px-2 text-sm text-slate-600">
+                Page {safePage} of {totalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-40"
+              >
+                Next
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </AdminPageShell>
   );
