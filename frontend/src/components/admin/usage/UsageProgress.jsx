@@ -4,7 +4,7 @@ export default function UsageProgress({ used = 0, limit = 0, label }) {
   const percentage =
     safeLimit > 0 ? Math.min((safeUsed / safeLimit) * 100, 100) : 0;
 
-  let barColor = "bg-violet-500";
+  let barColor = "bg-indigo-500";
   if (percentage >= 90) barColor = "bg-red-500";
   else if (percentage >= 70) barColor = "bg-amber-500";
 

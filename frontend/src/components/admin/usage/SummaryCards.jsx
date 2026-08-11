@@ -13,7 +13,7 @@ const cardConfig = [
     key: "totalCustomers",
     title: "Customers",
     icon: Users,
-    color: "from-violet-500 to-purple-600",
+    color: "from-indigo-500 to-violet-600",
   },
   {
     key: "paidUsers",

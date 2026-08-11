@@ -102,7 +102,7 @@ export default function PricingCard({ plan, yearly = false }) {
       }}
       className={`relative rounded-3xl border ${
         isPopular
-          ? "border-blue-500 shadow-2xl shadow-blue-500/20"
+          ? "border-indigo-500 shadow-2xl shadow-indigo-500/20"
           : "border-slate-800"
       } bg-slate-900 p-8`}
     >
@@ -111,12 +111,12 @@ export default function PricingCard({ plan, yearly = false }) {
 
       <div className="flex items-center justify-between gap-3">
 
-        <h3 className="text-3xl font-bold">
+        <h3 className="text-3xl font-bold font-display tracking-tight">
           {plan.name}
         </h3>
 
         {isPopular && (
-          <span className="shrink-0 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold">
+          <span className="shrink-0 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold">
             Most Popular
           </span>
         )}
@@ -165,7 +165,7 @@ export default function PricingCard({ plan, yearly = false }) {
         disabled={loading}
         className={`mt-8 flex w-full items-center justify-center gap-2 rounded-xl py-4 font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
           isPopular
-            ? "bg-blue-600 hover:bg-blue-700"
+            ? "bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500"
             : "border border-slate-700 hover:bg-slate-800"
         }`}
       >

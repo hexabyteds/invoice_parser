@@ -454,11 +454,11 @@ export default function ClientDetails() {
                                                 {(safePage - 1) * ROWS_PER_PAGE + index + 1}
                                             </td>
 
-                                            <td className="px-6 py-5 font-semibold text-black">
+                                            <td className="px-6 py-5 font-semibold text-slate-900">
                                                 {invoice.invoiceNo}
                                             </td>
 
-                                            <td className="px-6 py-5 text-black">
+                                            <td className="px-6 py-5 text-slate-900">
                                                 {invoice.clientName}
                                             </td>
 
@@ -468,11 +468,11 @@ export default function ClientDetails() {
                                                 </span>
                                             </td>
 
-                                            <td className="px-6 py-5 text-black">
+                                            <td className="px-6 py-5 text-slate-900">
                                                 {formatDateDisplay(invoice.invoiceDate)}
                                             </td>
 
-                                            <td className="px-6 py-5 text-right text-black">
+                                            <td className="px-6 py-5 text-right text-slate-900">
                                                 {Number(
                                                     invoice.subtotal || 0
                                                 ).toLocaleString(undefined, {
@@ -481,7 +481,7 @@ export default function ClientDetails() {
                                                 })}
                                             </td>
 
-                                            <td className="px-6 py-5 text-right font-semibold text-black">
+                                            <td className="px-6 py-5 text-right font-semibold text-slate-900">
                                                 {Number(
                                                     invoice.totalAmount
                                                 ).toLocaleString(undefined, {
@@ -490,7 +490,7 @@ export default function ClientDetails() {
                                                 })}
                                             </td>
 
-                                            <td className="px-6 py-5 text-right text-black">
+                                            <td className="px-6 py-5 text-right text-slate-900">
                                                 {Number(
                                                     invoice.vatAmount || 0
                                                 ).toLocaleString(undefined, {
@@ -499,7 +499,7 @@ export default function ClientDetails() {
                                                 })}
                                             </td>
 
-                                            <td className="px-6 py-5 text-center text-black">
+                                            <td className="px-6 py-5 text-center text-slate-900">
                                                 {invoice.vatRate ? `${invoice.vatRate}%` : "-"}
                                             </td>
 
@@ -601,13 +601,13 @@ export default function ClientDetails() {
                                         <td className="px-6 py-5 text-slate-500">
                                             {(safePage - 1) * ROWS_PER_PAGE + index + 1}
                                         </td>
-                                        <td className="px-6 py-5 font-semibold text-black">
+                                        <td className="px-6 py-5 font-semibold text-slate-900">
                                             {invoice.invoiceNo}
                                         </td>
-                                        <td className="px-6 py-5 text-black">
+                                        <td className="px-6 py-5 text-slate-900">
                                             {formatDateDisplay(invoice.invoiceDate)}
                                         </td>
-                                        <td className="px-6 py-5 text-right text-black">
+                                        <td className="px-6 py-5 text-right text-slate-900">
                                             {Number(
                                                 invoice.subtotal || 0
                                             ).toLocaleString(undefined, {
@@ -615,7 +615,7 @@ export default function ClientDetails() {
                                                 maximumFractionDigits: 2,
                                             })}
                                         </td>
-                                        <td className="px-6 py-5 text-right font-semibold text-black">
+                                        <td className="px-6 py-5 text-right font-semibold text-slate-900">
                                             {Number(
                                                 invoice.totalAmount
                                             ).toLocaleString(undefined, {
@@ -623,7 +623,7 @@ export default function ClientDetails() {
                                                 maximumFractionDigits: 2,
                                             })}
                                         </td>
-                                        <td className="px-6 py-5 text-right text-black">
+                                        <td className="px-6 py-5 text-right text-slate-900">
                                             {Number(
                                                 invoice.vatAmount || 0
                                             ).toLocaleString(undefined, {
@@ -631,10 +631,10 @@ export default function ClientDetails() {
                                                 maximumFractionDigits: 2,
                                             })}
                                         </td>
-                                        <td className="px-6 py-5 text-center text-black">
+                                        <td className="px-6 py-5 text-center text-slate-900">
                                             {invoice.vatRate ? `${invoice.vatRate}%` : "-"}
                                         </td>
-                                        <td className="px-6 py-5 text-black">
+                                        <td className="px-6 py-5 text-slate-900">
                                             {invoice.clientName}
                                         </td>
                                         <td className="px-6 py-5">
@@ -649,7 +649,7 @@ export default function ClientDetails() {
                                                 {invoice.currency}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-5 text-black">
+                                        <td className="px-6 py-5 text-slate-900">
                                             {formatDateDisplay(invoice.updatedAt)}
                                         </td>
                                         <td className="px-6 py-5">

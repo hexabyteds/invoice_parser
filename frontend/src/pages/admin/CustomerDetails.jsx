@@ -48,7 +48,7 @@ export default function CustomerDetails() {
       >
         <Link
           to="/admin/customers"
-          className="inline-flex text-sm font-medium text-violet-600 hover:text-violet-700"
+          className="inline-flex text-sm font-medium text-indigo-600 hover:text-indigo-700"
         >
           ← Back to customers
         </Link>
@@ -63,7 +63,7 @@ export default function CustomerDetails() {
     >
       <Link
         to="/admin/customers"
-        className="inline-flex text-sm font-medium text-violet-600 hover:text-violet-700"
+        className="inline-flex text-sm font-medium text-indigo-600 hover:text-indigo-700"
       >
         ← Back to customers
       </Link>

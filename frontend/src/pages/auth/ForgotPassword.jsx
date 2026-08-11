@@ -68,7 +68,7 @@ export default function ForgotPassword() {
                                 <CheckCircle size={28} />
                             </div>
 
-                            <h2 className="mt-6 text-2xl font-bold">
+                            <h2 className="mt-6 text-2xl font-bold font-display tracking-tight">
                                 Check your email
                             </h2>
 
@@ -82,7 +82,7 @@ export default function ForgotPassword() {
                     ) : (
                         <form onSubmit={handleSubmit(onSubmit)}>
 
-                            <h2 className="mt-8 text-3xl font-bold">
+                            <h2 className="mt-8 text-3xl font-bold font-display tracking-tight">
                                 Forgot Password?
                             </h2>
 
@@ -125,7 +125,7 @@ export default function ForgotPassword() {
 
                             <button
                                 disabled={isSubmitting}
-                                className="mt-8 w-full rounded-xl bg-blue-600 py-4 font-semibold transition hover:bg-blue-500 disabled:opacity-60"
+                                className="mt-8 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-4 font-semibold text-white shadow-lg shadow-indigo-950/30 transition-all hover:from-indigo-500 hover:to-violet-500 disabled:opacity-60"
                             >
                                 {isSubmitting ? "Sending..." : "Send Reset Link"}
                             </button>

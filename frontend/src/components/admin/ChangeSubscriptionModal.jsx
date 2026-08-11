@@ -28,9 +28,10 @@ export default function ChangeSubscriptionModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close"
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
           >
-            <X size={20} />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 

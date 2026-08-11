@@ -13,7 +13,7 @@ export default function BillingToggle({ yearly, setYearly }) {
         {!yearly && (
           <motion.div
             layoutId="billing"
-            className="absolute inset-0 rounded-full bg-blue-600"
+            className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600"
           />
         )}
 
@@ -32,7 +32,7 @@ export default function BillingToggle({ yearly, setYearly }) {
         {yearly && (
           <motion.div
             layoutId="billing"
-            className="absolute inset-0 rounded-full bg-blue-600"
+            className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600"
           />
         )}
 

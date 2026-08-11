@@ -49,6 +49,7 @@ export default function AdminTopbar({
       <div className="flex items-center gap-4">
         <button
           onClick={toggleSidebar}
+          aria-label="Open sidebar"
           className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white transition hover:bg-slate-100 lg:hidden"
         >
           <Menu size={22} />
@@ -56,6 +57,7 @@ export default function AdminTopbar({
 
         <button
           onClick={toggleCollapse}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className="hidden h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white transition hover:bg-slate-100 lg:flex"
         >
           {collapsed ? (
@@ -66,7 +68,7 @@ export default function AdminTopbar({
         </button>
 
         <div className="hidden md:block">
-          <h2 className="text-2xl font-bold text-slate-800">
+          <h2 className="text-2xl font-bold text-slate-800 font-display tracking-tight">
             Admin Console
           </h2>
           <p className="text-sm text-slate-500">
@@ -87,22 +89,27 @@ export default function AdminTopbar({
             placeholder="Search customers, companies..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+            className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
           />
         </div>
       </div>
 
       <div className="flex items-center gap-3">
-        <button className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white transition hover:bg-slate-100">
+        <button
+          aria-label="View notifications"
+          className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white transition hover:bg-slate-100"
+        >
           <Bell size={18} />
         </button>
 
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setProfileOpen(!profileOpen)}
+            aria-label="Open profile menu"
+            aria-expanded={profileOpen}
             className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 transition hover:bg-slate-50"
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-purple-600 font-bold text-white">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 font-bold text-white">
               {user?.name?.charAt(0).toUpperCase() || "A"}
             </div>
 

@@ -273,7 +273,7 @@ export default function AddClient() {
               name="address"
               value={form.address}
               onChange={handleChange}
-              className="mt-2 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-white outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-white outline-none focus:border-indigo-500"
             />
 
           </div>
@@ -289,7 +289,7 @@ export default function AddClient() {
               name="notes"
               value={form.notes}
               onChange={handleChange}
-              className="mt-2 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-white outline-none focus:border-blue-500"
+              className="mt-2 w-full rounded-xl bg-slate-950 border border-slate-700 px-4 py-3 text-white outline-none focus:border-indigo-500"
             />
 
           </div>
@@ -306,7 +306,7 @@ export default function AddClient() {
 
             <button
               disabled={loading}
-              className="px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
+              className="px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-60"
             >
               {loading
                 ? "Saving..."
@@ -437,7 +437,7 @@ function Input({
 
       <input
         {...props}
-        className={`mt-2 w-full rounded-xl bg-slate-950 border px-4 py-3 text-white outline-none focus:border-blue-500 ${
+        className={`mt-2 w-full rounded-xl bg-slate-950 border px-4 py-3 text-white outline-none focus:border-indigo-500 ${
           error ? "border-red-500" : "border-slate-700"
         }`}
       />

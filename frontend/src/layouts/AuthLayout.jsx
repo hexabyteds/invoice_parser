@@ -31,12 +31,12 @@ export default function AuthLayout({ title, subtitle, children }) {
 
               <div className="mt-12 flex items-center gap-4">
 
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-500 to-violet-600 text-2xl font-bold shadow-lg">
-                  EZ
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 text-2xl font-bold shadow-lg shadow-indigo-950/40">
+                  EB
                 </div>
 
                 <div>
-                  <h1 className="text-3xl font-bold">
+                  <h1 className="text-3xl font-bold font-display tracking-tight">
                     EazeeBooks
                   </h1>
 
@@ -50,12 +50,12 @@ export default function AuthLayout({ title, subtitle, children }) {
               <motion.h2
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-16 text-6xl font-black leading-tight"
+                className="mt-16 text-6xl font-extrabold font-display leading-tight tracking-tight"
               >
                 The Future of
                 <br />
                 Invoice
-                <span className="bg-gradient-to-r from-blue-400 to-violet-500 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-indigo-400 to-violet-500 bg-clip-text text-transparent">
                   {" "}Processing
                 </span>
               </motion.h2>
@@ -79,7 +79,7 @@ export default function AuthLayout({ title, subtitle, children }) {
                 whileHover={{ y: -5 }}
                 className="rounded-2xl border border-slate-800 bg-slate-900 p-6"
               >
-                <BarChart3 className="text-blue-400" />
+                <BarChart3 className="text-indigo-400" />
                 <p className="mt-5 text-sm text-slate-400">
                   AI Accuracy
                 </p>
@@ -92,7 +92,7 @@ export default function AuthLayout({ title, subtitle, children }) {
                 whileHover={{ y: -5 }}
                 className="rounded-2xl border border-slate-800 bg-slate-900 p-6"
               >
-                <FileText className="text-violet-400" />
+                <FileText className="text-violet-400" aria-hidden="true" />
                 <p className="mt-5 text-sm text-slate-400">
                   Invoices
                 </p>
@@ -148,7 +148,7 @@ export default function AuthLayout({ title, subtitle, children }) {
                     initial={{height:0}}
                     animate={{height:h}}
                     transition={{delay:i*0.05}}
-                    className="w-full rounded-t-xl bg-gradient-to-t from-blue-600 to-violet-500"
+                    className="w-full rounded-t-xl bg-gradient-to-t from-indigo-600 to-violet-500"
                   />
                 ))}
 
@@ -204,7 +204,7 @@ export default function AuthLayout({ title, subtitle, children }) {
 
           <div className="w-full max-w-md">
 
-            <h2 className="text-5xl font-bold">
+            <h2 className="text-5xl font-bold font-display tracking-tight">
               {title}
             </h2>
 

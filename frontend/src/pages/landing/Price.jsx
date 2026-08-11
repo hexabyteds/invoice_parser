@@ -29,7 +29,6 @@ export default function Pricing() {
       try {
         const response = await getPublicPlans();
 
-        console.log("response.data.plans", response.data.plans);
         setPlans(response.data.plans || []);
       } catch (err) {
         console.error("Failed to load plans:", err);
@@ -61,12 +60,12 @@ export default function Pricing() {
             opacity: 1,
             y: 0
           }}
-          className="text-center text-6xl font-black"
+          className="text-center text-5xl sm:text-6xl font-extrabold font-display tracking-tight"
         >
           Simple pricing,
           <br />
 
-          <span className="bg-gradient-to-r from-blue-400 to-violet-500 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-indigo-400 to-violet-500 bg-clip-text text-transparent">
             built for every business.
           </span>
         </motion.h1>
@@ -133,7 +132,7 @@ export default function Pricing() {
 
       </section>
 
-      {/* <ComparisonTable /> */}
+      <ComparisonTable />
 
       <Footer />
 

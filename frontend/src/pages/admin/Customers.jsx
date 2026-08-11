@@ -98,7 +98,7 @@ export default function Customers() {
                     <td className="px-6 py-4">
                       <Link
                         to={`/admin/customers/${customer.id}`}
-                        className="font-medium text-violet-600 hover:text-violet-700"
+                        className="font-medium text-indigo-600 hover:text-indigo-700"
                       >
                         {customer.name}
                       </Link>

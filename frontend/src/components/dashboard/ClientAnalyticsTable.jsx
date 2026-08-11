@@ -169,7 +169,7 @@ export default function ClientAnalyticsTable({ clients = [] }) {
     <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
       <div className="p-6 border-b flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-black">Client Analytics</h2>
+          <h2 className="text-xl font-semibold text-slate-900">Client Analytics</h2>
           <p className="text-sm text-slate-500 mt-1">
             Upload volume, extraction quality, and activity per client.
           </p>
@@ -188,7 +188,7 @@ export default function ClientAnalyticsTable({ clients = [] }) {
                 setPage(1);
               }}
               placeholder="Search client..."
-              className="pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-black outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-56"
+              className="pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-56"
             />
           </div>
 
@@ -198,7 +198,7 @@ export default function ClientAnalyticsTable({ clients = [] }) {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-black outline-none focus:ring-2 focus:ring-indigo-500"
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
           >
             {STATUS_FILTERS.map((option) => (
               <option key={option} value={option}>
@@ -210,7 +210,7 @@ export default function ClientAnalyticsTable({ clients = [] }) {
           <button
             onClick={() => exportCsv(sorted)}
             disabled={sorted.length === 0}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-sm font-medium text-black transition disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-sm font-medium text-slate-900 transition disabled:opacity-50"
           >
             <Download size={16} />
             Export CSV
@@ -258,13 +258,13 @@ export default function ClientAnalyticsTable({ clients = [] }) {
                       onClick={() => navigate(`/dashboard/clients/${row.id}`)}
                       className="border-b hover:bg-slate-50 transition cursor-pointer"
                     >
-                      <td className="px-6 py-4 font-semibold text-black">
+                      <td className="px-6 py-4 font-semibold text-slate-900">
                         {row.companyName}
                       </td>
-                      <td className="px-6 py-4 text-right text-black">{row.uploaded}</td>
-                      <td className="px-6 py-4 text-right text-black">{row.processed}</td>
+                      <td className="px-6 py-4 text-right text-slate-900">{row.uploaded}</td>
+                      <td className="px-6 py-4 text-right text-slate-900">{row.processed}</td>
                       <td className="px-6 py-4 text-right">
-                        <span className={row.failed > 0 ? "text-red-600 font-semibold" : "text-black"}>
+                        <span className={row.failed > 0 ? "text-red-600 font-semibold" : "text-slate-900"}>
                           {row.failed}
                         </span>
                       </td>
@@ -282,7 +282,7 @@ export default function ClientAnalyticsTable({ clients = [] }) {
                               style={{ width: `${Math.max(0, Math.min(100, row.accuracy))}%` }}
                             />
                           </div>
-                          <span className="text-sm font-medium text-black w-9 text-right">
+                          <span className="text-sm font-medium text-slate-900 w-9 text-right">
                             {row.accuracy}%
                           </span>
                         </div>

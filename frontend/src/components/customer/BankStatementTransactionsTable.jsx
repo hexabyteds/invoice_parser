@@ -121,7 +121,7 @@ export default function BankStatementTransactionsTable({ statementId }) {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
 
             <div className="border-b bg-slate-50 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-lg font-bold text-black">Transactions</h2>
+                <h2 className="text-lg font-bold text-slate-900">Transactions</h2>
 
                 <div className="flex flex-col sm:flex-row gap-3">
                     <div className="relative">
@@ -131,14 +131,14 @@ export default function BankStatementTransactionsTable({ statementId }) {
                             placeholder="Search description..."
                             value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
-                            className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-black outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
 
                     <select
                         value={creditDebit}
                         onChange={(e) => setCreditDebit(e.target.value)}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-black outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                         <option value="">Credit & Debit</option>
                         <option value="credit">Credit only</option>
@@ -150,7 +150,7 @@ export default function BankStatementTransactionsTable({ statementId }) {
                         value={fromDate}
                         max={toDate || undefined}
                         onChange={(e) => setFromDate(e.target.value)}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-black outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
                     />
 
                     <input
@@ -158,7 +158,7 @@ export default function BankStatementTransactionsTable({ statementId }) {
                         value={toDate}
                         min={fromDate || undefined}
                         onChange={(e) => setToDate(e.target.value)}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-black outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                 </div>
             </div>
@@ -215,10 +215,10 @@ export default function BankStatementTransactionsTable({ statementId }) {
                         <tbody>
                             {transactions.map((tx) => (
                                 <tr key={tx.id} className="border-b hover:bg-slate-50 transition">
-                                    <td className="px-6 py-4 text-black whitespace-nowrap align-top">
+                                    <td className="px-6 py-4 text-slate-900 whitespace-nowrap align-top">
                                         {formatDateDisplay(tx.transactionDate)}
                                     </td>
-                                    <td className="px-6 py-4 text-black align-top">
+                                    <td className="px-6 py-4 text-slate-900 align-top">
                                         {tx.description || "-"}
                                         {tx.referenceNo && (
                                             <span className="block text-xs text-slate-400 mt-1">
@@ -232,7 +232,7 @@ export default function BankStatementTransactionsTable({ statementId }) {
                                     <td className="px-6 py-4 text-right align-top text-red-600 font-medium">
                                         {Number(tx.debit) > 0 ? money(tx.debit) : "-"}
                                     </td>
-                                    <td className="px-6 py-4 text-right align-top font-semibold text-black">
+                                    <td className="px-6 py-4 text-right align-top font-semibold text-slate-900">
                                         {money(tx.availableBalance)}
                                     </td>
                                 </tr>

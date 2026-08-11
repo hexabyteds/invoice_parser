@@ -38,6 +38,10 @@ export default function Topbar({
             email: "user@email.com",
         };
 
+    const hour = new Date().getHours();
+    const greeting =
+        hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
     useEffect(() => {
         function handleClick(e) {
             if (
@@ -92,6 +96,7 @@ export default function Topbar({
 
                 <button
                     onClick={toggleSidebar}
+                    aria-label="Open sidebar"
                     className="
             lg:hidden
             w-11
@@ -114,6 +119,7 @@ export default function Topbar({
 
                 <button
                     onClick={toggleCollapse}
+                    aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                     className="
             hidden
             lg:flex
@@ -141,8 +147,8 @@ export default function Topbar({
 
                 <div className="hidden md:block">
 
-                    <h2 className="text-2xl font-bold text-slate-800">
-                        Welcome back 👋
+                    <h2 className="text-2xl font-bold text-slate-800 font-display tracking-tight">
+                        {greeting}, {user.name?.split(" ")[0]}
                     </h2>
 
                     <p className="text-sm text-slate-500">
@@ -246,6 +252,8 @@ export default function Topbar({
 
                     <button
                         onClick={() => setNotificationsOpen(!notificationsOpen)}
+                        aria-label="View notifications"
+                        aria-expanded={notificationsOpen}
                         className="
     relative
     w-11
@@ -276,7 +284,7 @@ export default function Topbar({
     border
     border-slate-200
     shadow-2xl
-    text-black
+    text-slate-900
     overflow-hidden
   "
                         >
@@ -302,6 +310,8 @@ export default function Topbar({
 
                     <button
                         onClick={() => setProfileOpen(!profileOpen)}
+                        aria-label="Open profile menu"
+                        aria-expanded={profileOpen}
                         className="
                 flex
                 items-center
@@ -371,7 +381,7 @@ export default function Topbar({
                   border
                   border-slate-200
                   shadow-2xl
-                text-black
+                text-slate-900
                   overflow-hidden
                 "
                         >
@@ -390,7 +400,7 @@ export default function Topbar({
                     gap-3
                     hover:bg-slate-50
                     transition
-                    text-black
+                    text-slate-900
                   "
                             >
                                 <User size={18} />
@@ -410,7 +420,7 @@ export default function Topbar({
                     items-center
                     gap-3
                     hover:bg-slate-50
-                    text-black
+                    text-slate-900
                     transition
                   "
                             >

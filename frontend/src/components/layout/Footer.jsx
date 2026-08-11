@@ -11,10 +11,10 @@ export default function Footer() {
         <div className="grid grid-cols-2 gap-10 sm:grid-cols-4">
           <div className="col-span-2">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-violet-600 text-sm font-bold text-white">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-bold text-white">
                 EB
               </div>
-              <span className="text-lg font-bold text-white">EazeeBooks</span>
+              <span className="text-lg font-bold text-white font-display tracking-tight">EazeeBooks</span>
             </div>
             <p className="mt-4 max-w-xs text-sm text-slate-500">
               AI invoice extraction and bookkeeping automation, built for
@@ -25,9 +25,9 @@ export default function Footer() {
           <div>
             <p className="text-sm font-semibold text-white">Product</p>
             <ul className="mt-4 space-y-3 text-sm text-slate-400">
-              <li><Link to="/features" className="hover:text-white">Features</Link></li>
-              <li><Link to="/price" className="hover:text-white">Pricing</Link></li>
-              <li><Link to="/register" className="hover:text-white">Start Free</Link></li>
+              <li><Link to="/features" className="transition-colors hover:text-white">Features</Link></li>
+              <li><Link to="/price" className="transition-colors hover:text-white">Pricing</Link></li>
+              <li><Link to="/register" className="transition-colors hover:text-white">Start Free</Link></li>
             </ul>
           </div>
 
@@ -35,12 +35,12 @@ export default function Footer() {
             <p className="text-sm font-semibold text-white">Company</p>
             <ul className="mt-4 space-y-3 text-sm text-slate-400">
               <li>
-                <a href="mailto:sales@eazeebooks.com" className="hover:text-white">
+                <a href="mailto:sales@eazeebooks.com" className="transition-colors hover:text-white">
                   Contact
                 </a>
               </li>
-              <li><Link to="/privacy" className="hover:text-white">Privacy Policy</Link></li>
-              <li><Link to="/terms" className="hover:text-white">Terms of Service</Link></li>
+              <li><Link to="/privacy" className="transition-colors hover:text-white">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="transition-colors hover:text-white">Terms of Service</Link></li>
             </ul>
           </div>
         </div>

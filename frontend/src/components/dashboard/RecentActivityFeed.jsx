@@ -56,7 +56,7 @@ function timeAgo(dateString) {
 export default function RecentActivityFeed({ activity = [] }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border p-6">
-      <h2 className="text-xl font-semibold text-black mb-4">Recent Activity</h2>
+      <h2 className="text-xl font-semibold text-slate-900 mb-4">Recent Activity</h2>
 
       {activity.length === 0 ? (
         <div className="py-8 text-center text-slate-400">
@@ -84,7 +84,7 @@ export default function RecentActivityFeed({ activity = [] }) {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-black">{meta.label}</p>
+                  <p className="text-sm font-semibold text-slate-900">{meta.label}</p>
                   <p className="text-xs text-slate-500 mt-0.5 truncate">
                     {item.clientName || item.description || ""}
                   </p>

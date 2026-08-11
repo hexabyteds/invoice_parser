@@ -71,7 +71,7 @@ export default function UsageDashboard() {
         description="Monitor customer plan usage across the platform."
       >
         <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500">
-          <Loader2 className="animate-spin text-violet-600" size={32} />
+          <Loader2 className="animate-spin text-indigo-600" size={32} />
           <p className="mt-4 font-medium text-slate-700">
             Loading usage dashboard...
           </p>

@@ -148,7 +148,7 @@ export default function Dashboard() {
         <div className="absolute -right-16 -top-16 w-60 h-60 rounded-full bg-white/10 blur-3xl" />
 
         <div className="relative z-10">
-          <h1 className="text-4xl font-bold">Welcome back 👋</h1>
+          <h1 className="text-4xl font-bold font-display tracking-tight">Welcome back</h1>
 
           <p className="mt-3 text-indigo-100 max-w-2xl">
             Manage invoices, upload documents, analyze results and
@@ -231,18 +231,18 @@ export default function Dashboard() {
 
           {/* Quick Upload */}
           <div className="bg-white rounded-2xl shadow-sm border p-6">
-            <h2 className="text-xl font-semibold text-black mb-4">
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
               Quick Upload
             </h2>
 
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-black mb-2">
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
                 Select Client
               </label>
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-black outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="">Select Client</option>
                 {clients.map((client) => (
@@ -278,7 +278,7 @@ export default function Dashboard() {
                 }}
               />
               <UploadCloud className="mx-auto text-indigo-600" size={36} />
-              <p className="mt-3 font-medium text-black">
+              <p className="mt-3 font-medium text-slate-900">
                 {file ? file.name : "Choose PDF / Image"}
               </p>
               <p className="text-sm text-slate-500 mt-1">

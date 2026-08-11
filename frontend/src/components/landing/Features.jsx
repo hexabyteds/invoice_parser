@@ -132,7 +132,7 @@ function FeatureCard({ feature, index }) {
           border
           border-slate-700
           bg-slate-800
-          text-blue-400
+          text-indigo-400
           transition-transform
           duration-300
           group-hover:scale-105
@@ -203,7 +203,7 @@ export default function Features() {
               font-semibold
               uppercase
               tracking-[0.2em]
-              text-blue-400
+              text-indigo-400
             "
           >
             Product
@@ -214,7 +214,8 @@ export default function Features() {
               mt-7
               max-w-4xl
               text-[44px]
-              font-black
+              font-extrabold
+              font-display
               leading-[1.05]
               tracking-[-0.02em]
               text-white
@@ -301,7 +302,7 @@ export default function Features() {
                 font-semibold
                 uppercase
                 tracking-[0.2em]
-                text-blue-400
+                text-indigo-400
               "
             >
               How it works
@@ -312,6 +313,8 @@ export default function Features() {
                 mt-6
                 text-4xl
                 font-bold
+                font-display
+                tracking-tight
                 leading-[1.08]
                 text-white
                 sm:text-5xl
@@ -366,7 +369,7 @@ export default function Features() {
             font-semibold
             uppercase
             tracking-[0.2em]
-            text-blue-400
+            text-indigo-400
           "
         >
           The workflow

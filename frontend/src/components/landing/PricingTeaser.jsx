@@ -31,10 +31,10 @@ export default function PricingTeaser() {
   return (
     <section className="mx-auto max-w-7xl px-6 py-24 sm:px-8">
       <div className="mx-auto max-w-2xl text-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-400">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-400">
           Pricing
         </p>
-        <h2 className="mt-4 text-4xl font-bold text-white sm:text-5xl">
+        <h2 className="mt-4 text-4xl font-bold font-display tracking-tight text-white sm:text-5xl">
           Simple pricing, no per-user tax.
         </h2>
         <p className="mt-5 text-lg text-slate-400">
@@ -57,7 +57,7 @@ export default function PricingTeaser() {
                 key={plan.id}
                 className={`rounded-3xl border p-6 ${
                   isPopular
-                    ? "border-blue-500 bg-slate-900 shadow-xl shadow-blue-500/10"
+                    ? "border-indigo-500 bg-slate-900 shadow-xl shadow-indigo-500/10"
                     : "border-slate-800 bg-slate-900/60"
                 }`}
               >

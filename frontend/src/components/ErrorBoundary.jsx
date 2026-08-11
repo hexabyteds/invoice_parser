@@ -1,4 +1,5 @@
 import React from "react";
+import { AlertTriangle } from "lucide-react";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -38,11 +39,11 @@ class ErrorBoundary extends React.Component {
         <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
           <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center shadow-2xl">
 
-            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 text-3xl">
-              ⚠️
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+              <AlertTriangle size={30} />
             </div>
 
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-2xl font-bold font-display tracking-tight">
               Something went wrong
             </h1>
 
@@ -62,7 +63,7 @@ class ErrorBoundary extends React.Component {
               <button
                 type="button"
                 onClick={this.handleReload}
-                className="rounded-xl bg-blue-600 px-5 py-3 font-semibold transition hover:bg-blue-700"
+                className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 font-semibold transition hover:from-indigo-500 hover:to-violet-500"
               >
                 Reload Page
               </button>

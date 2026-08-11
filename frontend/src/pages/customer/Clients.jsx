@@ -216,14 +216,14 @@ export default function Clients() {
 
                             filtered.map(client => (
 
-                                <Link
-                                    key={client.id}
-                                    to={`/dashboard/clients/${client.id}`}
-                                >
+                                <div key={client.id} className="relative">
 
-                                    <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-indigo-500/50 hover:bg-slate-50 hover:-translate-y-0.5 transition-all duration-300">
+                                    <Link
+                                        to={`/dashboard/clients/${client.id}`}
+                                        className="block bg-white border border-slate-200 rounded-2xl p-6 hover:border-indigo-500/50 hover:bg-slate-50 hover:-translate-y-0.5 transition-all duration-300"
+                                    >
 
-                                        <div className="flex justify-between items-start">
+                                        <div className="flex justify-between items-start pr-24">
 
                                             <h2 className="font-bold text-xl text-slate-900">
 
@@ -231,48 +231,11 @@ export default function Clients() {
 
                                             </h2>
 
-                                            <div className="flex items-center gap-3">
+                                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${clientStatusBadgeClass(client.status)}`}>
 
-                                                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${clientStatusBadgeClass(client.status)}`}>
+                                                {clientStatusLabel(client.status)}
 
-                                                    {clientStatusLabel(client.status)}
-
-                                                </span>
-
-                                                <button
-                                                    onClick={(e) => handleToggleStatus(client, e)}
-                                                    disabled={togglingId === client.id}
-                                                    className={`transition disabled:opacity-50 ${
-                                                        isClientActive(client.status)
-                                                            ? "text-slate-400 hover:text-amber-500"
-                                                            : "text-slate-400 hover:text-emerald-500"
-                                                    }`}
-                                                    title={isClientActive(client.status) ? "Deactivate client" : "Activate client"}
-                                                >
-                                                    {isClientActive(client.status) ? (
-                                                        <PowerOff size={16} />
-                                                    ) : (
-                                                        <Power size={16} />
-                                                    )}
-                                                </button>
-
-                                                <button
-                                                    onClick={(e) => handleEdit(client, e)}
-                                                    className="text-slate-400 hover:text-indigo-400 transition"
-                                                    title="Edit client"
-                                                >
-                                                    <Pencil size={16} />
-                                                </button>
-
-                                                <button
-                                                    onClick={(e) => handleDeleteClick(client, e)}
-                                                    className="text-slate-400 hover:text-rose-400 transition"
-                                                    title="Delete client"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-
-                                            </div>
+                                            </span>
 
                                         </div>
 
@@ -310,9 +273,49 @@ export default function Clients() {
 
                                         </div>
 
+                                    </Link>
+
+                                    <div className="absolute top-6 right-6 flex items-center gap-3">
+
+                                        <button
+                                            onClick={(e) => handleToggleStatus(client, e)}
+                                            disabled={togglingId === client.id}
+                                            aria-label={isClientActive(client.status) ? "Deactivate client" : "Activate client"}
+                                            className={`transition disabled:opacity-50 ${
+                                                isClientActive(client.status)
+                                                    ? "text-slate-400 hover:text-amber-500"
+                                                    : "text-slate-400 hover:text-emerald-500"
+                                            }`}
+                                            title={isClientActive(client.status) ? "Deactivate client" : "Activate client"}
+                                        >
+                                            {isClientActive(client.status) ? (
+                                                <PowerOff size={16} />
+                                            ) : (
+                                                <Power size={16} />
+                                            )}
+                                        </button>
+
+                                        <button
+                                            onClick={(e) => handleEdit(client, e)}
+                                            aria-label="Edit client"
+                                            className="text-slate-400 hover:text-indigo-400 transition"
+                                            title="Edit client"
+                                        >
+                                            <Pencil size={16} />
+                                        </button>
+
+                                        <button
+                                            onClick={(e) => handleDeleteClick(client, e)}
+                                            aria-label="Delete client"
+                                            className="text-slate-400 hover:text-rose-400 transition"
+                                            title="Delete client"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+
                                     </div>
 
-                                </Link>
+                                </div>
 
                             ))
 

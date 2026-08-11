@@ -49,7 +49,7 @@ export default function Usage() {
   if (loading) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500">
-        <Loader2 className="animate-spin text-blue-600" size={32} />
+        <Loader2 className="animate-spin text-indigo-600" size={32} />
         <p className="mt-4 font-medium text-slate-700">Loading usage...</p>
       </div>
     );
@@ -96,10 +96,10 @@ export default function Usage() {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 shadow-lg sm:p-8">
+      <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 p-6 shadow-lg sm:p-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-blue-100">
+            <div className="mb-2 flex items-center gap-2 text-indigo-100">
               <Sparkles size={16} />
               <span className="text-sm font-medium">Current Subscription</span>
             </div>
@@ -129,7 +129,7 @@ export default function Usage() {
 
             <Link
               to="/price"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-indigo-700 shadow-sm transition hover:bg-indigo-50"
             >
               Upgrade Plan
               <ArrowUpRight size={16} />

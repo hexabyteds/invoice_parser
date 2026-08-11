@@ -1,3 +1,5 @@
+import { Construction } from "lucide-react";
+
 export default function AdminPageShell({
   title,
   description,
@@ -6,7 +8,7 @@ export default function AdminPageShell({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">
+        <h1 className="text-3xl font-bold text-slate-900 font-display tracking-tight">
           {title}
         </h1>
         {description && (
@@ -17,8 +19,11 @@ export default function AdminPageShell({
       </div>
 
       {children || (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-          <p className="text-lg font-medium text-slate-700">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-16 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+            <Construction size={26} />
+          </div>
+          <p className="mt-5 text-lg font-semibold text-slate-700">
             Coming soon
           </p>
           <p className="mt-2 text-sm text-slate-500">

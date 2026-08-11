@@ -27,7 +27,7 @@ export default function ExtractionQualityCard({ validation }) {
   return (
     <div className="bg-white rounded-3xl shadow border p-8">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-black">
+        <h2 className="text-xl font-semibold text-slate-900">
           Extraction Confidence
         </h2>
         <span

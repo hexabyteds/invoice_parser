@@ -57,7 +57,7 @@ export default function BillingReturn() {
     <div className="mx-auto flex max-w-lg flex-col items-center rounded-2xl border border-slate-200 bg-white px-8 py-16 text-center shadow-sm">
       {loading && (
         <>
-          <Loader2 className="animate-spin text-blue-600" size={40} />
+          <Loader2 className="animate-spin text-indigo-600" size={40} />
           <h1 className="mt-6 text-2xl font-bold text-slate-800">
             Confirming your subscription...
           </h1>
@@ -105,7 +105,7 @@ export default function BillingReturn() {
 
       <Link
         to="/dashboard/usage"
-        className="mt-8 inline-flex items-center justify-center rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+        className="mt-8 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:from-indigo-500 hover:to-violet-500"
       >
         Go to Usage &amp; Billing
       </Link>

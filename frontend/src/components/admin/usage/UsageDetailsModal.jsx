@@ -58,14 +58,15 @@ export default function UsageDetailsModal({ customer, onClose }) {
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close"
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
           >
-            <X size={20} />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
         <div className="space-y-5 p-6">
-          <div className="inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-violet-700">
+          <div className="inline-flex rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
             {customer.plan_name} plan
           </div>
 

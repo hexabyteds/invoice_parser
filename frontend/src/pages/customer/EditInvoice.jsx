@@ -239,7 +239,7 @@ export default function EditInvoice() {
             Back
           </button>
 
-          <h1 className="text-3xl font-bold text-black">Edit Invoice</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Edit Invoice</h1>
           <p className="text-slate-500 mt-2">
             Update the Document details and line items.
           </p>
@@ -267,7 +267,7 @@ export default function EditInvoice() {
         <div className="lg:col-span-2 bg-white rounded-2xl shadow border overflow-hidden">
 
           <div className="border-b bg-slate-50 px-6 py-4">
-            <h2 className="text-lg font-bold text-black">Document Details</h2>
+            <h2 className="text-lg font-bold text-slate-900">Document Details</h2>
           </div>
 
           <div className="overflow-x-auto">
@@ -400,7 +400,7 @@ export default function EditInvoice() {
           </div>
 
           <div className="border-t px-6 py-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-black">
+            <h2 className="text-lg font-bold text-slate-900">
               Line Items ({lineItems.length})
             </h2>
             <div className="flex items-center gap-2">
@@ -434,16 +434,16 @@ export default function EditInvoice() {
             <table className="w-full min-w-[820px]">
               <thead>
                 <tr className="border-y-[3px] border-double border-slate-800 bg-slate-50">
-                  <th className="text-left px-6 py-3 text-black font-bold">Description</th>
-                  <th className="text-center px-6 py-3 text-black font-bold w-28">Qty</th>
-                  <th className="text-right px-6 py-3 text-black font-bold w-40">
+                  <th className="text-left px-6 py-3 text-slate-900 font-bold">Description</th>
+                  <th className="text-center px-6 py-3 text-slate-900 font-bold w-28">Qty</th>
+                  <th className="text-right px-6 py-3 text-slate-900 font-bold w-40">
                     Unit Price
                   </th>
-                  <th className="text-right px-6 py-3 text-black font-bold w-32">
+                  <th className="text-right px-6 py-3 text-slate-900 font-bold w-32">
                     Amount Exc. VAT
                   </th>
-                  <th className="text-right px-6 py-3 text-black font-bold w-28">VAT</th>
-                  <th className="text-right px-6 py-3 text-black font-bold w-32">
+                  <th className="text-right px-6 py-3 text-slate-900 font-bold w-28">VAT</th>
+                  <th className="text-right px-6 py-3 text-slate-900 font-bold w-32">
                     Amount Inc. VAT
                   </th>
                   <th className="px-6 py-3 w-16"></th>
@@ -479,7 +479,7 @@ export default function EditInvoice() {
                             onChange={(e) =>
                               handleItemChange(index, "description", e.target.value)
                             }
-                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-black outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </td>
                         <td className="px-6 py-3">
@@ -490,7 +490,7 @@ export default function EditInvoice() {
                             onChange={(e) =>
                               handleItemChange(index, "quantity", e.target.value)
                             }
-                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-black text-center outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 text-center outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </td>
                         <td className="px-6 py-3">
@@ -502,17 +502,17 @@ export default function EditInvoice() {
                             onChange={(e) =>
                               handleItemChange(index, "unit_price", e.target.value)
                             }
-                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-black text-right outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 text-right outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </td>
-                        <td className="px-6 py-3 text-right text-black">
+                        <td className="px-6 py-3 text-right text-slate-900">
                           {withoutVat.toFixed(2)}
                          
                         </td>
-                        <td className="px-6 py-3 text-right text-black">
+                        <td className="px-6 py-3 text-right text-slate-900">
                           {vatAmount.toFixed(2)}
                         </td>
-                        <td className="px-6 py-3 text-right font-semibold text-black">
+                        <td className="px-6 py-3 text-right font-semibold text-slate-900">
                         {totalPrice.toFixed(2)}
                         </td>
                         <td className="px-6 py-3 text-center">
@@ -534,7 +534,7 @@ export default function EditInvoice() {
         </div>
 
         <div className="bg-slate-200 rounded-2xl shadow border p-6 lg:sticky lg:top-8">
-          <h2 className="text-lg font-bold text-black text-center mb-4">
+          <h2 className="text-lg font-bold text-slate-900 text-center mb-4">
             Invoice View
           </h2>
 
@@ -593,7 +593,7 @@ function StaticCell({ label, value, isLast = false }) {
         {label}
       </td>
       <td
-        className={`px-3 py-3 text-black font-semibold align-top ${isLast ? "" : "border-r"
+        className={`px-3 py-3 text-slate-900 font-semibold align-top ${isLast ? "" : "border-r"
           }`}
       >
         {value}
@@ -603,7 +603,7 @@ function StaticCell({ label, value, isLast = false }) {
 }
 
 const inputClass =
-  "w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-black outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition";
+  "w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition";
 
 function money(value, currency) {
   if (value === null || value === undefined || value === "") return "-";

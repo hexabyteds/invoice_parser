@@ -22,12 +22,12 @@ export default function Navbar() {
         <div className="mt-5 flex h-16 items-center justify-between rounded-full border border-slate-800 bg-slate-900/70 px-5 sm:px-8 backdrop-blur-xl">
 
           <Link to="/" className="flex items-center gap-3" onClick={() => setMobileOpen(false)}>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 font-bold text-white">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 font-bold text-white shadow-lg shadow-indigo-950/40">
               EB
             </div>
 
             <div>
-              <h1 className="text-lg font-bold text-white">
+              <h1 className="text-lg font-bold text-white font-display tracking-tight">
                 EazeeBooks
               </h1>
 
@@ -56,7 +56,7 @@ export default function Navbar() {
 
             <Link
               to="/register"
-              className="rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold transition hover:bg-blue-500"
+              className="rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-950/30 transition hover:from-indigo-500 hover:to-violet-500"
             >
               Start Free
             </Link>
@@ -108,7 +108,7 @@ export default function Navbar() {
               <Link
                 to="/register"
                 onClick={() => setMobileOpen(false)}
-                className="mt-1 rounded-xl bg-blue-600 px-4 py-3 text-center text-base font-semibold text-white transition hover:bg-blue-500"
+                className="mt-1 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 text-center text-base font-semibold text-white transition hover:from-indigo-500 hover:to-violet-500"
               >
                 Start Free
               </Link>

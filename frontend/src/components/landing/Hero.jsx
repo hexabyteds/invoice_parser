@@ -6,7 +6,7 @@ export default function Hero() {
   return (
     <section className="relative overflow-hidden pt-40">
 
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,#2563eb33,transparent_40%),radial-gradient(circle_at_bottom_left,#7c3aed22,transparent_40%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,#4f46e533,transparent_40%),radial-gradient(circle_at_bottom_left,#7c3aed22,transparent_40%)]" />
 
       <div className="relative mx-auto grid max-w-7xl items-center gap-20 px-8 lg:grid-cols-2">
 
@@ -16,11 +16,11 @@ export default function Hero() {
           transition={{ duration: .8 }}
         >
 
-          <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-400">
+          <span className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-sm text-indigo-400">
             AI Accounting Platform
           </span>
 
-          <h1 className="mt-8 text-4xl sm:text-5xl lg:text-6xl font-black leading-tight text-white text-balance">
+          <h1 className="mt-8 text-4xl sm:text-5xl lg:text-6xl font-extrabold font-display leading-tight tracking-tight text-white text-balance">
             Turn Any Invoice Into
             <br />
             Clean, Exportable Books
@@ -36,7 +36,7 @@ export default function Hero() {
 
             <Link
               to="/register"
-              className="flex items-center justify-center gap-2 rounded-full bg-blue-600 px-7 py-4 font-semibold hover:bg-blue-500"
+              className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-7 py-4 font-semibold text-white shadow-lg shadow-indigo-950/30 transition-all hover:from-indigo-500 hover:to-violet-500"
             >
               Start Free — No Card Required
               <ArrowRight size={18} />
@@ -79,8 +79,45 @@ export default function Hero() {
 
             </div>
 
-            <div className="mt-8 h-72 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-slate-500">
-              Dashboard Preview
+            {/* Mock product glimpse — static illustrative data, not live figures */}
+            <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
+
+              <div className="flex items-end justify-between gap-2 h-28">
+                {[38, 62, 48, 80, 56, 92, 70, 100, 78, 60].map((h, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ height: 0 }}
+                    animate={{ height: `${h}%` }}
+                    transition={{ delay: 0.4 + i * 0.05, duration: 0.5 }}
+                    className="flex-1 rounded-t-md bg-gradient-to-t from-indigo-600 to-violet-500"
+                  />
+                ))}
+              </div>
+
+              <div className="mt-5 space-y-3 border-t border-slate-800 pt-4">
+                {[
+                  { name: "INV-4471 · Al Futtaim Group", amount: "AED 12,450.00", status: "Processed" },
+                  { name: "INV-4472 · Emaar Retail LLC", amount: "AED 3,180.75", status: "Processed" },
+                  { name: "INV-4473 · Noon Fulfilment", amount: "AED 940.20", status: "Reviewing" },
+                ].map((row) => (
+                  <div key={row.name} className="flex items-center justify-between text-sm">
+                    <span className="truncate text-slate-300">{row.name}</span>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="font-medium text-white">{row.amount}</span>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                          row.status === "Processed"
+                            ? "bg-green-500/10 text-green-400"
+                            : "bg-amber-500/10 text-amber-400"
+                        }`}
+                      >
+                        {row.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
             </div>
 
           </div>

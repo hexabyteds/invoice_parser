@@ -42,7 +42,7 @@ export default function KpiCard({
       <div className="flex items-start justify-between">
         <div className="min-w-0">
           <p className="text-sm text-slate-500 truncate">{title}</p>
-          <p className="mt-2 text-2xl font-bold text-black truncate">{value}</p>
+          <p className="mt-2 text-2xl font-bold text-slate-900 truncate">{value}</p>
 
           <div className={`mt-2 flex items-center gap-1 text-xs font-medium ${trendColor}`}>
             <TrendIcon size={14} />

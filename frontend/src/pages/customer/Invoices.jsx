@@ -223,7 +223,7 @@ export default function Invoices() {
                             placeholder="Search document, client, bank..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-slate-900"
                         />
                     </div>
 
@@ -231,7 +231,7 @@ export default function Invoices() {
                         <select
                             value={clientId}
                             onChange={(e) => setClientId(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-slate-900"
                         >
                             <option value="">All Clients</option>
                             {activeClients.map((client) => (
@@ -246,7 +246,7 @@ export default function Invoices() {
                         <select
                             value={documentType}
                             onChange={(e) => setDocumentType(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-slate-900"
                         >
                             <option value="">All Types</option>
                             {DOCUMENT_TYPES.map((type) => (
@@ -270,7 +270,7 @@ export default function Invoices() {
                             value={fromDate}
                             max={toDate || undefined}
                             onChange={(e) => setFromDate(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-slate-900"
                         />
                     </div>
 
@@ -284,7 +284,7 @@ export default function Invoices() {
                             value={toDate}
                             min={fromDate || undefined}
                             onChange={(e) => setToDate(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-slate-900"
                         />
                     </div>
 
@@ -373,7 +373,7 @@ export default function Invoices() {
                                             <td className="px-6 py-5 text-slate-500">
                                                 {(safePage - 1) * ROWS_PER_PAGE + index + 1}
                                             </td>
-                                            <td className="px-6 py-5 font-semibold text-black">
+                                            <td className="px-6 py-5 font-semibold text-slate-900">
                                                 {doc.number || doc.fileName || "-"}
                                             </td>
                                             <td className="px-6 py-5">
@@ -381,13 +381,13 @@ export default function Invoices() {
                                                     {documentTypeLabel(doc.documentType)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-5 text-black">
+                                            <td className="px-6 py-5 text-slate-900">
                                                 {doc.partyOrBank || "-"}
                                             </td>
-                                            <td className="px-6 py-5 text-black">
+                                            <td className="px-6 py-5 text-slate-900">
                                                 {formatDateDisplay(doc.date)}
                                             </td>
-                                            <td className="px-6 py-5 text-right font-semibold text-black">
+                                            <td className="px-6 py-5 text-right font-semibold text-slate-900">
                                                 {doc.amount === null || doc.amount === undefined
                                                     ? "-"
                                                     : Number(doc.amount).toLocaleString(undefined, {
@@ -400,7 +400,7 @@ export default function Invoices() {
                                                     {doc.currency || "-"}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-5 text-black">
+                                            <td className="px-6 py-5 text-slate-900">
                                                 {formatDateDisplay(doc.uploadedAt)}
                                             </td>
                                             <td className="px-6 py-5">

@@ -90,13 +90,13 @@ export default function Plans() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search plans..."
-            className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+            className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
         <button
           onClick={handleAdd}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-medium text-white hover:bg-violet-700"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white hover:bg-indigo-700"
         >
           <Plus size={18} />
           Add Plan
@@ -195,7 +195,7 @@ export default function Plans() {
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => handleEdit(plan)}
-                          className="rounded-lg p-2 text-slate-600 hover:bg-violet-100 hover:text-violet-700"
+                          className="rounded-lg p-2 text-slate-600 hover:bg-indigo-100 hover:text-indigo-700"
                           title="Edit plan"
                         >
                           <Pencil size={18} />

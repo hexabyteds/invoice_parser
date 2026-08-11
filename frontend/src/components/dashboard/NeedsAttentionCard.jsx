@@ -36,7 +36,7 @@ export default function NeedsAttentionCard({ data }) {
   return (
     <div className="bg-white rounded-3xl shadow-sm border p-6">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-semibold text-black">Needs Attention</h2>
+        <h2 className="text-xl font-semibold text-slate-900">Needs Attention</h2>
         {totalIssues > 0 ? (
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
             {totalIssues} to review
@@ -60,14 +60,14 @@ export default function NeedsAttentionCard({ data }) {
               </div>
               <span className="text-sm font-medium text-slate-700">{item.label}</span>
             </div>
-            <span className="text-lg font-bold text-black">{item.value}</span>
+            <span className="text-lg font-bold text-slate-900">{item.value}</span>
           </div>
         ))}
       </div>
 
       <button
         onClick={() => navigate("/dashboard/invoices")}
-        className="mt-5 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-black font-medium transition"
+        className="mt-5 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-900 font-medium transition"
       >
         View Issues
         <ArrowRight size={16} />
