@@ -29,6 +29,7 @@ export default function Pricing() {
       try {
         const response = await getPublicPlans();
 
+        console.log("response.data.plans", response.data.plans);
         setPlans(response.data.plans || []);
       } catch (err) {
         console.error("Failed to load plans:", err);

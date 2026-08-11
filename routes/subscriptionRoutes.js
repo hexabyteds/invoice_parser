@@ -47,6 +47,21 @@ router.post(
   subscriptionController.cancelSubscription
 );
 
+// Start Stripe Checkout (new subscription) or update an existing
+// Stripe subscription's plan/interval
+router.post(
+  "/checkout",
+  authMiddleware,
+  subscriptionController.checkout
+);
+
+// Stripe Customer Portal (payment method, invoices, cancellation)
+router.post(
+  "/portal",
+  authMiddleware,
+  subscriptionController.portal
+);
+
 // Renew Own Subscription
 router.post(
   "/renew",

@@ -87,9 +87,12 @@ class PlanRepository {
         api_access,
         priority_support,
         active,
-        featured
+        featured,
+        stripe_product_id,
+        stripe_price_id_monthly,
+        stripe_price_id_yearly
       )
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       `,
       [
         plan.name,
@@ -104,7 +107,10 @@ class PlanRepository {
         plan.api_access,
         plan.priority_support,
         plan.active,
-        plan.featured
+        plan.featured,
+        plan.stripe_product_id || null,
+        plan.stripe_price_id_monthly || null,
+        plan.stripe_price_id_yearly || null
       ]
     );
 
@@ -130,7 +136,10 @@ class PlanRepository {
         api_access=?,
         priority_support=?,
         active=?,
-        featured=?
+        featured=?,
+        stripe_product_id=?,
+        stripe_price_id_monthly=?,
+        stripe_price_id_yearly=?
       WHERE id=?
       `,
       [
@@ -147,6 +156,9 @@ class PlanRepository {
         plan.priority_support,
         plan.active,
         plan.featured,
+        plan.stripe_product_id || null,
+        plan.stripe_price_id_monthly || null,
+        plan.stripe_price_id_yearly || null,
         id
       ]
     );

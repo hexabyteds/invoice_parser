@@ -125,6 +125,20 @@ class SubscriptionController {
 
       const { planId, billingCycle } = req.body;
 
+      // Paid plans must go through Stripe Checkout (POST /checkout) so
+      // payment is actually collected — this self-service endpoint predates
+      // Stripe and would otherwise let a customer grant themselves a paid
+      // plan for free. Only the Free plan can still be self-assigned here.
+      const plan = await subscriptionService.validatePlan(planId);
+
+      if (Number(plan.monthly_price) > 0 || Number(plan.yearly_price) > 0) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Paid plans require checkout. Use POST /api/subscriptions/checkout instead."
+        });
+      }
+
       const subscription =
         await subscriptionService.changePlan(
           req.user.id,
@@ -136,6 +150,65 @@ class SubscriptionController {
         success: true,
         message: "Plan updated successfully.",
         subscription
+      });
+
+    } catch (err) {
+
+      res.status(400).json({
+        success: false,
+        error: err.message
+      });
+
+    }
+
+  }
+
+  // =====================================================
+  // Stripe Checkout (new subscription or plan change for an
+  // existing Stripe subscriber)
+  // =====================================================
+
+  async checkout(req, res) {
+
+    try {
+
+      const { planId, interval } = req.body;
+
+      const result = await subscriptionService.startCheckout(
+        req.user.id,
+        planId,
+        interval
+      );
+
+      res.json({
+        success: true,
+        ...result
+      });
+
+    } catch (err) {
+
+      res.status(400).json({
+        success: false,
+        error: err.message
+      });
+
+    }
+
+  }
+
+  // =====================================================
+  // Stripe Customer Portal
+  // =====================================================
+
+  async portal(req, res) {
+
+    try {
+
+      const url = await subscriptionService.createPortalSession(req.user.id);
+
+      res.json({
+        success: true,
+        url
       });
 
     } catch (err) {

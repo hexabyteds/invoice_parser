@@ -1,13 +1,70 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { formatAed, formatUsd } from "../../utils/currency";
+import { useAuth } from "../../context/AuthContext";
+import subscriptionApi from "../../services/subscriptionApi";
 
 export default function PricingCard({ plan, yearly = false }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const price = yearly
     ? Number(plan.yearly_price)
     : Number(plan.monthly_price);
 
   const billingLabel = yearly ? "/year" : "/month";
+
+  const isFree = plan.slug === "free";
+
+  async function handleSelectPlan() {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    // Enterprise has no self-serve checkout (see getPlanButton below,
+    // "Contact Sales") — nothing to wire up here, same as before.
+    if (plan.slug === "enterprise") {
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    try {
+      if (isFree) {
+        await subscriptionApi.selectPlan(plan.id, "monthly");
+        navigate("/dashboard/usage");
+        return;
+      }
+
+      const interval = yearly ? "yearly" : "monthly";
+      const response = await subscriptionApi.createCheckoutSession(
+        plan.id,
+        interval
+      );
+
+      if (response.data.url) {
+        window.location.href = response.data.url;
+        return;
+      }
+
+      // Existing Stripe subscriber — the backend updated the live
+      // subscription in place instead of returning a checkout URL.
+      if (response.data.updated) {
+        navigate("/dashboard/usage");
+      }
+    } catch (err) {
+      setError(
+        err.response?.data?.error || "Something went wrong. Please try again."
+      );
+      setLoading(false);
+    }
+  }
 
   const formatLimit = (value) => {
     if (value >= 999999) {
@@ -104,14 +161,21 @@ export default function PricingCard({ plan, yearly = false }) {
       {/* Button */}
 
       <button
-        className={`mt-8 w-full rounded-xl py-4 font-semibold transition ${
+        onClick={handleSelectPlan}
+        disabled={loading}
+        className={`mt-8 flex w-full items-center justify-center gap-2 rounded-xl py-4 font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
           isPopular
             ? "bg-blue-600 hover:bg-blue-700"
             : "border border-slate-700 hover:bg-slate-800"
         }`}
       >
+        {loading && <Loader2 size={18} className="animate-spin" />}
         {getPlanButton(plan.slug)}
       </button>
+
+      {error && (
+        <p className="mt-3 text-center text-sm text-red-400">{error}</p>
+      )}
 
       {/* Features */}
 

@@ -35,7 +35,7 @@ export default function Profile() {
       const [meRes, subRes, plansRes] = await Promise.all([
         authApi.me(),
         subscriptionApi.getCurrent(),
-        planApi.getAll(),
+        planApi.getActive(),
       ]);
 
       setProfile(meRes.data.user);
@@ -77,8 +77,32 @@ export default function Profile() {
   async function confirmSwitchPlan() {
     if (!switchingPlanId) return;
 
+    const plan = plans.find((p) => p.id === switchingPlanId);
+    const isFree =
+      plan && Number(plan.monthly_price) === 0 && Number(plan.yearly_price) === 0;
+
     try {
       setChangingPlan(true);
+
+      // Paid plans require real payment, so they go through Stripe
+      // Checkout instead of the free-only select-plan endpoint.
+      if (!isFree) {
+        const res = await subscriptionApi.createCheckoutSession(
+          switchingPlanId,
+          "monthly"
+        );
+
+        if (res.data.url) {
+          window.location.href = res.data.url;
+          return;
+        }
+
+        // Existing Stripe subscriber — updated in place, no redirect needed.
+        toast.success("Plan updated successfully.");
+        await load();
+        return;
+      }
+
       await subscriptionApi.selectPlan(switchingPlanId);
       toast.success("Plan updated successfully.");
       await load();
@@ -257,7 +281,10 @@ export default function Profile() {
         title="Switch plan?"
         message={
           switchingPlan
-            ? `Switch to the ${switchingPlan.name} plan? Your current plan will end immediately.`
+            ? Number(switchingPlan.monthly_price) === 0 &&
+              Number(switchingPlan.yearly_price) === 0
+              ? `Switch to the ${switchingPlan.name} plan? Your current plan will end immediately.`
+              : `Switch to the ${switchingPlan.name} plan? You may be redirected to Stripe to complete payment.`
             : ""
         }
         confirmLabel="Switch Plan"

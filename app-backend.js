@@ -40,6 +40,12 @@ const UPLOADS_DIR = path.join(__dirname, "uploads");
 
 
 app.use(cors());
+
+// Mounted BEFORE express.json(): Stripe webhook signature verification
+// requires the raw, unparsed request body, so this route must see it
+// before the global JSON body parser below consumes it.
+app.use("/api/stripe/webhook", require("./routes/stripeWebhookRoutes"));
+
 app.use(express.json());
 
 

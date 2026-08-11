@@ -1,8 +1,18 @@
 import api from "./api";
 
 const planApi = {
-  getAll: async () => {
+  // Public/customer-facing: active plans only (used by the pricing page
+  // and the customer Profile page's "Switch Plan" list).
+  getActive: async () => {
     const { data } = await api.get("/plans");
+    return data;
+  },
+
+  // Admin-only: ALL plans including disabled ones — the admin list must
+  // see disabled plans too, otherwise there's no way to re-enable one once
+  // it's toggled off.
+  getAll: async () => {
+    const { data } = await api.get("/plans/admin");
     return data;
   },
 
