@@ -47,6 +47,18 @@ function StatusBadge({ status }) {
   );
 }
 
+// A subscription scheduled to cancel at period end still reports
+// status: "active" (the user keeps access until the period actually
+// ends) — without this, an admin has no way to tell it's about to lapse
+// (BUG-BILLING-002).
+function CancelingBadge() {
+  return (
+    <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+      Canceling
+    </span>
+  );
+}
+
 export default function Subscriptions() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -127,7 +139,7 @@ export default function Subscriptions() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search customer, company, plan..."
-            className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+            className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
@@ -135,7 +147,7 @@ export default function Subscriptions() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">All statuses</option>
             <option value="active">Active</option>
@@ -215,7 +227,10 @@ export default function Subscriptions() {
                     </td>
 
                     <td className="px-4 py-5">
-                      <StatusBadge status={subscription.status} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <StatusBadge status={subscription.status} />
+                        {subscription.cancel_at_period_end && <CancelingBadge />}
+                      </div>
                     </td>
 
                     <td className="px-4 py-5 text-slate-700">
@@ -230,7 +245,7 @@ export default function Subscriptions() {
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => handleChangePlan(subscription)}
-                          className="rounded-lg p-2 text-slate-600 hover:bg-violet-100 hover:text-violet-700"
+                          className="rounded-lg p-2 text-slate-600 hover:bg-indigo-100 hover:text-indigo-700"
                           title="Change plan"
                         >
                           <Pencil size={18} />

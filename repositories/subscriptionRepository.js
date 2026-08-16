@@ -288,6 +288,8 @@ class SubscriptionRepository {
           s.next_billing,
           s.cancelled_at,
           s.created_at,
+          s.cancel_at_period_end,
+          s.stripe_status,
           u.name AS customer_name,
           u.email AS customer_email,
           u.company_name,

@@ -531,16 +531,32 @@ class FreeInvoiceAgent {
             return null;
         }
 
-        const numericFields = ["subtotal", "vat_rate", "vat_amount", "total_amount"];
+        // Upper bounds match each column's actual DECIMAL(precision,scale)
+        // in schema.sql — exceeding them used to reach the DB and come back
+        // as a raw "Out of range value for column..." MySQL error (500)
+        // instead of a clean validation error.
+        const numericFields = {
+            subtotal: 9999999999.99,      // decimal(12,2)
+            vat_rate: 999.99,             // decimal(5,2)
+            vat_amount: 9999999999.99,    // decimal(12,2)
+            total_amount: 9999999999.99,  // decimal(12,2)
+        };
 
-        for (const field of numericFields) {
+        for (const field of Object.keys(numericFields)) {
             if (data[field] === undefined || data[field] === null) continue;
 
             const value = Number(data[field]);
+            const max = numericFields[field];
 
             if (Number.isNaN(value) || value < 0) {
                 throw new Error(
                     `Invalid value for ${field}: must be a non-negative number.`
+                );
+            }
+
+            if (value > max) {
+                throw new Error(
+                    `Invalid value for ${field}: must not exceed ${max}.`
                 );
             }
         }
@@ -571,15 +587,27 @@ class FreeInvoiceAgent {
                 totalPrice: item.total_price ?? item.totalPrice ?? 0
             }));
 
-            const lineItemNumericFields = ["quantity", "unitPrice", "totalPrice"];
+            // Bounds match invoice_items' actual DECIMAL(precision,scale).
+            const lineItemNumericFields = {
+                quantity: 99999999.99,      // decimal(10,2)
+                unitPrice: 9999999999.99,   // decimal(12,2)
+                totalPrice: 9999999999.99,  // decimal(12,2)
+            };
 
             items.forEach((item, index) => {
-                for (const field of lineItemNumericFields) {
+                for (const field of Object.keys(lineItemNumericFields)) {
                     const value = Number(item[field]);
+                    const max = lineItemNumericFields[field];
 
                     if (Number.isNaN(value) || value < 0) {
                         throw new Error(
                             `Invalid value for line item ${index + 1} ${field}: must be a non-negative number.`
+                        );
+                    }
+
+                    if (value > max) {
+                        throw new Error(
+                            `Invalid value for line item ${index + 1} ${field}: must not exceed ${max}.`
                         );
                     }
                 }

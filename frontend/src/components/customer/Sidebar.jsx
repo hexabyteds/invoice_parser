@@ -45,7 +45,7 @@ const menuItems = [
     path: "/dashboard/analytics",
   },
   {
-    title: "Excel Export",
+    title: "Export Center",
     icon: FileSpreadsheet,
     path: "/dashboard/export",
   },

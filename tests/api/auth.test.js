@@ -1,4 +1,6 @@
 const { request, app, registerAndLogin, uniqueEmail } = require("../helpers/api");
+const pool = require("../../config/database");
+const { generateResetToken } = require("../../utils/resetToken");
 
 describe("Auth", () => {
   describe("POST /api/auth/register", () => {
@@ -52,6 +54,48 @@ describe("Auth", () => {
 
       expect(res.body.user.password).toBeUndefined();
     });
+
+    it("rejects a weak password (BUG-AUTH-001)", async () => {
+      const res = await request(app).post("/api/auth/register").send({
+        name: "Weak Password",
+        email: uniqueEmail(),
+        password: "a",
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toMatch(/password/i);
+    });
+
+    it("rejects a password missing an uppercase letter, lowercase letter, or number (BUG-AUTH-001)", async () => {
+      const res = await request(app).post("/api/auth/register").send({
+        name: "Weak Password",
+        email: uniqueEmail(),
+        password: "alllowercase",
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it("rejects an invalid email format (BUG-AUTH-002)", async () => {
+      const res = await request(app).post("/api/auth/register").send({
+        name: "Bad Email",
+        email: "not-an-email",
+        password: "Password123!",
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toMatch(/email/i);
+
+      // Confirm nothing was actually created for the malformed address.
+      const [rows] = await pool.execute(
+        `SELECT id FROM users WHERE email = ?`,
+        ["not-an-email"]
+      );
+      expect(rows).toHaveLength(0);
+    });
   });
 
   describe("POST /api/auth/login", () => {
@@ -98,6 +142,83 @@ describe("Auth", () => {
         .send({ email: uniqueEmail("nobody"), password: "whatever" });
 
       expect(wrongPassword.body.error).toBe(unknownEmail.body.error);
+    });
+
+    it("rejects a missing email with a clean 400, not a raw DB driver error (BUG-AUTH-003)", async () => {
+      const res = await request(app)
+        .post("/api/auth/login")
+        .send({ password: "whatever" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toMatch(/email/i);
+      expect(res.body.error).not.toMatch(/mysql|bind parameters|sql/i);
+    });
+
+    it("rejects a missing password with a clean 400, not a raw bcrypt error (BUG-AUTH-003)", async () => {
+      const { email } = await registerAndLogin();
+
+      const res = await request(app)
+        .post("/api/auth/login")
+        .send({ email });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toMatch(/password/i);
+      expect(res.body.error).not.toMatch(/bcrypt|hash argument/i);
+    });
+
+    it("rejects an empty request body with a clean 400", async () => {
+      const res = await request(app).post("/api/auth/login").send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+  });
+
+  describe("POST /api/auth/reset-password", () => {
+    async function seedResetToken(userId) {
+      const { token, tokenHash, expiresAt } = generateResetToken();
+      await pool.execute(
+        `UPDATE users SET reset_token_hash = ?, reset_token_expires = ? WHERE id = ?`,
+        [tokenHash, expiresAt, userId]
+      );
+      return token;
+    }
+
+    it("rejects a weak new password even with a valid reset token (BUG-AUTH-001)", async () => {
+      const { user } = await registerAndLogin();
+      const token = await seedResetToken(user.id);
+
+      const res = await request(app)
+        .post("/api/auth/reset-password")
+        .send({ token, password: "a" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toMatch(/password/i);
+
+      // The old password must still work — the weak one was never applied.
+      const login = await request(app)
+        .post("/api/auth/login")
+        .send({ email: user.email, password: "Password123!" });
+      expect(login.status).toBe(200);
+    });
+
+    it("accepts a strong new password with a valid reset token", async () => {
+      const { user } = await registerAndLogin();
+      const token = await seedResetToken(user.id);
+
+      const res = await request(app)
+        .post("/api/auth/reset-password")
+        .send({ token, password: "NewStrongPass1" });
+
+      expect(res.status).toBe(200);
+
+      const login = await request(app)
+        .post("/api/auth/login")
+        .send({ email: user.email, password: "NewStrongPass1" });
+      expect(login.status).toBe(200);
     });
   });
 

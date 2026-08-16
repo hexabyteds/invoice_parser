@@ -657,7 +657,14 @@ export default function ClientDetails() {
                                                 <button
                                                     onClick={() =>
                                                         navigate(
-                                                            `/dashboard/invoices/${invoice.id}`
+                                                            `/dashboard/invoices/${invoice.id}`,
+                                                            {
+                                                                state: {
+                                                                    invoiceIds: invoices.map(
+                                                                        (inv) => inv.id
+                                                                    ),
+                                                                },
+                                                            }
                                                         )
                                                     }
                                                     className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition"

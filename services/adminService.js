@@ -193,6 +193,11 @@ function formatSubscription(row) {
     next_billing: row.next_billing,
     cancelled_at: row.cancelled_at,
     created_at: row.created_at,
+    // Without these, an admin has no way to tell a subscription is
+    // scheduled to cancel at period end — it just looks like a normal
+    // active subscription (BUG-BILLING-002).
+    cancel_at_period_end: Boolean(row.cancel_at_period_end),
+    stripe_status: row.stripe_status,
   };
 }
 

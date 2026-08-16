@@ -7,6 +7,40 @@ const { generateToken } = require("../utils/jwt");
 const { fromDbStatus, isAccountActive } = require("../utils/userStatus");
 const { generateResetToken, hashResetToken } = require("../utils/resetToken");
 
+// Matches the policy already enforced client-side by RegisterForm.jsx and
+// ResetPassword.jsx's zod schemas — those only stop a browser form
+// submission, not a direct API call, so the same rule needs to hold here
+// too (BUG-AUTH-001: a 1-character password was previously accepted).
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateEmailFormat(email) {
+    if (!email || typeof email !== "string" || !EMAIL_REGEX.test(email.trim())) {
+        throw new Error("Please enter a valid email address.");
+    }
+}
+
+function validatePasswordPolicy(password) {
+    if (!password || typeof password !== "string") {
+        throw new Error("Password is required.");
+    }
+
+    if (password.length < 8) {
+        throw new Error("Password must be at least 8 characters.");
+    }
+
+    if (!/[A-Z]/.test(password)) {
+        throw new Error("Password must contain an uppercase letter.");
+    }
+
+    if (!/[a-z]/.test(password)) {
+        throw new Error("Password must contain a lowercase letter.");
+    }
+
+    if (!/[0-9]/.test(password)) {
+        throw new Error("Password must contain a number.");
+    }
+}
+
 function toPublicUser(user) {
     return {
         id: user.id,
@@ -39,6 +73,9 @@ class AuthService {
     async register(data) {
         try {
             console.log("Incoming data:", { ...data, password: "[redacted]" });
+
+            validateEmailFormat(data.email);
+            validatePasswordPolicy(data.password);
 
             const existingUser = await userRepository.findByEmail(data.email);
             console.log("Existing user:", existingUser);
@@ -169,6 +206,8 @@ class AuthService {
         if (!user) {
             throw new Error("This reset link is invalid or has expired.");
         }
+
+        validatePasswordPolicy(newPassword);
 
         const password = await hashPassword(newPassword);
 

@@ -460,6 +460,40 @@ describe("Invoice management", () => {
     expect(res.body.error).toMatch(/invalid value for line item/i);
   });
 
+  it("rejects an oversized numeric field with a clean 400 instead of a raw MySQL 'out of range' error (BUG-INVOICE-001)", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    const invoice = await uploadOne(token, clientId);
+
+    const res = await request(app)
+      .put(`/api/invoices/${invoice.id}`)
+      .set(authed(token))
+      .send({ subtotal: 99999999999999 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/invalid value for subtotal/i);
+    expect(res.body.error).not.toMatch(/mysql|out of range|sql/i);
+  });
+
+  it("rejects an oversized line item numeric field the same way", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    const invoice = await uploadOne(token, clientId);
+
+    const res = await request(app)
+      .put(`/api/invoices/${invoice.id}`)
+      .set(authed(token))
+      .send({
+        lineItems: [
+          { description: "Huge item", quantity: 99999999999, unit_price: 10, total_price: 10 },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/invalid value for line item/i);
+    expect(res.body.error).not.toMatch(/mysql|out of range|sql/i);
+  });
+
   it("deletes an invoice", async () => {
     const { token } = await registerAndLogin();
     const clientId = await createClient(token);

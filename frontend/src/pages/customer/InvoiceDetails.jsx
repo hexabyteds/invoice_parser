@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowLeft, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, ArrowRight, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { getInvoice, getInvoiceSource } from "../../services/invoiceApi";
 import { formatDateDisplay } from "../../utils/formatDate";
 import { documentTypeLabel } from "../../utils/documentTypes";
@@ -10,6 +10,27 @@ import ImageMagnifier from "../../components/common/ImageMagnifier";
 export default function InvoiceDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const invoiceIds = location.state?.invoiceIds || [];
+  const currentIndex = invoiceIds.findIndex(
+    (invoiceId) => String(invoiceId) === String(id)
+  );
+  const prevId = currentIndex > 0 ? invoiceIds[currentIndex - 1] : null;
+  const nextId =
+    currentIndex !== -1 && currentIndex < invoiceIds.length - 1
+      ? invoiceIds[currentIndex + 1]
+      : null;
+
+  function goToInvoice(targetId) {
+    // replace (not push) so Next/Previous don't grow the history stack —
+    // Back should return to the list that was navigated from, not walk
+    // back through every invoice visited via Next/Previous.
+    navigate(`/dashboard/invoices/${targetId}`, {
+      state: { invoiceIds },
+      replace: true,
+    });
+  }
 
   const [invoice, setInvoice] = useState(null);
   const [lineItems, setLineItems] = useState([]);
@@ -115,6 +136,28 @@ export default function InvoiceDetails() {
             Complete extracted document information.
           </p>
         </div>
+
+        {invoiceIds.length > 0 && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => prevId && goToInvoice(prevId)}
+              disabled={!prevId}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition"
+            >
+              <ArrowLeft size={18} />
+              Previous
+            </button>
+
+            <button
+              onClick={() => nextId && goToInvoice(nextId)}
+              disabled={!nextId}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition"
+            >
+              Next
+              <ArrowRight size={18} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Document Details + Line Items (left) paired with the original
