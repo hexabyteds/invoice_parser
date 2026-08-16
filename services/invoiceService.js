@@ -1,6 +1,7 @@
 const GeminiService = require("./geminiService");
 const validationService = require("./validationService");
 const pdfService = require("./pdfService");
+const partyNameService = require("./partyNameService");
 
 const DEFAULT_CHUNK_PAGES =
     Number(process.env.GEMINI_PDF_CHUNK_PAGES) || 8;
@@ -15,7 +16,14 @@ function mapGeminiInvoice(g) {
 
     const invoice = {
         invoiceType: "Invoice",
+        // clientName defaults to the extracted seller/vendor — used as-is
+        // for the "does this look like a real document" validation check
+        // below. Once document_type + the selected client are known, the
+        // caller (FreeInvoiceAgent) overwrites this with the correct
+        // counterparty via services/partyNameService.js.
         clientName: g.vendorName || "",
+        sellerName: g.vendorName || "",
+        buyerName: g.buyerName || "",
         invoiceNo: g.invoiceNumber || "",
         invoiceDate: g.invoiceDate || "",
         dueDate: g.dueDate || "",
@@ -41,18 +49,137 @@ function mapGeminiInvoice(g) {
     };
 }
 
+// Gemini reports startPage as a 1-indexed page number WITHIN THE CHUNK FILE
+// it was given (see getInvoiceSchema/getPrompt in geminiService.js) — not
+// the invoice's position in the "invoices" array. Using the reported page
+// directly (instead of the array index) keeps every invoice's source-file
+// attachment correct even when one invoice spans multiple pages, which
+// used to shift every invoice after it by one page (a 2-page invoice was
+// being split into two invoice entries, so array position no longer
+// matched page number).
+function resolveRelativeStartPage(g, localIdx) {
+    const startPage = Number(g.startPage);
+
+    if (Number.isInteger(startPage) && startPage >= 1) {
+        return startPage;
+    }
+
+    // Gemini omitted/mis-typed startPage (or this is a mocked/legacy
+    // response) — fall back to the previous array-position behavior.
+    return localIdx + 1;
+}
+
+// Backend safety net on top of the prompt/schema guidance in
+// geminiService.js: even with explicit multi-page instructions, Gemini
+// sometimes still emits a bogus extra "invoice" for a continuation page
+// (totals/tax summary/bank details/signatures) of a real, harder-to-read
+// scanned document — recognizable because it has NO invoice number of its
+// own. A genuine invoice practically always carries some reference
+// number, so an entry without one is treated as a continuation of the
+// PREVIOUS invoice in this same file rather than a standalone document —
+// unless it clearly claims its own identity (its own line items AND its
+// own, different vendor name), in which case it's left alone.
+function looksLikeContinuationFragment(previous, fragment) {
+    if (String(fragment.invoiceNumber || "").trim()) {
+        return false;
+    }
+
+    const hasOwnLineItems =
+        Array.isArray(fragment.lineItems) && fragment.lineItems.length > 0;
+
+    if (!hasOwnLineItems) {
+        return true;
+    }
+
+    const fragmentVendor = String(fragment.vendorName || "").trim();
+
+    if (!fragmentVendor) {
+        return true;
+    }
+
+    return partyNameService.namesLikelyMatch(
+        previous.vendorName,
+        fragmentVendor
+    );
+}
+
+// Merges a continuation fragment into the invoice it belongs to — fills
+// only fields the primary invoice left blank/zero (never overwrites data
+// it already captured), and appends any line items the fragment has.
+function mergeContinuationFragment(previous, fragment) {
+    const merged = { ...previous };
+
+    merged.lineItems = [
+        ...(previous.lineItems || []),
+        ...(fragment.lineItems || []),
+    ];
+
+    const fillIfBlank = [
+        "vendorName", "buyerName", "invoiceDate", "dueDate", "trn",
+        "phone", "email", "address", "currency",
+    ];
+
+    for (const field of fillIfBlank) {
+        if (!String(merged[field] || "").trim() && fragment[field]) {
+            merged[field] = fragment[field];
+        }
+    }
+
+    const fillIfZero = ["subtotal", "vatRate", "vat", "total"];
+
+    for (const field of fillIfZero) {
+        if (!Number(merged[field]) && Number(fragment[field])) {
+            merged[field] = fragment[field];
+        }
+    }
+
+    if (Number(fragment.endPage) > Number(merged.endPage || 0)) {
+        merged.endPage = fragment.endPage;
+    }
+
+    return merged;
+}
+
+// Collapses continuation fragments produced within a single Gemini
+// response into the invoice they belong to, in page order.
+function collapseContinuationFragments(rawInvoices) {
+    const collapsed = [];
+
+    for (const g of rawInvoices) {
+        if (!g) continue;
+
+        const previous = collapsed[collapsed.length - 1];
+
+        if (previous && looksLikeContinuationFragment(previous, g)) {
+            collapsed[collapsed.length - 1] = mergeContinuationFragment(previous, g);
+        } else {
+            collapsed.push(g);
+        }
+    }
+
+    return collapsed;
+}
+
 function appendInvoicesFromGemini(result, invoices, chunk = {}) {
 
     const rawInvoices = Array.isArray(result.invoice)
         ? result.invoice
         : [result.invoice];
 
-    const pageStart = chunk.pageStart;
+    const collapsedInvoices = collapseContinuationFragments(
+        rawInvoices.filter(Boolean)
+    );
 
-    rawInvoices.filter(Boolean).forEach((g, localIdx) => {
+    // 1-indexed absolute page (in the original PDF) where this chunk's
+    // first page lands. Chunks built from a single-request PDF (no
+    // splitting) don't set pageStart, so the chunk IS the whole file.
+    const chunkPageStart = chunk.pageStart ?? 1;
+
+    collapsedInvoices.forEach((g, localIdx) => {
         const mapped = mapGeminiInvoice(g);
-        mapped.pageIndex =
-            pageStart != null ? pageStart - 1 + localIdx : localIdx;
+        const relativeStartPage = resolveRelativeStartPage(g, localIdx);
+
+        mapped.pageIndex = chunkPageStart - 1 + (relativeStartPage - 1);
         invoices.push(mapped);
     });
 }

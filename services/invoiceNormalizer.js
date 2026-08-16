@@ -26,6 +26,10 @@ class InvoiceNormalizer {
 
             clientName: (invoice.clientName || "").trim(),
 
+            sellerName: (invoice.sellerName || "").trim(),
+
+            buyerName: (invoice.buyerName || "").trim(),
+
             phoneNumber: (invoice.phoneNumber || "").trim(),
 
             location: (invoice.location || "").trim(),

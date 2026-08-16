@@ -5,6 +5,8 @@ const exportFormatsService = require("./services/exportFormatsService");
 const invoiceNormalizer = require("./services/invoiceNormalizer");
 const usageService = require("./services/usageService");
 const pdfService = require("./services/pdfService");
+const clientService = require("./services/clientService");
+const partyNameService = require("./services/partyNameService");
 
 const invoiceRepository = require("./repositories/invoiceRepository");
 const invoiceItemRepository = require("./repositories/invoiceItemRepository");
@@ -28,6 +30,41 @@ class FreeInvoiceAgent {
         invoice.image_path = stored;
 
         return stored;
+    }
+
+    // =========================
+    // PARTY NAME
+    // =========================
+
+    // Loads the selected client entity used as a sanity check by
+    // partyNameService (see applyPartyName). Never throws — the upload
+    // route already validated the client exists/is active before calling
+    // in here, so a failure here should only disable the sanity check,
+    // never block the upload/edit itself.
+    async loadClientForPartyName(userId, clientId) {
+        if (!clientId) {
+            return null;
+        }
+
+        try {
+            return await clientService.get(clientId, userId);
+        } catch (err) {
+            return null;
+        }
+    }
+
+    // Mutates `invoice.clientName` (the persisted "Party Name") in place,
+    // based on document_type + the seller/buyer names captured for this
+    // document. No-op for anything other than a Supplier Invoice/Bill
+    // (e.g. documentType null/unset keeps today's legacy behavior).
+    applyPartyName(invoice, documentType, selectedClient) {
+        invoice.clientName = partyNameService.resolvePartyName({
+            documentType,
+            sellerName: invoice.sellerName,
+            buyerName: invoice.buyerName,
+            selectedClient,
+            fallback: invoice.clientName,
+        });
     }
 
     async saveSourceForInvoices(
@@ -135,6 +172,17 @@ class FreeInvoiceAgent {
         result.invoice.user_id = userId;
         result.invoice.client_id = clientId;
         result.invoice.document_type = documentType;
+
+        const selectedClient = await this.loadClientForPartyName(
+            userId,
+            clientId
+        );
+
+        this.applyPartyName(
+            result.invoice,
+            documentType,
+            selectedClient
+        );
 
         const stored = this.persistSourceOnInvoice(
             result.invoice,
@@ -283,24 +331,37 @@ class FreeInvoiceAgent {
         );
     
         const savedInvoices = [];
-    
+
+        // clientId/documentType are the same for every invoice in this
+        // PDF, so the selected client only needs to be loaded once.
+        const selectedClient = await this.loadClientForPartyName(
+            userId,
+            clientId
+        );
+
         for (
             let i = 0;
             i < result.invoices.length;
             i++
         ) {
-    
+
             const item = result.invoices[i];
-    
+
             // Reserve invoice quota atomically.
             await usageService.reserveInvoiceSlot(userId);
-    
+
             const invoice =
                 invoiceNormalizer.normalize(item.invoice);
-    
+
             invoice.user_id = userId;
             invoice.client_id = clientId;
             invoice.document_type = documentType;
+
+            this.applyPartyName(
+                invoice,
+                documentType,
+                selectedClient
+            );
 
             const stored =
                 this.persistSourceOnInvoice(
@@ -615,9 +676,44 @@ class FreeInvoiceAgent {
 
         }
 
+        // Recalculate Party Name when the document type itself is being
+        // toggled (Invoice <-> Bill) and the user didn't ALSO type a new
+        // Party Name in the same edit — an explicit edit to the field
+        // always wins. Only possible for documents that captured both
+        // sides at upload time (seller_name/buyer_name); legacy records
+        // that predate that column pair keep today's behavior untouched.
+        let clientName = data.client_name ?? existing.client_name;
+
+        const documentTypeChanged =
+            data.document_type &&
+            data.document_type !== existing.document_type;
+
+        const clientNameExplicitlyEdited =
+            data.client_name !== undefined &&
+            data.client_name !== existing.client_name;
+
+        if (
+            documentTypeChanged &&
+            !clientNameExplicitlyEdited &&
+            (existing.seller_name || existing.buyer_name)
+        ) {
+            const selectedClient = await this.loadClientForPartyName(
+                userId,
+                existing.client_id
+            );
+
+            clientName = partyNameService.resolvePartyName({
+                documentType: data.document_type,
+                sellerName: existing.seller_name,
+                buyerName: existing.buyer_name,
+                selectedClient,
+                fallback: existing.client_name,
+            });
+        }
+
         const merged = {
             invoice_no: data.invoice_no ?? existing.invoice_no,
-            client_name: data.client_name ?? existing.client_name,
+            client_name: clientName,
             invoice_date: data.invoice_date ?? existing.invoice_date,
             due_date: data.due_date ?? existing.due_date,
             phone_number: data.phone_number ?? existing.phone_number,

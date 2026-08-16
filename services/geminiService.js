@@ -71,9 +71,24 @@ class GeminiService {
             type: Type.OBJECT,
 
             properties: {
+                startPage: {
+                    type: Type.NUMBER,
+                    description: "The 1-indexed page number, WITHIN THE FILE YOU WERE GIVEN, where this invoice begins. If this invoice spans multiple consecutive pages (e.g. page 1 has the header/line items and page 2 continues with totals/bank details/signatures, with no new invoice number), this is the FIRST of those pages."
+                },
+
+                endPage: {
+                    type: Type.NUMBER,
+                    description: "The 1-indexed page number, WITHIN THE FILE YOU WERE GIVEN, where this invoice ends. Equal to startPage if the invoice fits on a single page."
+                },
+
                 vendorName: {
                     type: Type.STRING,
-                    description: "Vendor or supplier name"
+                    description: "Seller/issuer/vendor/supplier name — whoever ISSUED this document. Usually the company in the letterhead/logo area."
+                },
+
+                buyerName: {
+                    type: Type.STRING,
+                    description: "Buyer/customer/recipient name — whoever this document was billed/issued TO. Look for labels like 'Bill To', 'Sold To', 'Customer', 'Client', 'Party', 'Recipient', or similar. Return \"\" if no such section is visible."
                 },
 
                 invoiceNumber: {
@@ -175,7 +190,10 @@ class GeminiService {
             },
 
             required: [
+                "startPage",
+                "endPage",
                 "vendorName",
+                "buyerName",
                 "invoiceNumber",
                 "invoiceDate",
                 "dueDate",
@@ -391,6 +409,26 @@ IMPORTANT RULES:
 - If the file contains ONE invoice, return one object inside the "invoices" array.
 - If the PDF contains MULTIPLE invoices, treat EACH invoice separately.
 - Do NOT merge different invoices.
+
+MULTI-PAGE INVOICES (read this carefully — getting this wrong duplicates the
+invoice and misaligns every invoice after it in the file):
+
+- A single invoice can span MULTIPLE CONSECUTIVE PAGES. A very common
+  pattern: page 1 has the letterhead, invoice number, parties, and line
+  items; the NEXT page has no new letterhead or invoice number and instead
+  continues straight into the subtotal/tax summary, totals, "Total in
+  Words", bank/payment details, notes, or signatures. That next page is
+  PART OF THE SAME INVOICE — do NOT create a second entry in "invoices"
+  for it. Instead, treat it as a continuation: keep it as ONE invoice
+  object, merge any additional line items into that SAME invoice's
+  "lineItems" array, and set endPage to the LAST page it occupies.
+- A page starts a NEW invoice only when it has its OWN invoice
+  number/reference AND its own vendor letterhead/logo (a repeated "Page X
+  of Y" footer on the SAME invoice number does not count as a new
+  invoice).
+- Before finalizing your answer, check that every page of the file is
+  accounted for by exactly one invoice's startPage..endPage range, with no
+  page skipped and no page claimed by two different invoices.
 - Read every page carefully.
 - Extract ALL visible line items.
 - Preserve the complete product/service descriptions.
@@ -410,14 +448,21 @@ IMPORTANT RULES:
 
 PAY SPECIAL ATTENTION TO:
 
+- Which page(s) each invoice actually spans (startPage/endPage) — do not
+  split one multi-page invoice into two entries
 - Invoice number
 - Invoice date
 - Due date
-- Vendor name
+- Vendor/seller/issuer name (the party who issued the document — usually the letterhead/logo)
 - Vendor TRN
 - Vendor phone
 - Vendor email
 - Vendor address
+- Buyer/customer/recipient name — the OTHER party, the one this document
+  was issued TO. This may appear under a heading such as "Bill To",
+  "Sold To", "Customer", "Client", "Party", "Recipient", "Invoice To", or
+  similar wording. Extract it separately from the vendor/seller. Leave it
+  empty ("") only if no such section is visible anywhere on the document.
 - Currency
 - Subtotal
 - VAT rate

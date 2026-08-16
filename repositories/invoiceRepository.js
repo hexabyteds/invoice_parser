@@ -16,6 +16,8 @@ class InvoiceRepository {
                 document_type,
                 invoice_no,
                 client_name,
+                seller_name,
+                buyer_name,
                 invoice_date,
                 due_date,
                 phone_number,
@@ -29,7 +31,7 @@ class InvoiceRepository {
                 trn,
                 image_path
             )
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `;
 
         const values = [
@@ -39,6 +41,8 @@ class InvoiceRepository {
             invoice.document_type || invoice.documentType || null,
             invoice.invoiceNo,
             invoice.clientName,
+            invoice.sellerName || null,
+            invoice.buyerName || null,
             formatDate(invoice.invoiceDate) || null,
             formatDate(invoice.dueDate) || null,
             invoice.phoneNumber,
@@ -136,13 +140,22 @@ class InvoiceRepository {
     }
 
     // Get invoice by ID
+    //
+    // Joins clients to also return the actual selected-client entity's own
+    // name (client_company_name) alongside invoices.client_name (which
+    // holds the resolved Party Name — see services/partyNameService.js).
+    // The two are conceptually different: client_company_name is "whose
+    // books this document belongs to", client_name/Party Name is "the
+    // other party on the document". `invoices.*` (not `SELECT *`) avoids
+    // an `id`/`created_at`/etc. column collision with the joined table.
     async findById(id, userId) {
 
         const sql = `
-            SELECT *
+            SELECT invoices.*, clients.company_name AS client_company_name
             FROM invoices
-            WHERE id = ?
-            AND user_id = ?
+            LEFT JOIN clients ON clients.id = invoices.client_id
+            WHERE invoices.id = ?
+            AND invoices.user_id = ?
             LIMIT 1
         `;
 
@@ -431,6 +444,8 @@ class InvoiceRepository {
                 documentType: row.document_type,
                 invoiceNo: row.invoice_no,
                 clientName: row.client_name,
+                sellerName: row.seller_name,
+                buyerName: row.buyer_name,
 
                 invoiceDate: row.invoice_date,
                 dueDate: row.due_date,

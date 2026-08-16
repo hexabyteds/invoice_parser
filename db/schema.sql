@@ -142,6 +142,8 @@ CREATE TABLE `invoices` (
   `document_type` enum('supplier_invoice','bill') DEFAULT NULL,
   `invoice_no` varchar(100) DEFAULT NULL,
   `client_name` varchar(255) DEFAULT NULL,
+  `seller_name` varchar(255) DEFAULT NULL,
+  `buyer_name` varchar(255) DEFAULT NULL,
   `invoice_date` date DEFAULT NULL,
   `due_date` date DEFAULT NULL,
   `phone_number` varchar(50) DEFAULT NULL,

@@ -223,15 +223,16 @@ export default function InvoiceDetails() {
                 </tr>
 
                 <tr className="border-b">
-                  <StaticCell label="Client" value={invoice.client_name} />
+                  <StaticCell
+                    label="Client"
+                    value={invoice.client_company_name || invoice.client_name}
+                  />
                   <StaticCell label="TRN Number" value={invoice.trn || "-"} isLast />
                 </tr>
 
-
-
                 <tr>
-                  <StaticCell label="Location" value={invoice.location || "-"} />
-                  <td colSpan={2} />
+                  <StaticCell label="Party Name" value={invoice.client_name || "-"} />
+                  <StaticCell label="Location" value={invoice.location || "-"} isLast />
                 </tr>
               </tbody>
             </table>
