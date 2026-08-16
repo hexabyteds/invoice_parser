@@ -9,6 +9,7 @@ export default function ConfirmDialog({
   message,
   confirmLabel = "Delete",
   cancelLabel = "Cancel",
+  loadingLabel = "Deleting...",
   danger = true,
   loading = false,
   onConfirm,
@@ -60,7 +61,7 @@ export default function ConfirmDialog({
               danger ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {loading ? "Deleting..." : confirmLabel}
+            {loading ? loadingLabel : confirmLabel}
           </button>
         </div>
       </div>

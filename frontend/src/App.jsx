@@ -26,6 +26,7 @@ import AddClient from "./pages/customer/AddClient";
 import EditInvoice from "./pages/customer/EditInvoice";
 import ExportCenter from "./pages/customer/ExportCenter";
 import Usage from "./pages/customer/Usage";
+import Billing from "./pages/customer/Billing";
 import BillingReturn from "./pages/customer/BillingReturn";
 
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -79,6 +80,7 @@ function App() {
           <Route path="upload/:clientId" element={<Upload />} />
           <Route path="export" element={<ExportCenter />} />
           <Route path="usage" element={<Usage />} />
+          <Route path="billing" element={<Billing />} />
           <Route path="billing/return" element={<BillingReturn />} />
           <Route path="invoices/:id/edit" element={<EditInvoice />} />
         </Route>

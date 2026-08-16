@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { User, Building2, Mail, CreditCard } from "lucide-react";
+import { User, Building2, Mail, CreditCard, RotateCcw, Clock } from "lucide-react";
 
 import authApi from "../../services/authApi";
 import subscriptionApi from "../../services/subscriptionApi";
 import planApi from "../../services/planApi";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useAuth } from "../../context/AuthContext";
+import { formatDateDisplay } from "../../utils/formatDate";
 
 export default function Profile() {
   const { updateUser } = useAuth();
@@ -23,6 +24,7 @@ export default function Profile() {
   const [changingPlan, setChangingPlan] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [resuming, setResuming] = useState(false);
 
   useEffect(() => {
     load();
@@ -115,16 +117,38 @@ export default function Profile() {
   }
 
   async function confirmCancel() {
+    // Captured before the request — Stripe-backed subscriptions defer to
+    // the billing period end, everything else (admin-comped plans) is
+    // downgraded to Free immediately. See subscriptionService.cancelSubscription.
+    const isStripeBacked = Boolean(subscription?.stripe_subscription_id);
+
     try {
       setCancelling(true);
       await subscriptionApi.cancel();
-      toast.success("Subscription cancelled — you're back on the Free plan.");
+      toast.success(
+        isStripeBacked
+          ? "Your subscription will end at the close of the current billing period. You'll keep full access until then."
+          : "Subscription cancelled — you're back on the Free plan."
+      );
       await load();
     } catch (err) {
       toast.error(err.response?.data?.error || "Unable to cancel subscription.");
     } finally {
       setCancelling(false);
       setCancelOpen(false);
+    }
+  }
+
+  async function confirmResume() {
+    try {
+      setResuming(true);
+      await subscriptionApi.resume();
+      toast.success("Your subscription has been resumed.");
+      await load();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Unable to resume subscription.");
+    } finally {
+      setResuming(false);
     }
   }
 
@@ -205,9 +229,17 @@ export default function Profile() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-black">Current Plan</h2>
           {subscription && (
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 capitalize">
-              {subscription.status}
-            </span>
+            <div className="flex items-center gap-2">
+              {subscription.cancel_at_period_end ? (
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                  Subscription ending
+                </span>
+              ) : (
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 capitalize">
+                  {subscription.status}
+                </span>
+              )}
+            </div>
           )}
         </div>
 
@@ -221,22 +253,44 @@ export default function Profile() {
                 value={`AED ${Number(subscription.price || 0).toFixed(2)}`}
               />
               <PlanStat
-                label="Next Billing"
+                icon={subscription.cancel_at_period_end ? <Clock size={16} /> : null}
+                label={subscription.cancel_at_period_end ? "Access Until" : "Next Billing"}
                 value={
-                  subscription.next_billing
+                  subscription.cancel_at_period_end
+                    ? formatDateDisplay(subscription.expires_at)
+                    : subscription.next_billing
                     ? new Date(subscription.next_billing).toLocaleDateString()
                     : "-"
                 }
               />
             </div>
 
-            {subscription.slug !== "free" && (
-              <button
-                onClick={() => setCancelOpen(true)}
-                className="mt-6 px-5 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-medium transition"
-              >
-                Cancel Plan
-              </button>
+            {subscription.cancel_at_period_end ? (
+              <>
+                <p className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  Your subscription has been canceled and will not renew. You
+                  can continue using your current plan until{" "}
+                  {formatDateDisplay(subscription.expires_at)}.
+                </p>
+
+                <button
+                  onClick={confirmResume}
+                  disabled={resuming}
+                  className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-medium transition disabled:opacity-60"
+                >
+                  <RotateCcw size={16} />
+                  {resuming ? "Resuming..." : "Resume Plan"}
+                </button>
+              </>
+            ) : (
+              subscription.slug !== "free" && (
+                <button
+                  onClick={() => setCancelOpen(true)}
+                  className="mt-6 px-5 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-medium transition"
+                >
+                  Cancel Plan
+                </button>
+              )
             )}
           </>
         ) : (
@@ -296,9 +350,17 @@ export default function Profile() {
 
       <ConfirmDialog
         open={cancelOpen}
-        title="Cancel your subscription?"
-        message="You'll be moved back to the Free plan immediately. This cannot be undone."
-        confirmLabel="Cancel Plan"
+        title="Cancel subscription?"
+        message={
+          subscription?.stripe_subscription_id
+            ? `Your subscription will remain active until ${formatDateDisplay(
+                subscription.expires_at
+              )}. You will not be charged again after that date.`
+            : "You'll be moved back to the Free plan immediately. This cannot be undone."
+        }
+        confirmLabel="Cancel Subscription"
+        cancelLabel="Keep Plan"
+        loadingLabel="Cancelling..."
         loading={cancelling}
         onConfirm={confirmCancel}
         onCancel={() => setCancelOpen(false)}

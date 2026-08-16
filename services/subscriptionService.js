@@ -346,22 +346,30 @@ class SubscriptionService {
     // confirms the subscription has ended.
     if (subscription.stripe_subscription_id) {
 
-      await stripeService.cancelAtPeriodEnd(
+      const updated = await stripeService.cancelAtPeriodEnd(
         subscription.stripe_subscription_id
       );
 
-      await subscriptionRepository.setCancelAtPeriodEnd(
-        subscription.id,
-        true
-      );
+      // Write what Stripe's response actually says, not the boolean we
+      // asked for — cancelSubscription/renewSubscription used to each
+      // independently assume their own request had "won" and blindly set
+      // cancel_at_period_end to their own intended value. Under a
+      // concurrent cancel+resume (e.g. a user double-clicking, or a
+      // network retry), whichever response arrived at OUR server last —
+      // not whichever Stripe actually applied last — determined the final
+      // local state, so the local row could end up disagreeing with
+      // Stripe's real state. syncSubscriptionFromStripe (the same method
+      // the webhook uses) reflects Stripe's own answer instead; any
+      // residual staleness self-heals moments later via the
+      // customer.subscription.updated webhook this same Stripe call
+      // triggers, which is already idempotent.
+      const synced = await this.syncSubscriptionFromStripe(updated);
 
       return {
         success: true,
         message:
           "Your subscription will cancel at the end of the current billing period. You'll keep access until then.",
-        subscription: await subscriptionRepository.getSubscriptionById(
-          subscription.id
-        )
+        subscription: synced
       };
 
     }
@@ -525,6 +533,170 @@ class SubscriptionService {
   }
 
   // =====================================================
+  // Stripe — Payment History (Billing & Payments page). Always read live
+  // from Stripe — nothing about past invoices is persisted locally, so
+  // there's nothing for a duplicate webhook delivery to duplicate here.
+  // =====================================================
+
+  async getPaymentHistory(userId, { limit, startingAfter } = {}) {
+
+    const user =
+      await subscriptionRepository.getUserStripeInfo(userId);
+
+    if (!user || !user.stripe_customer_id) {
+      // No Stripe customer yet (still on Free, never checked out) — an
+      // empty history, not an error.
+      return { payments: [], hasMore: false };
+    }
+
+    const result = await stripeService.listInvoices({
+      customerId: user.stripe_customer_id,
+      limit: limit && limit > 0 && limit <= 50 ? limit : 10,
+      startingAfter
+    });
+
+    const payments = await Promise.all(
+      result.data.map((invoice) => this.formatInvoiceSummary(invoice))
+    );
+
+    return {
+      payments,
+      hasMore: result.has_more
+    };
+
+  }
+
+  async getPaymentDetail(userId, invoiceId) {
+
+    const user =
+      await subscriptionRepository.getUserStripeInfo(userId);
+
+    if (!user || !user.stripe_customer_id) {
+      throw new Error("No billing account found.");
+    }
+
+    const invoice = await stripeService.getInvoice(invoiceId);
+
+    // Ownership check — Stripe invoice ids aren't scoped to a user on
+    // their own, so this is the only thing standing between a user and
+    // someone else's invoice. Never trust the id alone (IDOR).
+    if (invoice.customer !== user.stripe_customer_id) {
+      throw new Error("Invoice not found.");
+    }
+
+    return await this.formatInvoiceDetail(invoice, user);
+
+  }
+
+  async resolveInvoicePlan(invoice) {
+
+    const line = invoice.lines?.data?.[0];
+    // `line.price` was removed from the invoice line item shape on newer
+    // Stripe API versions in favor of `line.pricing.price_details.price` —
+    // checked in that order so this keeps working across both.
+    const priceId =
+      line?.price?.id || line?.pricing?.price_details?.price;
+
+    if (!priceId) {
+      return { name: null, billingCycle: null };
+    }
+
+    const plan =
+      await subscriptionRepository.getPlanByStripePriceId(priceId);
+
+    return {
+      name: plan ? plan.name : null,
+      billingCycle:
+        plan && priceId === plan.stripe_price_id_yearly
+          ? "yearly"
+          : "monthly"
+    };
+
+  }
+
+  // NOTE: Stripe's invoice.status alone can't express "refunded" (a paid
+  // invoice's status stays "paid" after a later refund), and the account's
+  // pinned API version (see config/stripe.js) no longer exposes a `charge`
+  // on the Invoice object to check for one either — refund state would
+  // require a separate Refund/PaymentIntent lookup per invoice, which isn't
+  // done here. "Refunded" is therefore not currently detected; this maps
+  // Stripe's own invoice statuses only.
+  invoicePaymentStatus(invoice) {
+
+    switch (invoice.status) {
+      case "paid":
+        return "paid";
+      case "open":
+        return "pending";
+      case "void":
+      case "uncollectible":
+        return "failed";
+      default:
+        return invoice.status || "pending";
+    }
+
+  }
+
+  invoicePaymentMethod(invoice) {
+
+    const paymentMethod = invoice.default_payment_method;
+
+    if (!paymentMethod || typeof paymentMethod !== "object") {
+      return null;
+    }
+
+    if (paymentMethod.type === "card" && paymentMethod.card) {
+      return `${paymentMethod.card.brand?.toUpperCase() || "Card"} •••• ${paymentMethod.card.last4}`;
+    }
+
+    return paymentMethod.type || null;
+
+  }
+
+  async formatInvoiceSummary(invoice) {
+
+    const plan = await this.resolveInvoicePlan(invoice);
+    const line = invoice.lines?.data?.[0];
+
+    return {
+      id: invoice.id,
+      number: invoice.number,
+      date: invoice.created ? new Date(invoice.created * 1000) : null,
+      plan: plan.name,
+      billingCycle: plan.billingCycle,
+      periodStart: line?.period?.start
+        ? new Date(line.period.start * 1000)
+        : null,
+      periodEnd: line?.period?.end
+        ? new Date(line.period.end * 1000)
+        : null,
+      amount: (invoice.amount_paid ?? invoice.total ?? 0) / 100,
+      currency: (invoice.currency || "aed").toUpperCase(),
+      status: this.invoicePaymentStatus(invoice),
+      invoicePdf: invoice.invoice_pdf || null,
+      hostedInvoiceUrl: invoice.hosted_invoice_url || null
+    };
+
+  }
+
+  async formatInvoiceDetail(invoice, user) {
+
+    const summary = await this.formatInvoiceSummary(invoice);
+
+    return {
+      ...summary,
+      customerName: user.name,
+      customerEmail: user.email,
+      subtotal: (invoice.subtotal ?? 0) / 100,
+      tax: (invoice.tax ?? 0) / 100,
+      total: (invoice.total ?? 0) / 100,
+      paymentMethod: this.invoicePaymentMethod(invoice),
+      stripeInvoiceId: invoice.id
+    };
+
+  }
+
+  // =====================================================
   // Stripe — Sync a Stripe Subscription object onto the local DB
   // (the only place that writes subscription state coming FROM Stripe;
   // called from the webhook handler, and immediately after in-place
@@ -614,13 +786,36 @@ class SubscriptionService {
   }
 
   // =====================================================
-  // Renew Subscription
+  // Renew Subscription (also doubles as "Resume Plan" — undoes a
+  // pending cancel_at_period_end before the current period ends)
   // =====================================================
 
   async renewSubscription(userId) {
 
     const subscription =
       await this.validateActiveSubscription(userId);
+
+    // Stripe-backed subscriptions: undo the pending cancellation on Stripe
+    // itself rather than manually extending local dates — Stripe remains
+    // the source of truth, mirroring how cancelSubscription above only
+    // ever flags intent and lets Stripe drive the real state. Idempotent:
+    // calling this when cancel_at_period_end is already false is harmless.
+    if (subscription.stripe_subscription_id) {
+
+      const updated = await stripeService.resumeSubscription(
+        subscription.stripe_subscription_id
+      );
+
+      // Same fix as cancelSubscription above: sync from Stripe's actual
+      // response instead of assuming our own request was the one that
+      // "won" against a concurrent cancel/resume — see the comment there
+      // for the full explanation (BUG-BILLING-001).
+      return await this.syncSubscriptionFromStripe(updated);
+
+    }
+
+    // No Stripe subscription behind this row — keep the original
+    // manual-extend behavior (admin-comped plans, etc.).
 
     let expiresAt;
     let nextBilling;

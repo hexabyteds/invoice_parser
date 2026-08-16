@@ -11,7 +11,8 @@ const invoiceItemRepository = require("./repositories/invoiceItemRepository");
 const { formatDate } = require("./utils/dateUtils");
 const {
     toStoredSourcePath,
-    resolveUploadPath
+    resolveUploadPath,
+    deleteStoredFileAndGetSize
 } = require("./utils/uploadPaths");
 
 class FreeInvoiceAgent {
@@ -496,6 +497,18 @@ class FreeInvoiceAgent {
                 userId
             );
 
+        // Storage quota was never released when an invoice was deleted —
+        // reclaim it (and the on-disk file) now, based on the file's real
+        // current size rather than a recorded one (see deleteStoredFileAndGetSize).
+        if (removed > 0 && existing.image_path) {
+            const freedBytes =
+                await deleteStoredFileAndGetSize(existing.image_path);
+
+            if (freedBytes > 0) {
+                await usageService.removeStorage(userId, freedBytes);
+            }
+        }
+
         return removed > 0;
     }
 
@@ -544,6 +557,36 @@ class FreeInvoiceAgent {
             }
         }
 
+        // Validate line items up front, before anything is written to the
+        // DB — the old code found this out mid-write (via a raw MySQL
+        // error) after already deleting the invoice's existing line items.
+        let items;
+
+        if (Array.isArray(data.lineItems)) {
+
+            items = data.lineItems.map(item => ({
+                description: item.description || "",
+                quantity: item.quantity ?? 0,
+                unitPrice: item.unit_price ?? item.unitPrice ?? 0,
+                totalPrice: item.total_price ?? item.totalPrice ?? 0
+            }));
+
+            const lineItemNumericFields = ["quantity", "unitPrice", "totalPrice"];
+
+            items.forEach((item, index) => {
+                for (const field of lineItemNumericFields) {
+                    const value = Number(item[field]);
+
+                    if (Number.isNaN(value) || value < 0) {
+                        throw new Error(
+                            `Invalid value for line item ${index + 1} ${field}: must be a non-negative number.`
+                        );
+                    }
+                }
+            });
+
+        }
+
         const merged = {
             invoice_no: data.invoice_no ?? existing.invoice_no,
             client_name: data.client_name ?? existing.client_name,
@@ -567,32 +610,11 @@ class FreeInvoiceAgent {
             merged
         );
 
-        // Replace line items if provided.
-        if (Array.isArray(data.lineItems)) {
-            await invoiceItemRepository.delete(
-                invoiceId
-            );
-
-            const items =
-                data.lineItems.map(item => ({
-                    description:
-                        item.description || "",
-
-                    quantity:
-                        item.quantity ?? 0,
-
-                    unitPrice:
-                        item.unit_price ??
-                        item.unitPrice ??
-                        0,
-
-                    totalPrice:
-                        item.total_price ??
-                        item.totalPrice ??
-                        0
-                }));
-
-            await invoiceItemRepository.createMany(
+        // Replace line items if provided — delete+recreate happens
+        // atomically, so a failure here can't leave the invoice with fewer
+        // line items than it started with (see replaceForInvoice).
+        if (items) {
+            await invoiceItemRepository.replaceForInvoice(
                 invoiceId,
                 items
             );
@@ -817,8 +839,26 @@ class FreeInvoiceAgent {
                 );
         }
 
-        return await invoiceRepository
-            .deleteAll(userId);
+        // Read the file paths before the bulk delete removes the rows
+        // that reference them, then reclaim storage/disk for all of them
+        // in one pass — same fix as deleteInvoice, applied to bulk clear.
+        const imagePaths =
+            await invoiceRepository.findImagePathsByUser(userId);
+
+        const removed =
+            await invoiceRepository.deleteAll(userId);
+
+        let freedBytes = 0;
+
+        for (const imagePath of imagePaths) {
+            freedBytes += await deleteStoredFileAndGetSize(imagePath);
+        }
+
+        if (freedBytes > 0) {
+            await usageService.removeStorage(userId, freedBytes);
+        }
+
+        return removed;
     }
 
     // =========================

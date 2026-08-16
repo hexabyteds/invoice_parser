@@ -18,22 +18,32 @@ class ClientService {
             throw new Error("A client with this company name already exists.");
         }
 
-        await usageService.checkClientLimit(userId);
+        // Reserves the slot atomically — under concurrent requests, the old
+        // checkClientLimit()-then-incrementClients() pair let every request
+        // read the same pre-increment count and all pass, so N concurrent
+        // requests near the limit could all succeed past it.
+        await usageService.reserveClientSlot(userId);
 
-        const id = await clientRepository.create({
-            user_id: userId,
-            company_name: data.company_name,
-            contact_person: data.contact_person || "",
-            email: data.email || "",
-            phone: data.phone || "",
-            trn: data.trn || "",
-            address: data.address || "",
-            country: data.country || "",
-            city: data.city || "",
-            notes: data.notes || ""
-        });
+        let id;
 
-        await usageService.incrementClients(userId);
+        try {
+            id = await clientRepository.create({
+                user_id: userId,
+                company_name: data.company_name,
+                contact_person: data.contact_person || "",
+                email: data.email || "",
+                phone: data.phone || "",
+                trn: data.trn || "",
+                address: data.address || "",
+                country: data.country || "",
+                city: data.city || "",
+                notes: data.notes || ""
+            });
+        } catch (err) {
+            // Creation failed after the slot was reserved — release it.
+            await usageService.decrementClients(userId);
+            throw err;
+        }
 
         // Activity feed is a nice-to-have — never let logging break client creation.
         try {

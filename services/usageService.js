@@ -202,6 +202,63 @@ class UsageService {
 
   }
 
+  // Atomically checks-and-increments in one DB call — checkClientLimit
+  // above (a separate SELECT) followed by a separate incrementClients
+  // UPDATE let concurrent client-creation requests all read the same
+  // pre-increment count and all pass the check before any of them had
+  // incremented, so N concurrent requests near the limit could all
+  // succeed and push clients_used arbitrarily past it. This is the same
+  // race reserveInvoiceSlot/reserveOCRPages were already fixed for; the
+  // client and storage paths just hadn't been given the same fix yet.
+  // Callers that need to undo a successful reservation on a later failure
+  // call decrementClients to release it.
+  // See reserveInvoiceSlot for why this uses getPlanLimits rather than
+  // getUsage — same reconciliation-vs-reservation conflict applies here.
+  async reserveClientSlot(userId) {
+
+    await this.ensureUsageRecord(userId);
+
+    const plan = await this.getPlanLimits(userId);
+
+    const reserved = await usageRepository.incrementClientsIfUnderLimit(
+      userId,
+      plan.client_limit
+    );
+
+    if (!reserved) {
+      throw new Error(
+        "Client limit reached. Please upgrade your subscription."
+      );
+    }
+
+  }
+
+  // Same atomic check-and-increment fix as reserveClientSlot, for storage.
+  // checkStorageLimit+addStorage above were the same racy check-then-write
+  // pair — concurrent uploads could all read the same pre-upload
+  // storage_used, all pass the check, and all add their bytes, pushing
+  // storage_used past the plan's limit.
+  async reserveStorage(userId, bytes) {
+
+    await this.ensureUsageRecord(userId);
+
+    const plan = await this.getPlanLimits(userId);
+    const limitBytes = storageLimitToBytes(plan.storage_limit);
+
+    const reserved = await usageRepository.addStorageIfUnderLimit(
+      userId,
+      bytes,
+      limitBytes
+    );
+
+    if (!reserved) {
+      throw new Error(
+        "Storage limit reached. Please upgrade your subscription."
+      );
+    }
+
+  }
+
   // Atomically checks-and-increments OCR page usage in one DB call.
   //
   // The old flow was check(); ...slow Gemini call...; increment() — two

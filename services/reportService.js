@@ -1,5 +1,25 @@
 const fs = require("fs");
 
+// This report is built by string interpolation into a raw HTML template
+// (unlike the React frontend, nothing here escapes by default), and every
+// value below can come from OCR'd/user-edited invoice data — a client
+// name, invoice number, or line-item description containing
+// "<script>...</script>" would otherwise execute in whoever opens this
+// report, with access to the same page's localStorage (where the JWT
+// lives). Escape every interpolated string field before it goes in.
+function escapeHtml(value) {
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
 class ReportService {
 
     generate(invoices, fileName = "invoice_report.html") {
@@ -121,7 +141,7 @@ border-left:5px solid #0066cc;
 
 <h3>Total Amount</h3>
 
-<h2>${currency} ${totalAmount.toFixed(2)}</h2>
+<h2>${escapeHtml(currency)} ${totalAmount.toFixed(2)}</h2>
 
 </div>
 
@@ -167,19 +187,19 @@ ${invoices.map(inv=>`
 
 <tr>
 
-<td>${inv.clientName}</td>
+<td>${escapeHtml(inv.clientName)}</td>
 
-<td>${inv.invoiceNo}</td>
+<td>${escapeHtml(inv.invoiceNo)}</td>
 
-<td>${inv.invoiceDate}</td>
+<td>${escapeHtml(inv.invoiceDate)}</td>
 
-<td>${inv.description || (inv.lineItems || []).map(i => i.description).filter(Boolean).join("; ")}</td>
+<td>${escapeHtml(inv.description || (inv.lineItems || []).map(i => i.description).filter(Boolean).join("; "))}</td>
 
-<td>${inv.currency} ${Number(inv.subtotal || 0).toFixed(2)}</td>
+<td>${escapeHtml(inv.currency)} ${Number(inv.subtotal || 0).toFixed(2)}</td>
 
 <td>${inv.vatRate ? inv.vatRate + "% " : ""}${Number(inv.vatAmount || 0).toFixed(2)}</td>
 
-<td>${inv.currency} ${Number(inv.totalAmount).toFixed(2)}</td>
+<td>${escapeHtml(inv.currency)} ${Number(inv.totalAmount).toFixed(2)}</td>
 
 </tr>
 
@@ -204,11 +224,11 @@ ${invoices.some(inv => (inv.lineItems || []).length > 0) ? `
 <tbody>
 ${invoices.flatMap(inv => (inv.lineItems || []).map(item => `
 <tr>
-<td>${inv.invoiceNo}</td>
-<td>${item.description || ""}</td>
+<td>${escapeHtml(inv.invoiceNo)}</td>
+<td>${escapeHtml(item.description || "")}</td>
 <td>${item.quantity || 0}</td>
-<td>${inv.currency} ${Number(item.unitPrice || 0).toFixed(2)}</td>
-<td>${inv.currency} ${Number(item.amount || 0).toFixed(2)}</td>
+<td>${escapeHtml(inv.currency)} ${Number(item.unitPrice || 0).toFixed(2)}</td>
+<td>${escapeHtml(inv.currency)} ${Number(item.amount || 0).toFixed(2)}</td>
 </tr>
 `)).join("")}
 </tbody>

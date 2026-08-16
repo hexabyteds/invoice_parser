@@ -295,6 +295,64 @@ class SubscriptionController {
   }
 
   // =====================================================
+  // Payment History (Billing & Payments page)
+  // =====================================================
+
+  async getPaymentHistory(req, res) {
+
+    try {
+
+      const { limit, startingAfter } = req.query;
+
+      const result =
+        await subscriptionService.getPaymentHistory(req.user.id, {
+          limit: limit ? Number(limit) : undefined,
+          startingAfter: startingAfter || undefined
+        });
+
+      res.json({
+        success: true,
+        ...result
+      });
+
+    } catch (err) {
+
+      res.status(400).json({
+        success: false,
+        error: err.message
+      });
+
+    }
+
+  }
+
+  async getPaymentDetail(req, res) {
+
+    try {
+
+      const invoice =
+        await subscriptionService.getPaymentDetail(
+          req.user.id,
+          req.params.invoiceId
+        );
+
+      res.json({
+        success: true,
+        invoice
+      });
+
+    } catch (err) {
+
+      res.status(400).json({
+        success: false,
+        error: err.message
+      });
+
+    }
+
+  }
+
+  // =====================================================
   // Usage
   // =====================================================
 

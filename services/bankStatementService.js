@@ -9,7 +9,8 @@ const bankStatementTransactionRepository = require("../repositories/bankStatemen
 
 const {
     toStoredSourcePath,
-    resolveUploadPath
+    resolveUploadPath,
+    deleteStoredFileAndGetSize
 } = require("../utils/uploadPaths");
 
 const { formatDate } = require("../utils/dateUtils");
@@ -283,6 +284,18 @@ class BankStatementService {
 
         if (removed > 0) {
             await usageService.decrementBankStatements(userId);
+
+            // Same storage-quota-never-released gap as invoice deletion —
+            // reclaim the file and its bytes now (see deleteStoredFileAndGetSize
+            // for why this is based on the file's real current size).
+            if (existing.imagePath) {
+                const freedBytes =
+                    await deleteStoredFileAndGetSize(existing.imagePath);
+
+                if (freedBytes > 0) {
+                    await usageService.removeStorage(userId, freedBytes);
+                }
+            }
         }
 
         return removed > 0;

@@ -491,17 +491,6 @@ class SubscriptionRepository {
     return await this.getSubscriptionById(result.insertId);
   }
 
-  async setCancelAtPeriodEnd(subscriptionId, value) {
-    await db.execute(
-      `
-      UPDATE subscriptions
-      SET cancel_at_period_end = ?, updated_at = NOW()
-      WHERE id = ?
-      `,
-      [value ? 1 : 0, subscriptionId]
-    );
-  }
-
   // ===========================
   // Stripe Webhook Idempotency
   // ===========================

@@ -230,6 +230,19 @@ class InvoiceRepository {
         );
     }
 
+    // Source file paths for every one of a user's invoices — read before a
+    // bulk delete (deleteAll) so the caller can still clean up the files
+    // and reclaim storage afterward, once the rows themselves are gone.
+    async findImagePathsByUser(userId) {
+
+        const [rows] = await db.execute(
+            `SELECT image_path FROM invoices WHERE user_id = ? AND image_path IS NOT NULL`,
+            [userId]
+        );
+
+        return rows.map(row => row.image_path);
+    }
+
     // Statistics
     async getStatistics(userId) {
 

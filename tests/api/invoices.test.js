@@ -1,5 +1,7 @@
 jest.mock("../../services/invoiceService");
 
+const fs = require("fs");
+const path = require("path");
 const invoiceService = require("../../services/invoiceService");
 const pool = require("../../config/database");
 const { request, app, registerAndLogin, authed } = require("../helpers/api");
@@ -126,6 +128,24 @@ describe("Invoice upload + parsing (Gemini mocked)", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
+  });
+
+  it("releases the storage quota reserved for a failed upload instead of leaking it (BUG-USAGE-002)", async () => {
+    const { token, user } = await registerAndLogin();
+    const clientId = await createClient(token);
+    mockExtractionFailure(invoiceService, "Could not read this document.");
+
+    const res = await uploadImage(token, clientId);
+    expect(res.status).toBe(400);
+
+    const [[usage]] = await pool.execute(
+      `SELECT storage_used FROM usage_stats WHERE user_id = ?`,
+      [user.id]
+    );
+
+    // The file was rejected and never persisted as an invoice — its bytes
+    // must not still be counted against the user's storage quota.
+    expect(Number(usage.storage_used)).toBe(0);
   });
 
   it("requires authentication", async () => {
@@ -383,6 +403,63 @@ describe("Invoice management", () => {
     expect(res.body.lineItems).toHaveLength(1);
   });
 
+  it("rejects an invalid line item edit with a clean 400, without losing the invoice's existing line items", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    const invoice = await uploadOne(token, clientId);
+
+    // First, a valid edit that replaces the line items with a known one.
+    const valid = await request(app)
+      .put(`/api/invoices/${invoice.id}`)
+      .set(authed(token))
+      .send({
+        lineItems: [
+          { description: "Kept item", quantity: 2, unit_price: 15, total_price: 30 },
+        ],
+      });
+    expect(valid.status).toBe(200);
+
+    // Then an edit with an invalid line item value.
+    const invalid = await request(app)
+      .put(`/api/invoices/${invoice.id}`)
+      .set(authed(token))
+      .send({
+        lineItems: [
+          { description: "Bad item", quantity: "abc", unit_price: 10, total_price: 10 },
+        ],
+      });
+
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.error).toMatch(/invalid value for line item/i);
+
+    // The previously-saved line item must still be there — not silently
+    // deleted by the rejected edit (BUG-INVOICE-002).
+    const after = await request(app)
+      .get(`/api/invoices/${invoice.id}`)
+      .set(authed(token));
+
+    expect(after.body.lineItems).toHaveLength(1);
+    expect(after.body.lineItems[0].description).toBe("Kept item");
+  });
+
+  it("rejects a negative line item quantity/price", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    const invoice = await uploadOne(token, clientId);
+
+    const res = await request(app)
+      .put(`/api/invoices/${invoice.id}`)
+      .set(authed(token))
+      .send({
+        lineItems: [
+          { description: "Negative item", quantity: -5, unit_price: 10, total_price: -50 },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/invalid value for line item/i);
+  });
+
   it("deletes an invoice", async () => {
     const { token } = await registerAndLogin();
     const clientId = await createClient(token);
@@ -399,6 +476,39 @@ describe("Invoice management", () => {
       .set(authed(token));
 
     expect(get.status).toBe(404);
+  });
+
+  it("releases storage quota and deletes the source file when an invoice is deleted (BUG-USAGE-002)", async () => {
+    const { token, user } = await registerAndLogin();
+    const clientId = await createClient(token);
+    const invoice = await uploadOne(token, clientId);
+
+    const [[before]] = await pool.execute(
+      `SELECT image_path, storage_used FROM invoices i
+       JOIN usage_stats u ON u.user_id = i.user_id
+       WHERE i.id = ?`,
+      [invoice.id]
+    );
+
+    const storedPath = before.image_path;
+    const fullPath = path.join(__dirname, "..", "..", storedPath);
+
+    expect(storedPath).toBeTruthy();
+    expect(fs.existsSync(fullPath)).toBe(true);
+    expect(Number(before.storage_used)).toBeGreaterThan(0);
+
+    const del = await request(app)
+      .delete(`/api/invoices/${invoice.id}`)
+      .set(authed(token));
+    expect(del.status).toBe(200);
+
+    const [[after]] = await pool.execute(
+      `SELECT storage_used FROM usage_stats WHERE user_id = ?`,
+      [user.id]
+    );
+
+    expect(Number(after.storage_used)).toBe(0);
+    expect(fs.existsSync(fullPath)).toBe(false);
   });
 });
 
