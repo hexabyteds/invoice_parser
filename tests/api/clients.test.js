@@ -159,7 +159,9 @@ describe("Clients", () => {
         .delete(`/api/clients/${created.body.client.id}`)
         .set(authed(userB.token));
 
-      expect(attack.status).toBe(500);
+      // Was 500 (BUG-CLIENT-001) — a not-found/not-owned client is a 404,
+      // same as every other client endpoint (see the PUT test above).
+      expect(attack.status).toBe(404);
       expect(attack.body.error).toBe("Client not found.");
 
       const stillThere = await request(app)

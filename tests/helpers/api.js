@@ -8,6 +8,13 @@ function uniqueEmail(prefix = "user") {
   return `${prefix}${Date.now()}${userCounter}@example.test`;
 }
 
+let mobileCounter = 0;
+
+function uniqueMobileNumber() {
+  mobileCounter += 1;
+  return `3${String(Date.now()).slice(-6)}${String(mobileCounter).padStart(3, "0")}`;
+}
+
 async function registerAndLogin(overrides = {}) {
   const email = overrides.email || uniqueEmail();
   const password = overrides.password || "Password123!";
@@ -17,6 +24,9 @@ async function registerAndLogin(overrides = {}) {
     email,
     password,
     company_name: overrides.company_name,
+    country: overrides.country || "Pakistan",
+    country_code: overrides.country_code || "+92",
+    mobile_number: overrides.mobile_number || uniqueMobileNumber(),
   });
 
   if (res.status !== 201) {
@@ -59,6 +69,7 @@ module.exports = {
   app,
   request,
   uniqueEmail,
+  uniqueMobileNumber,
   registerAndLogin,
   loginAsAdmin,
   authed,

@@ -14,6 +14,7 @@ import {
   FolderOpen,
   FileSpreadsheet,
   Gauge,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -44,7 +45,7 @@ const menuItems = [
     path: "/dashboard/analytics",
   },
   {
-    title: "Excel Export",
+    title: "Export Center",
     icon: FileSpreadsheet,
     path: "/dashboard/export",
   },
@@ -52,6 +53,11 @@ const menuItems = [
     title: "Usage",
     icon: Gauge,
     path: "/dashboard/usage",
+  },
+  {
+    title: "Billing & Payments",
+    icon: CreditCard,
+    path: "/dashboard/billing",
   },
   {
     title: "Settings",

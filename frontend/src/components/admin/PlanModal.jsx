@@ -17,6 +17,9 @@ const EMPTY_FORM = {
   priority_support: false,
   active: true,
   featured: false,
+  stripe_product_id: "",
+  stripe_price_id_monthly: "",
+  stripe_price_id_yearly: "",
 };
 
 function slugify(value) {
@@ -45,6 +48,9 @@ function toFormValues(plan) {
     priority_support: Boolean(plan.priority_support),
     active: Boolean(plan.active),
     featured: Boolean(plan.featured),
+    stripe_product_id: plan.stripe_product_id || "",
+    stripe_price_id_monthly: plan.stripe_price_id_monthly || "",
+    stripe_price_id_yearly: plan.stripe_price_id_yearly || "",
   };
 }
 
@@ -63,6 +69,9 @@ function toPayload(form) {
     priority_support: form.priority_support ? 1 : 0,
     active: form.active ? 1 : 0,
     featured: form.featured ? 1 : 0,
+    stripe_product_id: form.stripe_product_id.trim() || null,
+    stripe_price_id_monthly: form.stripe_price_id_monthly.trim() || null,
+    stripe_price_id_yearly: form.stripe_price_id_yearly.trim() || null,
   };
 }
 
@@ -277,6 +286,50 @@ export default function PlanModal({ open, plan, onClose, onSaved }) {
                 min="0"
                 value={form.ocr_limit}
                 onChange={(e) => update("ocr_limit", e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2">
+            <h3 className="md:col-span-2 text-sm font-semibold uppercase tracking-wide text-violet-600">
+              Stripe Billing
+            </h3>
+
+            <p className="md:col-span-2 -mt-2 text-xs text-slate-400">
+              Optional. Leave blank until Stripe Prices exist for this plan —
+              customers can&apos;t check out for this plan/interval until set.
+            </p>
+
+            <Field label="Stripe Product ID" hint="e.g. prod_...">
+              <input
+                value={form.stripe_product_id}
+                onChange={(e) => update("stripe_product_id", e.target.value)}
+                placeholder="prod_..."
+                className={inputClass}
+              />
+            </Field>
+
+            <div className="hidden md:block" />
+
+            <Field label="Stripe Monthly Price ID" hint="e.g. price_...">
+              <input
+                value={form.stripe_price_id_monthly}
+                onChange={(e) =>
+                  update("stripe_price_id_monthly", e.target.value)
+                }
+                placeholder="price_..."
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Stripe Yearly Price ID" hint="e.g. price_...">
+              <input
+                value={form.stripe_price_id_yearly}
+                onChange={(e) =>
+                  update("stripe_price_id_yearly", e.target.value)
+                }
+                placeholder="price_..."
                 className={inputClass}
               />
             </Field>

@@ -10,6 +10,7 @@ export default function CustomerDetails() {
   const [loading, setLoading] = useState(true);
   const [customer, setCustomer] = useState(null);
   const [clients, setClients] = useState([]);
+  const [loginHistory, setLoginHistory] = useState([]);
 
   const loadCustomer = useCallback(async () => {
     try {
@@ -30,6 +31,13 @@ export default function CustomerDetails() {
   useEffect(() => {
     loadCustomer();
   }, [loadCustomer]);
+
+  useEffect(() => {
+    adminApi
+      .getCustomerLoginHistory(id)
+      .then((data) => setLoginHistory(data.history || []))
+      .catch(() => setLoginHistory([]));
+  }, [id]);
 
   if (loading) {
     return (
@@ -190,6 +198,56 @@ export default function CustomerDetails() {
                     </td>
                     <td className="px-6 py-4 text-slate-700">
                       {client.invoice_count}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 px-6 py-4">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Login History
+          </h2>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
+              <tr>
+                <th className="px-6 py-4 font-medium">Date &amp; Time</th>
+                <th className="px-6 py-4 font-medium">Device</th>
+                <th className="px-6 py-4 font-medium">Browser</th>
+                <th className="px-6 py-4 font-medium">IP Address</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {loginHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-10 text-center text-slate-500">
+                    No login activity recorded for this customer.
+                  </td>
+                </tr>
+              ) : (
+                loginHistory.map((entry) => (
+                  <tr key={entry.id} className="border-b border-slate-100">
+                    <td className="px-6 py-4 text-slate-700">
+                      {entry.login_time
+                        ? new Date(entry.login_time).toLocaleString()
+                        : "—"}
+                    </td>
+                    <td className="px-6 py-4 text-slate-700">
+                      {entry.device || "—"}
+                    </td>
+                    <td className="px-6 py-4 text-slate-700">
+                      {entry.browser || "—"}
+                    </td>
+                    <td className="px-6 py-4 text-slate-700">
+                      {entry.ip_address || "—"}
                     </td>
                   </tr>
                 ))

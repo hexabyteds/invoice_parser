@@ -153,7 +153,11 @@ class ClientController {
 
         } catch (err) {
 
-            res.status(500).json({
+            // Mirrors update()/updateStatus() above — a not-found/not-owned
+            // client is a 404, not a genuine server failure.
+            const status = err.message === "Client not found." ? 404 : 500;
+
+            res.status(status).json({
                 success: false,
                 error: err.message
             });

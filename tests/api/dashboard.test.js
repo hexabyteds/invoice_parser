@@ -1,11 +1,14 @@
 jest.mock("../../services/invoiceService");
+jest.mock("../../services/bankStatementExtractionService");
 
 const invoiceService = require("../../services/invoiceService");
+const bankStatementExtractionService = require("../../services/bankStatementExtractionService");
 const { request, app, registerAndLogin, authed } = require("../helpers/api");
 const {
   mockSuccessfulExtract,
   mockExtractionFailure,
 } = require("../mocks/invoiceService.mock");
+const { mockSuccessfulExtractImage } = require("../mocks/bankStatementExtraction.mock");
 const { samplePngBuffer } = require("../helpers/fixtures");
 
 async function createClient(token, name) {
@@ -249,6 +252,7 @@ describe("Dashboard document-type breakdown", () => {
     expect(res.body.counts).toEqual({
       supplierInvoices: 2,
       bills: 1,
+      bankStatements: 0,
       uncategorized: 1,
       total: 4,
     });
@@ -273,8 +277,38 @@ describe("Dashboard document-type breakdown", () => {
     expect(res.body.counts).toEqual({
       supplierInvoices: 0,
       bills: 1,
+      bankStatements: 0,
       uncategorized: 0,
       total: 1,
+    });
+  });
+
+  it("counts a bank statement in its own bucket, not uncategorized", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token, "Client A");
+
+    mockSuccessfulExtract(invoiceService);
+    await uploadImage(token, clientId, "bill");
+
+    mockSuccessfulExtractImage(bankStatementExtractionService);
+    await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("client_id", String(clientId))
+      .field("document_type", "bank_statement")
+      .attach("image", samplePngBuffer(), "statement.png");
+
+    const res = await request(app)
+      .get("/api/dashboard/document-types")
+      .set(authed(token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.counts).toEqual({
+      supplierInvoices: 0,
+      bills: 1,
+      bankStatements: 1,
+      uncategorized: 0,
+      total: 2,
     });
   });
 

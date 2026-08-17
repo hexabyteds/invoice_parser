@@ -12,6 +12,9 @@ router.get("/customers", (req, res) => adminController.getCustomers(req, res));
 router.get("/customers/:id", (req, res) =>
   adminController.getCustomerById(req, res)
 );
+router.get("/customers/:id/login-history", (req, res) =>
+  adminController.getCustomerLoginHistory(req, res)
+);
 router.put("/customers/:id", (req, res) =>
   adminController.updateCustomer(req, res)
 );

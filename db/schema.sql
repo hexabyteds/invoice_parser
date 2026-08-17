@@ -29,17 +29,67 @@ DROP TABLE IF EXISTS `audit_logs`;
 CREATE TABLE `audit_logs` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int DEFAULT NULL,
-  `client_id` int DEFAULT NULL,
   `action` varchar(255) DEFAULT NULL,
   `description` text,
   `ip_address` varchar(50) DEFAULT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `client_id` int DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
   KEY `idx_audit_logs_client_id` (`client_id`),
   KEY `idx_audit_logs_user_created` (`user_id`,`created_at`),
   CONSTRAINT `audit_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `fk_audit_logs_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `bank_statement_transactions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bank_statement_transactions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `bank_statement_id` int NOT NULL,
+  `transaction_date` date DEFAULT NULL,
+  `description` text,
+  `credit` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `debit` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `available_balance` decimal(14,2) DEFAULT NULL,
+  `reference_no` varchar(100) DEFAULT NULL,
+  `page_number` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_bank_statement_transaction_statement` (`bank_statement_id`),
+  KEY `idx_bank_statement_transactions_date` (`bank_statement_id`,`transaction_date`),
+  CONSTRAINT `fk_bank_statement_transaction_statement` FOREIGN KEY (`bank_statement_id`) REFERENCES `bank_statements` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `bank_statements`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bank_statements` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `client_id` int DEFAULT NULL,
+  `original_filename` varchar(255) DEFAULT NULL,
+  `image_path` text,
+  `status` enum('PENDING','PROCESSED','FAILED') DEFAULT 'PROCESSED',
+  `page_count` int DEFAULT NULL,
+  `bank_name` varchar(255) DEFAULT NULL,
+  `account_title` varchar(255) DEFAULT NULL,
+  `account_number` varchar(100) DEFAULT NULL,
+  `iban` varchar(50) DEFAULT NULL,
+  `currency` varchar(20) DEFAULT NULL,
+  `from_date` date DEFAULT NULL,
+  `to_date` date DEFAULT NULL,
+  `opening_balance` decimal(14,2) DEFAULT NULL,
+  `closing_balance` decimal(14,2) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_bank_statement_user` (`user_id`),
+  KEY `fk_bank_statement_client` (`client_id`),
+  KEY `idx_bank_statements_user_created` (`user_id`,`created_at`),
+  CONSTRAINT `fk_bank_statement_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_bank_statement_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `clients`;
@@ -92,6 +142,8 @@ CREATE TABLE `invoices` (
   `document_type` enum('supplier_invoice','bill') DEFAULT NULL,
   `invoice_no` varchar(100) DEFAULT NULL,
   `client_name` varchar(255) DEFAULT NULL,
+  `seller_name` varchar(255) DEFAULT NULL,
+  `buyer_name` varchar(255) DEFAULT NULL,
   `invoice_date` date DEFAULT NULL,
   `due_date` date DEFAULT NULL,
   `phone_number` varchar(50) DEFAULT NULL,
@@ -108,7 +160,6 @@ CREATE TABLE `invoices` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `fk_invoice_user` (`user_id`),
   KEY `fk_invoice_client` (`client_id`),
   KEY `idx_invoices_user_document_type` (`user_id`,`document_type`),
   CONSTRAINT `fk_invoice_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE,
@@ -151,6 +202,9 @@ CREATE TABLE `plans` (
   `featured` tinyint(1) DEFAULT '0',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `stripe_product_id` varchar(255) DEFAULT NULL,
+  `stripe_price_id_monthly` varchar(255) DEFAULT NULL,
+  `stripe_price_id_yearly` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -164,6 +218,18 @@ CREATE TABLE `schema_migrations` (
   `applied_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `stripe_webhook_events`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `stripe_webhook_events` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `stripe_event_id` varchar(255) NOT NULL,
+  `type` varchar(100) NOT NULL,
+  `processed_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_stripe_webhook_events_event_id` (`stripe_event_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `subscriptions`;
@@ -182,7 +248,13 @@ CREATE TABLE `subscriptions` (
   `cancelled_at` datetime DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `stripe_subscription_id` varchar(255) DEFAULT NULL,
+  `stripe_customer_id` varchar(255) DEFAULT NULL,
+  `stripe_price_id` varchar(255) DEFAULT NULL,
+  `stripe_status` varchar(50) DEFAULT NULL,
+  `cancel_at_period_end` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_subscriptions_stripe_subscription_id` (`stripe_subscription_id`),
   KEY `user_id` (`user_id`),
   KEY `plan_id` (`plan_id`),
   CONSTRAINT `subscriptions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
@@ -196,6 +268,7 @@ CREATE TABLE `usage_stats` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
   `invoices_used` int DEFAULT '0',
+  `bank_statements_used` int DEFAULT '0',
   `clients_used` int DEFAULT '0',
   `ocr_pages_used` int DEFAULT '0',
   `storage_used` bigint DEFAULT '0',
@@ -218,6 +291,8 @@ CREATE TABLE `users` (
   `password` varchar(255) NOT NULL,
   `phone` varchar(30) DEFAULT NULL,
   `country` varchar(100) DEFAULT NULL,
+  `country_code` varchar(10) DEFAULT NULL,
+  `mobile_number` varchar(20) DEFAULT NULL,
   `plan` enum('FREE','STARTER','PRO','BUSINESS') DEFAULT 'FREE',
   `status` enum('ACTIVE','INACTIVE') DEFAULT 'ACTIVE',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
@@ -232,8 +307,11 @@ CREATE TABLE `users` (
   `plan_id` int DEFAULT NULL,
   `reset_token_hash` varchar(64) DEFAULT NULL,
   `reset_token_expires` datetime DEFAULT NULL,
+  `stripe_customer_id` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `uq_users_stripe_customer_id` (`stripe_customer_id`),
+  UNIQUE KEY `uq_users_country_code_mobile` (`country_code`,`mobile_number`),
   KEY `fk_user_plan` (`plan_id`),
   KEY `idx_users_reset_token_hash` (`reset_token_hash`),
   CONSTRAINT `fk_user_plan` FOREIGN KEY (`plan_id`) REFERENCES `plans` (`id`)

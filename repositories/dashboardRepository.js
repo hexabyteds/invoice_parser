@@ -388,8 +388,11 @@ class DashboardRepository {
         }));
     }
 
-    // Category-wise totals (Supplier Invoice / Bill / Uncategorized) for
-    // dashboard/reporting — queryable by document_type per client request.
+    // Category-wise totals (Supplier Invoice / Bill / Bank Statement /
+    // Uncategorized) for dashboard/reporting — queryable by document_type
+    // per client request. Bank statements live in their own table (not
+    // invoices.document_type), so they're counted via a second query
+    // rather than folded into the GROUP BY above.
     async getDocumentTypeCounts(userId, clientId = null) {
 
         const clientFilter = clientId ? "AND client_id = ?" : "";
@@ -405,7 +408,16 @@ class DashboardRepository {
             params
         );
 
-        const counts = { supplierInvoices: 0, bills: 0, uncategorized: 0 };
+        const [[bankStatementRow]] = await db.execute(
+            `
+            SELECT COUNT(*) AS count
+            FROM bank_statements
+            WHERE user_id = ? ${clientFilter}
+            `,
+            params
+        );
+
+        const counts = { supplierInvoices: 0, bills: 0, bankStatements: 0, uncategorized: 0 };
         let total = 0;
 
         for (const row of rows) {
@@ -416,6 +428,9 @@ class DashboardRepository {
             else if (row.documentType === "bill") counts.bills = count;
             else counts.uncategorized = count;
         }
+
+        counts.bankStatements = Number(bankStatementRow?.count || 0);
+        total += counts.bankStatements;
 
         return { ...counts, total };
     }

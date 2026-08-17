@@ -47,11 +47,40 @@ router.post(
   subscriptionController.cancelSubscription
 );
 
+// Start Stripe Checkout (new subscription) or update an existing
+// Stripe subscription's plan/interval
+router.post(
+  "/checkout",
+  authMiddleware,
+  subscriptionController.checkout
+);
+
+// Stripe Customer Portal (payment method, invoices, cancellation)
+router.post(
+  "/portal",
+  authMiddleware,
+  subscriptionController.portal
+);
+
 // Renew Own Subscription
 router.post(
   "/renew",
   authMiddleware,
   subscriptionController.renewSubscription
+);
+
+// Payment History (Billing & Payments page) — read live from Stripe,
+// scoped to the caller's own Stripe customer id only.
+router.get(
+  "/payments",
+  authMiddleware,
+  subscriptionController.getPaymentHistory
+);
+
+router.get(
+  "/payments/:invoiceId",
+  authMiddleware,
+  subscriptionController.getPaymentDetail
 );
 
 // =====================================================

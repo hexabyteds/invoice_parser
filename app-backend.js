@@ -25,13 +25,27 @@ const clientService = require("./services/clientService");
 const validationService = require("./services/validationService");
 const auditLogRepository = require("./repositories/auditLogRepository");
 const db = require("./config/database");
-const { DOCUMENT_TYPES, isValidDocumentType } = require("./utils/documentTypes");
+const {
+  DOCUMENT_TYPES,
+  ALL_DOCUMENT_TYPES,
+  INVOICE_DOCUMENT_TYPES,
+  isValidDocumentType,
+  isValidInvoiceDocumentType,
+  isBankStatementType,
+} = require("./utils/documentTypes");
+const bankStatementService = require("./services/bankStatementService");
 
 const app = express();
 const UPLOADS_DIR = path.join(__dirname, "uploads");
 
 
 app.use(cors());
+
+// Mounted BEFORE express.json(): Stripe webhook signature verification
+// requires the raw, unparsed request body, so this route must see it
+// before the global JSON body parser below consumes it.
+app.use("/api/stripe/webhook", require("./routes/stripeWebhookRoutes"));
+
 app.use(express.json());
 
 
@@ -53,6 +67,8 @@ app.use("/api/plans", planRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/usage", require("./routes/usageRoutes"));
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/bank-statements", require("./routes/bankStatementRoutes"));
+app.use("/api/documents", require("./routes/documentsRoutes"));
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -149,12 +165,34 @@ app.get('/api/health', async (req, res) => {
 });
 
 
+// Storage quota was reserved before processing but never released when
+// processing failed — every failed upload permanently leaked quota (and
+// left the file orphaned on disk). Called from every failure branch below,
+// and from the outer catch, once a reservation has actually been made.
+async function releaseFailedUploadStorage(userId, file) {
+  try {
+    await usageService.removeStorage(userId, file.size);
+  } catch (err) {
+    console.error("Failed to release storage quota after failed upload:", err.message);
+  }
+
+  try {
+    await fs.promises.unlink(file.path);
+  } catch (err) {
+    if (err.code !== "ENOENT") {
+      console.error("Failed to delete orphaned upload file:", err.message);
+    }
+  }
+}
+
 app.post(
   "/api/upload",
   authMiddleware,
   uploadRateLimiter,
   upload.single("image"),
   async (req, res) => {
+    let storageReserved = false;
+
     try {
       if (!req.file) {
         return res.status(400).json({
@@ -183,7 +221,7 @@ app.post(
       if (documentType && !isValidDocumentType(documentType)) {
         return res.status(400).json({
           success: false,
-          error: `Invalid document type. Must be one of: ${DOCUMENT_TYPES.join(", ")}.`,
+          error: `Invalid document type. Must be one of: ${ALL_DOCUMENT_TYPES.join(", ")}.`,
         });
       }
 
@@ -192,14 +230,84 @@ app.post(
       // ===========================
       await clientService.assertActive(clientId, req.user.id);
 
-      await usageService.checkStorageLimit(req.user.id, req.file.size);
-      await usageService.addStorage(req.user.id, req.file.size);
+      // Reserves the bytes atomically — under concurrent uploads, the old
+      // checkStorageLimit()-then-addStorage() pair let every request read
+      // the same pre-upload storage_used and all pass, so N concurrent
+      // uploads near the limit could all add their bytes past it.
+      await usageService.reserveStorage(req.user.id, req.file.size);
+      storageReserved = true;
 
       console.log(`📸 Processing: ${req.file.filename}`);
 
       const extension = path
         .extname(req.file.originalname)
         .toLowerCase();
+
+      // ===========================
+      // NEW: Bank Statement upload
+      // ===========================
+      // Handled entirely separately from the invoice/bill branch below —
+      // different service, different persisted tables, different response
+      // shape — so the existing invoice/bill flow stays byte-identical.
+      if (isBankStatementType(documentType)) {
+
+        const bsResult = extension === ".pdf"
+          ? await bankStatementService.processPDF(
+              req.file.path,
+              req.user.id,
+              clientId,
+              req.file.path
+            )
+          : await bankStatementService.processImage(
+              req.file.path,
+              req.user.id,
+              clientId,
+              req.file.path
+            );
+
+        if (bsResult.status !== "success") {
+          await releaseFailedUploadStorage(req.user.id, req.file);
+
+          try {
+            await auditLogRepository.create({
+              userId: req.user.id,
+              clientId,
+              action: "bank_statement_error",
+              description: bsResult.message,
+            });
+          } catch (logErr) {}
+
+          return res.status(400).json({
+            success: false,
+            error: bsResult.message,
+          });
+        }
+
+        try {
+          await auditLogRepository.create({
+            userId: req.user.id,
+            clientId,
+            action: "bank_statement_uploaded",
+            description: `Bank statement (${bsResult.transactionCount} transaction(s))`,
+          });
+
+          if (bsResult.meta?.failedPages > 0) {
+            await auditLogRepository.create({
+              userId: req.user.id,
+              clientId,
+              action: "bank_statement_error",
+              description: `${bsResult.meta.failedPages} page(s) failed during extraction`,
+            });
+          }
+        } catch (logErr) {}
+
+        return res.json({
+          success: true,
+          bankStatement: bsResult.bankStatement,
+          transactionCount: bsResult.transactionCount,
+          message: `Bank statement processed successfully (${bsResult.transactionCount} transaction(s)).`,
+        });
+      }
 
       let result;
 
@@ -226,6 +334,8 @@ app.post(
       }
 
       if (result.status !== "success") {
+        await releaseFailedUploadStorage(req.user.id, req.file);
+
         // Activity feed is a nice-to-have — a logging failure must never
         // break the response, but the write itself is awaited so the
         // dashboard reflects it immediately (no fire-and-forget race).
@@ -339,6 +449,10 @@ app.post(
     } catch (error) {
       console.error("Upload error:", error);
 
+      if (storageReserved) {
+        await releaseFailedUploadStorage(req.user.id, req.file);
+      }
+
       const statusCode =
         error.statusCode ||
         (error.message?.includes("limit reached") ? 403 : 500);
@@ -435,10 +549,10 @@ app.get("/api/invoices", authMiddleware, async (req, res) => {
 
     const documentType = req.query.document_type || null;
 
-    if (documentType && !isValidDocumentType(documentType)) {
+    if (documentType && !isValidInvoiceDocumentType(documentType)) {
       return res.status(400).json({
         success: false,
-        error: `Invalid document type. Must be one of: ${DOCUMENT_TYPES.join(", ")}.`,
+        error: `Invalid document type. Must be one of: ${INVOICE_DOCUMENT_TYPES.join(", ")}.`,
       });
     }
 
@@ -619,11 +733,11 @@ app.put(
 
       if (
         req.body.document_type &&
-        !isValidDocumentType(req.body.document_type)
+        !isValidInvoiceDocumentType(req.body.document_type)
       ) {
         return res.status(400).json({
           success: false,
-          error: `Invalid document type. Must be one of: ${DOCUMENT_TYPES.join(", ")}.`,
+          error: `Invalid document type. Must be one of: ${INVOICE_DOCUMENT_TYPES.join(", ")}.`,
         });
       }
 
@@ -773,10 +887,10 @@ function getExportFilters(query = {}) {
 function rejectInvalidExportDocumentType(req, res) {
   const documentType = req.query.document_type;
 
-  if (documentType && !isValidDocumentType(documentType)) {
+  if (documentType && !isValidInvoiceDocumentType(documentType)) {
     res.status(400).json({
       success: false,
-      error: `Invalid document type. Must be one of: ${DOCUMENT_TYPES.join(", ")}.`,
+      error: `Invalid document type. Must be one of: ${INVOICE_DOCUMENT_TYPES.join(", ")}.`,
     });
     return true;
   }
@@ -961,6 +1075,19 @@ app.post('/api/clear', authMiddleware, async (req, res) => {
 
   }
 
+});
+
+// Any /api/* request that didn't match one of the routes above is an
+// unknown endpoint — respond with a clean 404 instead of falling through
+// to the SPA wildcard below. That wildcard only serves index.html when the
+// URL does NOT start with /api; for a /api/* URL it matched (app.get('*')
+// matches every path) but then returned without ever calling res.send()/
+// res.json()/next(), so the request just hung forever with no response.
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: "Not found."
+  });
 });
 
 /**

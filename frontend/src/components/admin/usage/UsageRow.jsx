@@ -67,6 +67,13 @@ export default function UsageRow({ customer, onView }) {
       </td>
 
       <td className="px-4 py-4">
+        {/* No plan limit backs this yet — a plain count, not a progress bar. */}
+        <span className="text-sm font-semibold text-slate-900">
+          {Number(customer.bank_statements_used || 0)}
+        </span>
+      </td>
+
+      <td className="px-4 py-4">
         <UsageProgress
           used={customer.clients_used}
           limit={customer.client_limit}

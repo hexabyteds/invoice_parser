@@ -6,11 +6,15 @@ import {
   RefreshCw,
   Pencil,
   ExternalLink,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminPageShell from "../../components/admin/AdminPageShell";
 import ChangeSubscriptionModal from "../../components/admin/ChangeSubscriptionModal";
 import adminApi from "../../services/adminApi";
+
+const ROWS_PER_PAGE = 20;
 
 function formatDate(value) {
   if (!value) return "—";
@@ -43,11 +47,24 @@ function StatusBadge({ status }) {
   );
 }
 
+// A subscription scheduled to cancel at period end still reports
+// status: "active" (the user keeps access until the period actually
+// ends) — without this, an admin has no way to tell it's about to lapse
+// (BUG-BILLING-002).
+function CancelingBadge() {
+  return (
+    <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+      Canceling
+    </span>
+  );
+}
+
 export default function Subscriptions() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [changeModalOpen, setChangeModalOpen] = useState(false);
 
@@ -69,6 +86,10 @@ export default function Subscriptions() {
     loadSubscriptions();
   }, []);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
   const filteredSubscriptions = useMemo(() => {
     const keyword = search.toLowerCase();
 
@@ -86,6 +107,17 @@ export default function Subscriptions() {
       return matchesSearch && matchesStatus;
     });
   }, [subscriptions, search, statusFilter]);
+
+  const total = filteredSubscriptions.length;
+  const totalPages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const rangeStart = total === 0 ? 0 : (safePage - 1) * ROWS_PER_PAGE + 1;
+  const rangeEnd = Math.min(safePage * ROWS_PER_PAGE, total);
+
+  const paginatedSubscriptions = useMemo(() => {
+    const start = (safePage - 1) * ROWS_PER_PAGE;
+    return filteredSubscriptions.slice(start, start + ROWS_PER_PAGE);
+  }, [filteredSubscriptions, safePage]);
 
   const handleChangePlan = (subscription) => {
     setSelectedSubscription(subscription);
@@ -107,7 +139,7 @@ export default function Subscriptions() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search customer, company, plan..."
-            className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+            className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
@@ -115,7 +147,7 @@ export default function Subscriptions() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">All statuses</option>
             <option value="active">Active</option>
@@ -156,14 +188,14 @@ export default function Subscriptions() {
                     <Loader2 className="mx-auto animate-spin" size={28} />
                   </td>
                 </tr>
-              ) : filteredSubscriptions.length === 0 ? (
+              ) : paginatedSubscriptions.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-16 text-center text-slate-500">
                     No subscriptions found.
                   </td>
                 </tr>
               ) : (
-                filteredSubscriptions.map((subscription) => (
+                paginatedSubscriptions.map((subscription) => (
                   <tr
                     key={subscription.id}
                     className="border-t border-slate-100 hover:bg-slate-50"
@@ -195,7 +227,10 @@ export default function Subscriptions() {
                     </td>
 
                     <td className="px-4 py-5">
-                      <StatusBadge status={subscription.status} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <StatusBadge status={subscription.status} />
+                        {subscription.cancel_at_period_end && <CancelingBadge />}
+                      </div>
                     </td>
 
                     <td className="px-4 py-5 text-slate-700">
@@ -210,7 +245,7 @@ export default function Subscriptions() {
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => handleChangePlan(subscription)}
-                          className="rounded-lg p-2 text-slate-600 hover:bg-violet-100 hover:text-violet-700"
+                          className="rounded-lg p-2 text-slate-600 hover:bg-indigo-100 hover:text-indigo-700"
                           title="Change plan"
                         >
                           <Pencil size={18} />
@@ -231,6 +266,40 @@ export default function Subscriptions() {
             </tbody>
           </table>
         </div>
+
+        {!loading && total > 0 && (
+          <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row">
+            <p className="text-sm text-slate-600">
+              Showing {rangeStart}–{rangeEnd} of {total} subscriptions
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-40"
+              >
+                <ChevronLeft size={18} />
+                Previous
+              </button>
+
+              <span className="px-2 text-sm text-slate-600">
+                Page {safePage} of {totalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-40"
+              >
+                Next
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <ChangeSubscriptionModal

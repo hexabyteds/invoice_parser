@@ -8,7 +8,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { getInvoice, getInvoiceSource, updateInvoice } from "../../services/invoiceApi";
-import { DOCUMENT_TYPES } from "../../utils/documentTypes";
+import { INVOICE_DOCUMENT_TYPES } from "../../utils/documentTypes";
 
 const emptyItem = {
   description: "",
@@ -318,7 +318,7 @@ export default function EditInvoice() {
                       className={inputClass}
                     >
                       <option value="">Not set</option>
-                      {DOCUMENT_TYPES.map((type) => (
+                      {INVOICE_DOCUMENT_TYPES.map((type) => (
                         <option key={type.value} value={type.value}>
                           {type.label}
                         </option>
@@ -351,7 +351,7 @@ export default function EditInvoice() {
                 </tr>
 
                 <tr className="border-b">
-                  <EditCell label="Client">
+                  <EditCell label="Party Name">
                     <input
                       value={form.client_name}
                       onChange={(e) => handleField("client_name", e.target.value)}

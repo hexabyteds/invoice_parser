@@ -1,5 +1,5 @@
 const dashboardService = require("../services/dashboardService");
-const { isValidDocumentType } = require("../utils/documentTypes");
+const { isValidInvoiceDocumentType } = require("../utils/documentTypes");
 
 function clientIdFrom(req) {
     return req.query.client_id ? Number(req.query.client_id) : null;
@@ -15,7 +15,7 @@ class DashboardController {
         try {
             const documentType = documentTypeFrom(req);
 
-            if (documentType && !isValidDocumentType(documentType)) {
+            if (documentType && !isValidInvoiceDocumentType(documentType)) {
                 return res.status(400).json({
                     success: false,
                     error: "Invalid document type.",

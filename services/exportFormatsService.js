@@ -2,8 +2,22 @@ const fs = require("fs");
 const path = require("path");
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
 
+// CSV/formula injection (CWE-1236): a cell whose value starts with =, +,
+// -, or @ is interpreted by Excel/Sheets/LibreOffice as a formula when the
+// file is opened, not as literal text — e.g. a client name of
+// =HYPERLINK("http://evil.example","Click me") executes on open. Prefixing
+// with a leading single quote is the standard mitigation (OWASP CSV
+// Injection); Excel treats the cell as text and doesn't display the quote.
+// This also affects negative numbers (they start with "-"), which is an
+// accepted, standard trade-off of this fix, not a bug — the cell reads
+// the same either way, just as text instead of a formatted number.
 function escapeCsv(value) {
-    const str = value == null ? "" : String(value);
+    let str = value == null ? "" : String(value);
+
+    if (/^[=+\-@]/.test(str)) {
+        str = `'${str}`;
+    }
+
     if (/[",\n\r]/.test(str)) {
         return `"${str.replace(/"/g, '""')}"`;
     }

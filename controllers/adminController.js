@@ -89,6 +89,24 @@ class AdminController {
   }
 
 
+  async getCustomerLoginHistory(req, res) {
+    try {
+      const history = await adminService.getCustomerLoginHistory(req.params.id);
+
+      res.json({
+        success: true,
+        history,
+      });
+    } catch (err) {
+      const status = err.message === "Customer not found." ? 404 : 500;
+
+      res.status(status).json({
+        success: false,
+        error: err.message,
+      });
+    }
+  }
+
   async updateCustomer(req, res) {
     try {
       const customer = await adminService.updateCustomer(

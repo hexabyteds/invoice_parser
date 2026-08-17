@@ -53,6 +53,44 @@ describe("Export", () => {
     expect(dataLine).toContain("Acme Supplies LLC");
   });
 
+  it("neutralizes CSV/formula-injection payloads instead of writing them as live formulas (BUG-EXPORT-002)", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    await uploadOne(token, clientId, {
+      clientName: '=HYPERLINK("http://evil.example/leak","Click me")',
+      description: '+cmd|"/c calc"!A1',
+    });
+
+    const res = await request(app)
+      .get("/api/export?format=csv")
+      .set(authed(token));
+
+    expect(res.status).toBe(200);
+    // A leading quote neutralizes the formula trigger — Excel/Sheets treat
+    // the cell as text. The raw =/+ must never be the first character of
+    // a field in the output.
+    expect(res.text).toContain("'=HYPERLINK");
+    expect(res.text).toContain("'+cmd|");
+    expect(res.text).not.toMatch(/,=HYPERLINK/);
+    expect(res.text).not.toMatch(/,\+cmd\|/);
+  });
+
+  it("also neutralizes formula-injection payloads on the QuickBooks CSV export", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    await uploadOne(token, clientId, {
+      clientName: "@SUM(1+1)*cmd|' /C calc'!A0",
+    });
+
+    const res = await request(app)
+      .get("/api/export?format=quickbooks")
+      .set(authed(token));
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("'@SUM");
+    expect(res.text).not.toMatch(/,@SUM/);
+  });
+
   it("exports QuickBooks CSV with the expected headers", async () => {
     const { token } = await registerAndLogin();
     const clientId = await createClient(token);
@@ -185,5 +223,54 @@ describe("Export filtered by document_type", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
+  });
+});
+
+describe("HTML report/export XSS protection (BUG-EXPORT-001)", () => {
+  const scriptPayload = "<script>alert(1)</script>";
+  const imgPayload = "<img src=x onerror=alert(2)>";
+  const escapedScriptPayload = "&lt;script&gt;alert(1)&lt;/script&gt;";
+  const escapedImgPayload = "&lt;img src=x onerror=alert(2)&gt;";
+
+  async function uploadWithXssPayload(token, clientId) {
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { clientName: scriptPayload, description: imgPayload },
+    });
+
+    await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("client_id", String(clientId))
+      .attach("image", samplePngBuffer(), "invoice.png");
+  }
+
+  it("HTML-escapes client name/description in GET /api/report instead of injecting raw markup", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    await uploadWithXssPayload(token, clientId);
+
+    const res = await request(app).get("/api/report").set(authed(token));
+
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain(scriptPayload);
+    expect(res.text).not.toContain(imgPayload);
+    expect(res.text).toContain(escapedScriptPayload);
+    expect(res.text).toContain(escapedImgPayload);
+  });
+
+  it("HTML-escapes client name/description in GET /api/export?format=html the same way", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    await uploadWithXssPayload(token, clientId);
+
+    const res = await request(app)
+      .get("/api/export?format=html")
+      .set(authed(token));
+
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain(scriptPayload);
+    expect(res.text).not.toContain(imgPayload);
+    expect(res.text).toContain(escapedScriptPayload);
+    expect(res.text).toContain(escapedImgPayload);
   });
 });

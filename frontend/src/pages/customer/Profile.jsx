@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { User, Building2, Mail, CreditCard } from "lucide-react";
+import { User, Building2, Mail, Globe, Phone, CreditCard, RotateCcw, Clock } from "lucide-react";
 
 import authApi from "../../services/authApi";
 import subscriptionApi from "../../services/subscriptionApi";
 import planApi from "../../services/planApi";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useAuth } from "../../context/AuthContext";
+import { formatDateDisplay } from "../../utils/formatDate";
+import { COUNTRIES, getCountryByName } from "../../constants/countries";
 
 export default function Profile() {
   const { updateUser } = useAuth();
@@ -16,13 +18,19 @@ export default function Profile() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [form, setForm] = useState({ name: "", company_name: "" });
+  const [form, setForm] = useState({
+    name: "",
+    company_name: "",
+    country: "",
+    mobile_number: "",
+  });
   const [saving, setSaving] = useState(false);
 
   const [switchingPlanId, setSwitchingPlanId] = useState(null);
   const [changingPlan, setChangingPlan] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [resuming, setResuming] = useState(false);
 
   useEffect(() => {
     load();
@@ -35,13 +43,15 @@ export default function Profile() {
       const [meRes, subRes, plansRes] = await Promise.all([
         authApi.me(),
         subscriptionApi.getCurrent(),
-        planApi.getAll(),
+        planApi.getActive(),
       ]);
 
       setProfile(meRes.data.user);
       setForm({
         name: meRes.data.user.name || "",
         company_name: meRes.data.user.company_name || "",
+        country: meRes.data.user.country || "",
+        mobile_number: meRes.data.user.mobile_number || "",
       });
       setSubscription(subRes.data.subscription);
       // /api/plans already only returns active plans.
@@ -61,10 +71,55 @@ export default function Profile() {
       return;
     }
 
+    const payload = { name: form.name, company_name: form.company_name };
+
+    // Country/mobile number are optional here (pre-existing accounts may
+    // not have them yet) but once either is touched, both must be
+    // present and valid — same rule the backend enforces.
+    const touchesContact = form.country.trim() || form.mobile_number.trim();
+
+    if (touchesContact) {
+      if (!form.country.trim()) {
+        toast.error("Country is required.");
+        return;
+      }
+
+      const country = getCountryByName(form.country);
+      if (!country) {
+        toast.error("Please select a valid country.");
+        return;
+      }
+
+      const mobileValue = form.mobile_number.trim();
+      if (!mobileValue) {
+        toast.error("Mobile number is required.");
+        return;
+      }
+      if (!/^[0-9\-\s()]+$/.test(mobileValue)) {
+        toast.error("Mobile number contains invalid characters.");
+        return;
+      }
+      const digitsOnly = mobileValue.replace(/\D/g, "");
+      if (digitsOnly.length < 6 || digitsOnly.length > 14) {
+        toast.error("Please enter a valid mobile number.");
+        return;
+      }
+
+      payload.country = form.country;
+      payload.country_code = country.dialCode;
+      payload.mobile_number = mobileValue;
+    }
+
     try {
       setSaving(true);
-      const res = await authApi.updateProfile(form);
+      const res = await authApi.updateProfile(payload);
       setProfile(res.data.user);
+      setForm({
+        name: res.data.user.name || "",
+        company_name: res.data.user.company_name || "",
+        country: res.data.user.country || "",
+        mobile_number: res.data.user.mobile_number || "",
+      });
       updateUser(res.data.user);
       toast.success("Profile updated successfully.");
     } catch (err) {
@@ -77,8 +132,32 @@ export default function Profile() {
   async function confirmSwitchPlan() {
     if (!switchingPlanId) return;
 
+    const plan = plans.find((p) => p.id === switchingPlanId);
+    const isFree =
+      plan && Number(plan.monthly_price) === 0 && Number(plan.yearly_price) === 0;
+
     try {
       setChangingPlan(true);
+
+      // Paid plans require real payment, so they go through Stripe
+      // Checkout instead of the free-only select-plan endpoint.
+      if (!isFree) {
+        const res = await subscriptionApi.createCheckoutSession(
+          switchingPlanId,
+          "monthly"
+        );
+
+        if (res.data.url) {
+          window.location.href = res.data.url;
+          return;
+        }
+
+        // Existing Stripe subscriber — updated in place, no redirect needed.
+        toast.success("Plan updated successfully.");
+        await load();
+        return;
+      }
+
       await subscriptionApi.selectPlan(switchingPlanId);
       toast.success("Plan updated successfully.");
       await load();
@@ -91,16 +170,38 @@ export default function Profile() {
   }
 
   async function confirmCancel() {
+    // Captured before the request — Stripe-backed subscriptions defer to
+    // the billing period end, everything else (admin-comped plans) is
+    // downgraded to Free immediately. See subscriptionService.cancelSubscription.
+    const isStripeBacked = Boolean(subscription?.stripe_subscription_id);
+
     try {
       setCancelling(true);
       await subscriptionApi.cancel();
-      toast.success("Subscription cancelled — you're back on the Free plan.");
+      toast.success(
+        isStripeBacked
+          ? "Your subscription will end at the close of the current billing period. You'll keep full access until then."
+          : "Subscription cancelled — you're back on the Free plan."
+      );
       await load();
     } catch (err) {
       toast.error(err.response?.data?.error || "Unable to cancel subscription.");
     } finally {
       setCancelling(false);
       setCancelOpen(false);
+    }
+  }
+
+  async function confirmResume() {
+    try {
+      setResuming(true);
+      await subscriptionApi.resume();
+      toast.success("Your subscription has been resumed.");
+      await load();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Unable to resume subscription.");
+    } finally {
+      setResuming(false);
     }
   }
 
@@ -111,6 +212,8 @@ export default function Profile() {
       </div>
     );
   }
+
+  const selectedCountry = getCountryByName(form.country);
 
   const currentPlanSlug = subscription?.slug;
   const otherPlans = plans.filter((p) => p.slug !== currentPlanSlug);
@@ -154,6 +257,44 @@ export default function Profile() {
             />
           </div>
 
+          <div>
+            <label className="text-sm font-semibold text-black flex items-center gap-2 mb-2">
+              <Globe size={16} /> Country
+            </label>
+            <select
+              value={form.country}
+              onChange={(e) => setForm({ ...form, country: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 p-3 text-black outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select country</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-black flex items-center gap-2 mb-2">
+              <Phone size={16} /> Mobile Number
+            </label>
+            <div className="flex items-center rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-blue-500">
+              <span className="pl-3 pr-1 text-slate-500">
+                {selectedCountry?.dialCode || "+--"}
+              </span>
+              <input
+                type="tel"
+                value={form.mobile_number}
+                onChange={(e) =>
+                  setForm({ ...form, mobile_number: e.target.value })
+                }
+                placeholder="3001234567"
+                className="w-full rounded-xl p-3 text-black outline-none"
+              />
+            </div>
+          </div>
+
           <div className="md:col-span-2">
             <label className="text-sm font-semibold text-slate-500 flex items-center gap-2 mb-2">
               <Mail size={16} /> Email
@@ -181,9 +322,17 @@ export default function Profile() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-black">Current Plan</h2>
           {subscription && (
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 capitalize">
-              {subscription.status}
-            </span>
+            <div className="flex items-center gap-2">
+              {subscription.cancel_at_period_end ? (
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                  Subscription ending
+                </span>
+              ) : (
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 capitalize">
+                  {subscription.status}
+                </span>
+              )}
+            </div>
           )}
         </div>
 
@@ -197,22 +346,44 @@ export default function Profile() {
                 value={`AED ${Number(subscription.price || 0).toFixed(2)}`}
               />
               <PlanStat
-                label="Next Billing"
+                icon={subscription.cancel_at_period_end ? <Clock size={16} /> : null}
+                label={subscription.cancel_at_period_end ? "Access Until" : "Next Billing"}
                 value={
-                  subscription.next_billing
+                  subscription.cancel_at_period_end
+                    ? formatDateDisplay(subscription.expires_at)
+                    : subscription.next_billing
                     ? new Date(subscription.next_billing).toLocaleDateString()
                     : "-"
                 }
               />
             </div>
 
-            {subscription.slug !== "free" && (
-              <button
-                onClick={() => setCancelOpen(true)}
-                className="mt-6 px-5 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-medium transition"
-              >
-                Cancel Plan
-              </button>
+            {subscription.cancel_at_period_end ? (
+              <>
+                <p className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  Your subscription has been canceled and will not renew. You
+                  can continue using your current plan until{" "}
+                  {formatDateDisplay(subscription.expires_at)}.
+                </p>
+
+                <button
+                  onClick={confirmResume}
+                  disabled={resuming}
+                  className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-medium transition disabled:opacity-60"
+                >
+                  <RotateCcw size={16} />
+                  {resuming ? "Resuming..." : "Resume Plan"}
+                </button>
+              </>
+            ) : (
+              subscription.slug !== "free" && (
+                <button
+                  onClick={() => setCancelOpen(true)}
+                  className="mt-6 px-5 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-medium transition"
+                >
+                  Cancel Plan
+                </button>
+              )
             )}
           </>
         ) : (
@@ -257,7 +428,10 @@ export default function Profile() {
         title="Switch plan?"
         message={
           switchingPlan
-            ? `Switch to the ${switchingPlan.name} plan? Your current plan will end immediately.`
+            ? Number(switchingPlan.monthly_price) === 0 &&
+              Number(switchingPlan.yearly_price) === 0
+              ? `Switch to the ${switchingPlan.name} plan? Your current plan will end immediately.`
+              : `Switch to the ${switchingPlan.name} plan? You may be redirected to Stripe to complete payment.`
             : ""
         }
         confirmLabel="Switch Plan"
@@ -269,9 +443,17 @@ export default function Profile() {
 
       <ConfirmDialog
         open={cancelOpen}
-        title="Cancel your subscription?"
-        message="You'll be moved back to the Free plan immediately. This cannot be undone."
-        confirmLabel="Cancel Plan"
+        title="Cancel subscription?"
+        message={
+          subscription?.stripe_subscription_id
+            ? `Your subscription will remain active until ${formatDateDisplay(
+                subscription.expires_at
+              )}. You will not be charged again after that date.`
+            : "You'll be moved back to the Free plan immediately. This cannot be undone."
+        }
+        confirmLabel="Cancel Subscription"
+        cancelLabel="Keep Plan"
+        loadingLabel="Cancelling..."
         loading={cancelling}
         onConfirm={confirmCancel}
         onCancel={() => setCancelOpen(false)}

@@ -52,9 +52,39 @@ function sampleValidation(overrides = {}) {
   };
 }
 
+function sampleBankStatement(overrides = {}) {
+  return {
+    bankName: "Emirates Test Bank",
+    accountTitle: "Acme Supplies LLC",
+    accountNumber: "1234567890",
+    iban: "AE070331234567890123456",
+    currency: "AED",
+    fromDate: "2026-01-01",
+    toDate: "2026-01-31",
+    openingBalance: 1000,
+    closingBalance: 4724.5,
+    ...overrides,
+  };
+}
+
+function sampleTransaction(overrides = {}) {
+  return {
+    transactionDate: "2026-01-02",
+    description: "Money Received from SYED MANZAR ABBAS via transfer STAN (000123)",
+    credit: 3500,
+    debit: 0,
+    availableBalance: 4500,
+    referenceNo: "STAN000123",
+    pageNumber: 1,
+    ...overrides,
+  };
+}
+
 module.exports = {
   samplePngBuffer,
   samplePdfBuffer,
   sampleParsedInvoice,
   sampleValidation,
+  sampleBankStatement,
+  sampleTransaction,
 };

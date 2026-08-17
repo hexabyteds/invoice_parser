@@ -37,13 +37,15 @@ module.exports = async function globalSetup() {
 
   // Seed plans used by usage/limit tests. Numbers are test fixtures, not
   // production values — production plans are managed via the admin panel.
+  // Starter/Business also carry fake Stripe price IDs so the Stripe
+  // checkout/webhook tests can resolve a plan without hitting real Stripe.
   await admin.query(
     `INSERT INTO plans
-      (name, slug, monthly_price, yearly_price, invoice_limit, client_limit, user_limit, storage_limit, ocr_limit, api_access, active)
+      (name, slug, monthly_price, yearly_price, invoice_limit, client_limit, user_limit, storage_limit, ocr_limit, api_access, active, stripe_price_id_monthly, stripe_price_id_yearly)
      VALUES
-      ('Free', 'free', 0, 0, 5, 2, 1, 50, 5, 0, 1),
-      ('Starter', 'starter', 19, 190, 100, 25, 1, 500, 100, 0, 1),
-      ('Business', 'business', 99, 990, 1000, 250, 5, 5000, 1000, 1, 1)`
+      ('Free', 'free', 0, 0, 5, 2, 1, 50, 5, 0, 1, NULL, NULL),
+      ('Starter', 'starter', 19, 190, 100, 25, 1, 500, 100, 0, 1, 'price_test_starter_monthly', 'price_test_starter_yearly'),
+      ('Business', 'business', 99, 990, 1000, 250, 5, 5000, 1000, 1, 1, 'price_test_business_monthly', 'price_test_business_yearly')`
   );
 
   const [[freePlan]] = await admin.query(

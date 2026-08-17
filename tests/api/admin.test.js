@@ -1,4 +1,5 @@
 const { request, app, registerAndLogin, loginAsAdmin, authed } = require("../helpers/api");
+const pool = require("../../config/database");
 
 const ADMIN_GET_ENDPOINTS = [
   "/api/admin/stats",
@@ -76,5 +77,98 @@ describe("Admin — cross-user visibility (the flip side of client/invoice isola
     expect(
       details.body.clients.some((c) => c.company_name === "Visible To Admin Co")
     ).toBe(true);
+  });
+});
+
+describe("Admin — customer login history", () => {
+  it("rejects unauthenticated requests (401)", async () => {
+    const { user } = await registerAndLogin();
+
+    const res = await request(app).get(
+      `/api/admin/customers/${user.id}/login-history`
+    );
+
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects a regular customer (403)", async () => {
+    const { token, user } = await registerAndLogin();
+
+    const res = await request(app)
+      .get(`/api/admin/customers/${user.id}/login-history`)
+      .set(authed(token));
+
+    expect(res.status).toBe(403);
+  });
+
+  it("404s for a customer id that doesn't exist", async () => {
+    const { token: adminToken } = await loginAsAdmin();
+
+    const res = await request(app)
+      .get("/api/admin/customers/999999999/login-history")
+      .set(authed(adminToken));
+
+    expect(res.status).toBe(404);
+  });
+
+  it("lets the admin see a customer's login history after that customer logs in", async () => {
+    const { email, password, user } = await registerAndLogin();
+    const { token: adminToken } = await loginAsAdmin();
+
+    await request(app)
+      .post("/api/auth/login")
+      .set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari/604.1")
+      .send({ email, password });
+
+    const res = await request(app)
+      .get(`/api/admin/customers/${user.id}/login-history`)
+      .set(authed(adminToken));
+
+    expect(res.status).toBe(200);
+    expect(res.body.history.length).toBe(1);
+    expect(res.body.history[0].device).toBe("iPhone");
+  });
+});
+
+describe("Admin — subscription cancellation visibility (BUG-BILLING-002)", () => {
+  it("surfaces cancel_at_period_end and stripe_status so a canceling subscription doesn't look like a normal active one", async () => {
+    const { user } = await registerAndLogin();
+    const admin = await loginAsAdmin();
+
+    const [[plan]] = await pool.execute(
+      `SELECT id FROM plans WHERE slug = 'starter' LIMIT 1`
+    );
+
+    await request(app)
+      .post("/api/subscriptions/change-plan")
+      .set(authed(admin.token))
+      .send({ userId: user.id, planId: plan.id, billingCycle: "monthly" });
+
+    // Simulates a Stripe-backed subscription that's been scheduled to
+    // cancel at period end — the same DB state the real cancel flow
+    // produces (see tests/api/stripe-checkout.test.js for that flow).
+    await pool.execute(
+      `UPDATE subscriptions
+       SET stripe_subscription_id = ?, stripe_status = 'active', cancel_at_period_end = 1
+       WHERE user_id = ? AND status = 'active'`,
+      [`sub_admin_visibility_${user.id}`, user.id]
+    );
+
+    const res = await request(app)
+      .get("/api/admin/subscriptions")
+      .set(authed(admin.token));
+
+    expect(res.status).toBe(200);
+
+    // getAllSubscriptions() returns full history, not just the active row
+    // (the user's original expired Free-plan row is in there too, and can
+    // tie on created_at with the new row) — status disambiguates which
+    // row is the one this test actually updated.
+    const row = res.body.subscriptions.find(
+      (s) => s.user_id === user.id && s.status === "active"
+    );
+    expect(row).toBeDefined();
+    expect(row.cancel_at_period_end).toBe(true);
+    expect(row.stripe_status).toBe("active");
   });
 });

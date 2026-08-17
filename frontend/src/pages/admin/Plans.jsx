@@ -147,11 +147,11 @@ export default function Plans() {
                     </td>
 
                     <td className="px-4 py-5 text-slate-700">
-                      ${Number(plan.monthly_price).toFixed(2)}
+                      AED {Number(plan.monthly_price).toFixed(2)}
                     </td>
 
                     <td className="px-4 py-5 text-slate-700">
-                      ${Number(plan.yearly_price).toFixed(2)}
+                      AED {Number(plan.yearly_price).toFixed(2)}
                     </td>
 
                     <td className="px-4 py-5 text-slate-700">

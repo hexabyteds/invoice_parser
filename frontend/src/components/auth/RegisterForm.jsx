@@ -11,11 +11,14 @@ import {
   Eye,
   EyeOff,
   CheckCircle,
+  Globe,
+  Phone,
 } from "lucide-react";
 
 import api from "../../services/api";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { COUNTRIES, getCountryByName } from "../../constants/countries";
 
 const registerSchema = z
   .object({
@@ -36,6 +39,21 @@ const registerSchema = z
       .regex(/[0-9]/, "Must contain number"),
 
     confirmPassword: z.string(),
+
+    country: z.string().trim().min(1, "Country is required."),
+
+    mobileNumber: z
+      .string()
+      .trim()
+      .min(1, "Mobile number is required.")
+      .refine(
+        (val) => /^[0-9\-\s()]+$/.test(val),
+        "Mobile number contains invalid characters."
+      )
+      .refine((val) => {
+        const digits = val.replace(/\D/g, "");
+        return digits.length >= 6 && digits.length <= 14;
+      }, "Please enter a valid mobile number."),
 
     terms: z.boolean().refine((val) => val === true, {
       message: "Please accept Terms & Conditions",
@@ -60,6 +78,8 @@ export default function RegisterForm() {
   });
 
   const password = watch("password") || "";
+  const selectedCountryName = watch("country") || "";
+  const selectedCountry = getCountryByName(selectedCountryName);
 
   const strength = () => {
     let score = 0;
@@ -78,11 +98,16 @@ export default function RegisterForm() {
 
  
     try {
+      const country = getCountryByName(data.country);
+
       const response = await api.post("/auth/register", {
         name: data.fullName,
         company_name: data.company,
         email: data.email,
         password: data.password,
+        country: data.country,
+        country_code: country?.dialCode || "",
+        mobile_number: data.mobileNumber,
       });
  
       if (response.data.success) {
@@ -150,6 +175,76 @@ export default function RegisterForm() {
           />
 
         </div>
+
+      </div>
+
+      {/* Country */}
+
+      <div>
+
+        <label className="mb-2 block text-sm font-medium">
+          Country
+        </label>
+
+        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4">
+
+          <Globe size={20} className="text-slate-500" />
+
+          <select
+            {...register("country")}
+            defaultValue=""
+            className="w-full bg-transparent px-4 py-4 outline-none [&>option]:bg-slate-900"
+          >
+            <option value="" disabled>
+              Select Country
+            </option>
+            {COUNTRIES.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+        </div>
+
+        {errors.country && (
+          <p className="mt-2 text-sm text-red-400">
+            {errors.country.message}
+          </p>
+        )}
+
+      </div>
+
+      {/* Mobile Number */}
+
+      <div>
+
+        <label className="mb-2 block text-sm font-medium">
+          Mobile Number
+        </label>
+
+        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4">
+
+          <Phone size={20} className="text-slate-500" />
+
+          <span className="ml-3 shrink-0 text-slate-300">
+            {selectedCountry?.dialCode || "+--"}
+          </span>
+
+          <input
+            type="tel"
+            {...register("mobileNumber")}
+            placeholder="3001234567"
+            className="w-full bg-transparent px-4 py-4 outline-none"
+          />
+
+        </div>
+
+        {errors.mobileNumber && (
+          <p className="mt-2 text-sm text-red-400">
+            {errors.mobileNumber.message}
+          </p>
+        )}
 
       </div>
 

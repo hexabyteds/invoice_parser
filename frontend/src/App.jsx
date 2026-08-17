@@ -19,12 +19,15 @@ import Analytics from "./pages/customer/Analytics";
 import Settings from "./pages/customer/Settings";
 import Profile from "./pages/customer/Profile";
 import InvoiceDetails from "./pages/customer/InvoiceDetails";
+import BankStatementDetails from "./pages/customer/BankStatementDetails";
 import Clients from "./pages/customer/Clients";
 import ClientDetails from "./pages/customer/ClientDetails";
 import AddClient from "./pages/customer/AddClient";
 import EditInvoice from "./pages/customer/EditInvoice";
 import ExportCenter from "./pages/customer/ExportCenter";
 import Usage from "./pages/customer/Usage";
+import Billing from "./pages/customer/Billing";
+import BillingReturn from "./pages/customer/BillingReturn";
 
 import AdminDashboard from "./pages/admin/Dashboard";
 import Customers from "./pages/admin/Customers";
@@ -69,6 +72,7 @@ function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="profile" element={<Profile />} />
           <Route path="invoices/:id" element={<InvoiceDetails />} />
+          <Route path="bank-statements/:id" element={<BankStatementDetails />} />
           <Route path="clients" element={<Clients />} />
           <Route path="clients/:id" element={<ClientDetails />} />
           <Route path="clients/new" element={<AddClient />} />
@@ -76,6 +80,8 @@ function App() {
           <Route path="upload/:clientId" element={<Upload />} />
           <Route path="export" element={<ExportCenter />} />
           <Route path="usage" element={<Usage />} />
+          <Route path="billing" element={<Billing />} />
+          <Route path="billing/return" element={<BillingReturn />} />
           <Route path="invoices/:id/edit" element={<EditInvoice />} />
         </Route>
 

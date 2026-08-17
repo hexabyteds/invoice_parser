@@ -71,9 +71,24 @@ class GeminiService {
             type: Type.OBJECT,
 
             properties: {
+                startPage: {
+                    type: Type.NUMBER,
+                    description: "The 1-indexed page number, WITHIN THE FILE YOU WERE GIVEN, where this invoice begins. If this invoice spans multiple consecutive pages (e.g. page 1 has the header/line items and page 2 continues with totals/bank details/signatures, with no new invoice number), this is the FIRST of those pages."
+                },
+
+                endPage: {
+                    type: Type.NUMBER,
+                    description: "The 1-indexed page number, WITHIN THE FILE YOU WERE GIVEN, where this invoice ends. Equal to startPage if the invoice fits on a single page."
+                },
+
                 vendorName: {
                     type: Type.STRING,
-                    description: "Vendor or supplier name"
+                    description: "Seller/issuer/vendor/supplier name — whoever ISSUED this document. Usually the company in the letterhead/logo area."
+                },
+
+                buyerName: {
+                    type: Type.STRING,
+                    description: "Buyer/customer/recipient name — whoever this document was billed/issued TO. Look for labels like 'Bill To', 'Sold To', 'Customer', 'Client', 'Party', 'Recipient', or similar. Return \"\" if no such section is visible."
                 },
 
                 invoiceNumber: {
@@ -175,7 +190,10 @@ class GeminiService {
             },
 
             required: [
+                "startPage",
+                "endPage",
                 "vendorName",
+                "buyerName",
                 "invoiceNumber",
                 "invoiceDate",
                 "dueDate",
@@ -218,6 +236,162 @@ class GeminiService {
     }
 
     /**
+     * JSON schema for a single bank statement transaction.
+     *
+     * continuesFromPreviousChunk / continuesToNextChunk exist only to let a
+     * chunked multi-page extraction (services/bankStatementExtractionService.js)
+     * stitch a transaction whose description/amount got split across a
+     * chunk boundary back into one row — see getBankStatementPrompt() for
+     * the instruction that populates them. They are meaningless (always
+     * false) when the whole statement fits in a single Gemini call.
+     */
+    getBankStatementTransactionSchema() {
+        return {
+            type: Type.OBJECT,
+
+            properties: {
+                transactionDate: {
+                    type: Type.STRING,
+                    description: "Booking/transaction date in YYYY-MM-DD format when possible"
+                },
+
+                description: {
+                    type: Type.STRING,
+                    description: "Full transaction description, with wrapped/continuation lines combined into one string"
+                },
+
+                credit: {
+                    type: Type.NUMBER,
+                    description: "Amount credited (money in). 0 if this transaction has no credit."
+                },
+
+                debit: {
+                    type: Type.NUMBER,
+                    description: "Amount debited (money out). 0 if this transaction has no debit."
+                },
+
+                availableBalance: {
+                    type: Type.NUMBER,
+                    description: "Running available balance after this transaction"
+                },
+
+                referenceNo: {
+                    type: Type.STRING,
+                    description: "Reference/STAN/cheque number if present"
+                },
+
+                continuesFromPreviousChunk: {
+                    type: Type.BOOLEAN,
+                    description: "True only if this is the first row you can see and it looks like the tail of a transaction that started before the excerpt you were given (e.g. a wrapped description line, or a row missing a date)"
+                },
+
+                continuesToNextChunk: {
+                    type: Type.BOOLEAN,
+                    description: "True only if this is the last row you can see and it looks cut off (description or amounts likely continue on the next page, beyond what you were given)"
+                }
+            },
+
+            required: [
+                "transactionDate",
+                "description",
+                "credit",
+                "debit",
+                "availableBalance",
+                "referenceNo",
+                "continuesFromPreviousChunk",
+                "continuesToNextChunk"
+            ]
+        };
+    }
+
+    /**
+     * Schema for a bank statement: statement-level metadata plus every
+     * transaction. Always returns:
+     *
+     * {
+     *   "statement": {...},
+     *   "transactions": [...]
+     * }
+     */
+    getBankStatementSchema() {
+        return {
+            type: Type.OBJECT,
+
+            properties: {
+                statement: {
+                    type: Type.OBJECT,
+
+                    properties: {
+                        bankName: {
+                            type: Type.STRING,
+                            description: "Name of the bank that issued the statement"
+                        },
+
+                        accountTitle: {
+                            type: Type.STRING,
+                            description: "Name of the account holder"
+                        },
+
+                        accountNumber: {
+                            type: Type.STRING,
+                            description: "Bank account number"
+                        },
+
+                        iban: {
+                            type: Type.STRING,
+                            description: "IBAN of the account"
+                        },
+
+                        currency: {
+                            type: Type.STRING,
+                            description: "Statement currency, for example AED"
+                        },
+
+                        fromDate: {
+                            type: Type.STRING,
+                            description: "Statement period start date in YYYY-MM-DD format when possible"
+                        },
+
+                        toDate: {
+                            type: Type.STRING,
+                            description: "Statement period end date in YYYY-MM-DD format when possible"
+                        },
+
+                        openingBalance: {
+                            type: Type.NUMBER,
+                            description: "Opening balance for the statement period"
+                        },
+
+                        closingBalance: {
+                            type: Type.NUMBER,
+                            description: "Closing balance for the statement period"
+                        }
+                    },
+
+                    required: [
+                        "bankName",
+                        "accountTitle",
+                        "accountNumber",
+                        "iban",
+                        "currency",
+                        "fromDate",
+                        "toDate",
+                        "openingBalance",
+                        "closingBalance"
+                    ]
+                },
+
+                transactions: {
+                    type: Type.ARRAY,
+                    items: this.getBankStatementTransactionSchema()
+                }
+            },
+
+            required: ["statement", "transactions"]
+        };
+    }
+
+    /**
      * Main invoice extraction prompt
      */
     getPrompt() {
@@ -235,6 +409,26 @@ IMPORTANT RULES:
 - If the file contains ONE invoice, return one object inside the "invoices" array.
 - If the PDF contains MULTIPLE invoices, treat EACH invoice separately.
 - Do NOT merge different invoices.
+
+MULTI-PAGE INVOICES (read this carefully — getting this wrong duplicates the
+invoice and misaligns every invoice after it in the file):
+
+- A single invoice can span MULTIPLE CONSECUTIVE PAGES. A very common
+  pattern: page 1 has the letterhead, invoice number, parties, and line
+  items; the NEXT page has no new letterhead or invoice number and instead
+  continues straight into the subtotal/tax summary, totals, "Total in
+  Words", bank/payment details, notes, or signatures. That next page is
+  PART OF THE SAME INVOICE — do NOT create a second entry in "invoices"
+  for it. Instead, treat it as a continuation: keep it as ONE invoice
+  object, merge any additional line items into that SAME invoice's
+  "lineItems" array, and set endPage to the LAST page it occupies.
+- A page starts a NEW invoice only when it has its OWN invoice
+  number/reference AND its own vendor letterhead/logo (a repeated "Page X
+  of Y" footer on the SAME invoice number does not count as a new
+  invoice).
+- Before finalizing your answer, check that every page of the file is
+  accounted for by exactly one invoice's startPage..endPage range, with no
+  page skipped and no page claimed by two different invoices.
 - Read every page carefully.
 - Extract ALL visible line items.
 - Preserve the complete product/service descriptions.
@@ -254,14 +448,21 @@ IMPORTANT RULES:
 
 PAY SPECIAL ATTENTION TO:
 
+- Which page(s) each invoice actually spans (startPage/endPage) — do not
+  split one multi-page invoice into two entries
 - Invoice number
 - Invoice date
 - Due date
-- Vendor name
+- Vendor/seller/issuer name (the party who issued the document — usually the letterhead/logo)
 - Vendor TRN
 - Vendor phone
 - Vendor email
 - Vendor address
+- Buyer/customer/recipient name — the OTHER party, the one this document
+  was issued TO. This may appear under a heading such as "Bill To",
+  "Sold To", "Customer", "Client", "Party", "Recipient", "Invoice To", or
+  similar wording. Extract it separately from the vendor/seller. Leave it
+  empty ("") only if no such section is visible anywhere on the document.
 - Currency
 - Subtotal
 - VAT rate
@@ -271,6 +472,77 @@ PAY SPECIAL ATTENTION TO:
 - Quantity
 - Unit price
 - Line amount
+
+IMPORTANT:
+Do not invent, estimate, or infer values that are not visible.
+`;
+    }
+
+    /**
+     * Bank statement extraction prompt.
+     *
+     * Shared verbatim by both the single-call path (whole PDF fits in one
+     * request) and the chunked path (services/bankStatementExtractionService.js
+     * splits large statements into page-range chunks) — a chunk is just a
+     * PDF made of consecutive pages from a larger statement, and the
+     * continuesFromPreviousChunk/continuesToNextChunk fields are how a
+     * transaction split across a chunk boundary survives the merge.
+     */
+    getBankStatementPrompt() {
+        return `
+You are an expert AI specialized in extracting data from bank statements.
+
+The uploaded file is a PDF (or image) containing one bank statement, or a
+CONSECUTIVE PAGE RANGE excerpt from a single larger bank statement.
+
+IMPORTANT RULES:
+
+- Read every page carefully, top to bottom, in order.
+- Extract the statement-level information ONCE (bank name, account title,
+  account number, IBAN, currency, statement period, opening balance,
+  closing balance) — usually found on the first page you can see.
+- Extract EVERY transaction row from EVERY page. Do not skip rows, and do
+  not skip pages.
+- A transaction's description may wrap across multiple lines before the
+  credit/debit/balance columns appear. Combine ALL of those lines into a
+  single "description" for that ONE transaction. Do NOT create a separate
+  transaction for a continuation line.
+- Each transaction has EITHER a credit amount OR a debit amount, never
+  both. Keep credit and debit as separate fields — never combine them into
+  one signed number.
+- If this excerpt is only part of a larger statement:
+  - If the very first row you see looks like the tail end of a transaction
+    that started on a page before this excerpt (e.g. it's a wrapped
+    description with no date, or is missing amounts), still record it as
+    its own entry in "transactions" and set continuesFromPreviousChunk to
+    true on it.
+  - If the very last row you see looks cut off (e.g. a description with no
+    amounts yet, suggesting the amounts are on the next page), record it as
+    its own entry and set continuesToNextChunk to true on it.
+  - Otherwise set both flags to false.
+- Preserve transactions in the exact order they appear in the document.
+- Extract only information that is visible in the document.
+- Do not guess or invent missing information.
+- If a string value is missing, return "".
+- If a numeric value is missing, return 0.
+- Dates should use YYYY-MM-DD whenever possible.
+- Numbers must not contain currency symbols or commas.
+
+PAY SPECIAL ATTENTION TO:
+
+- Bank name
+- Account title / account holder name
+- Account number
+- IBAN
+- Currency
+- Statement from/to dates
+- Opening balance
+- Closing balance
+- Booking/transaction date for every row
+- The complete, multi-line-combined description for every row
+- Credit amount (money in) vs debit amount (money out) — kept separate
+- Available/running balance after each transaction
+- Reference/STAN/cheque numbers when present
 
 IMPORTANT:
 Do not invent, estimate, or infer values that are not visible.
@@ -433,9 +705,13 @@ Do not invent, estimate, or infer values that are not visible.
     }
 
     /**
-     * Call Gemini with automatic retry
+     * Call Gemini with automatic retry.
+     *
+     * responseSchema defaults to the invoice schema so the existing
+     * extractInvoice() call site keeps working unchanged; bank statement
+     * extraction passes getBankStatementSchema() explicitly.
      */
-    async callGeminiWithRetry(contents) {
+    async callGeminiWithRetry(contents, responseSchema = this.getResponseSchema()) {
         let lastError = null;
     
         for (
@@ -466,10 +742,9 @@ Do not invent, estimate, or infer values that are not visible.
     
                         config: {
                             responseMimeType: "application/json",
-    
-                            responseSchema:
-                                this.getResponseSchema(),
-    
+
+                            responseSchema,
+
                             temperature: 0,
     
                             maxOutputTokens:
@@ -690,7 +965,8 @@ Do not invent, estimate, or infer values that are not visible.
 
             const result =
                 await this.callGeminiWithRetry(
-                    contents
+                    contents,
+                    this.getResponseSchema()
                 );
 
             const response =
@@ -789,6 +1065,162 @@ Do not invent, estimate, or infer values that are not visible.
                 error:
                     err?.message ||
                     "Gemini invoice extraction failed",
+
+                status:
+                    err?.status ||
+                    err?.code ||
+                    null
+
+            };
+        }
+    }
+
+    /**
+     * Extract bank statement (statement metadata + transactions) from a
+     * single file — either the complete PDF, or one page-range chunk of a
+     * larger PDF (see services/bankStatementExtractionService.js, which
+     * decides whether chunking is needed and merges chunk results).
+     */
+    async extractBankStatement(filePath) {
+
+        try {
+
+            if (!fs.existsSync(filePath)) {
+                throw new Error(
+                    `Bank statement file not found: ${filePath}`
+                );
+            }
+
+            const file =
+                fs.readFileSync(filePath);
+
+            const mimeType =
+                this.getMimeType(filePath);
+
+            const prompt =
+                this.getBankStatementPrompt();
+
+            console.log(
+                `[Gemini] Processing bank statement file: ${path.basename(filePath)}`
+            );
+
+            console.log(
+                `[Gemini] MIME type: ${mimeType}`
+            );
+
+            const contents = [
+
+                {
+                    text: prompt
+                },
+
+                {
+                    inlineData: {
+                        mimeType,
+                        data: file.toString("base64")
+                    }
+                }
+
+            ];
+
+            const result =
+                await this.callGeminiWithRetry(
+                    contents,
+                    this.getBankStatementSchema()
+                );
+
+            const response =
+                result.response;
+
+            const text =
+                response.text;
+
+            if (!text) {
+                throw new Error(
+                    "Gemini returned an empty response"
+                );
+            }
+
+            let parsed;
+
+            try {
+
+                parsed =
+                    JSON.parse(text);
+
+            } catch (parseError) {
+
+                console.error(
+                    "[Gemini] Structured JSON parsing failed."
+                );
+
+                console.error(
+                    "[Gemini] Raw response:",
+                    text
+                );
+
+                throw new Error(
+                    "Gemini returned invalid JSON despite structured output."
+                );
+            }
+
+            /**
+             * We always return:
+             *
+             * {
+             *   statement: {...},
+             *   transactions: [...]
+             * }
+             */
+            if (
+                !parsed ||
+                typeof parsed.statement !== "object" ||
+                !Array.isArray(parsed.transactions)
+            ) {
+                throw new Error(
+                    "Gemini response does not contain a valid bank statement."
+                );
+            }
+
+            console.log(
+                `[Gemini] Successfully extracted ${parsed.transactions.length} transaction(s).`
+            );
+
+            return {
+
+                success: true,
+
+                statement:
+                    parsed.statement,
+
+                transactions:
+                    parsed.transactions,
+
+                usage:
+                    result.usage,
+
+                cost:
+                    result.cost
+
+            };
+
+        } catch (err) {
+
+            console.error(
+                "[Gemini] Bank statement extraction failed:"
+            );
+
+            console.error(
+                err?.message || err
+            );
+
+            return {
+
+                success: false,
+
+                error:
+                    err?.message ||
+                    "Gemini bank statement extraction failed",
 
                 status:
                     err?.status ||
