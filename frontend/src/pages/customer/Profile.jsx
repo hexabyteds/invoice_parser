@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { User, Building2, Mail, CreditCard, RotateCcw, Clock } from "lucide-react";
+import { User, Building2, Mail, Globe, Phone, CreditCard, RotateCcw, Clock } from "lucide-react";
 
 import authApi from "../../services/authApi";
 import subscriptionApi from "../../services/subscriptionApi";
@@ -8,6 +8,7 @@ import planApi from "../../services/planApi";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useAuth } from "../../context/AuthContext";
 import { formatDateDisplay } from "../../utils/formatDate";
+import { COUNTRIES, getCountryByName } from "../../constants/countries";
 
 export default function Profile() {
   const { updateUser } = useAuth();
@@ -17,7 +18,12 @@ export default function Profile() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [form, setForm] = useState({ name: "", company_name: "" });
+  const [form, setForm] = useState({
+    name: "",
+    company_name: "",
+    country: "",
+    mobile_number: "",
+  });
   const [saving, setSaving] = useState(false);
 
   const [switchingPlanId, setSwitchingPlanId] = useState(null);
@@ -44,6 +50,8 @@ export default function Profile() {
       setForm({
         name: meRes.data.user.name || "",
         company_name: meRes.data.user.company_name || "",
+        country: meRes.data.user.country || "",
+        mobile_number: meRes.data.user.mobile_number || "",
       });
       setSubscription(subRes.data.subscription);
       // /api/plans already only returns active plans.
@@ -63,10 +71,55 @@ export default function Profile() {
       return;
     }
 
+    const payload = { name: form.name, company_name: form.company_name };
+
+    // Country/mobile number are optional here (pre-existing accounts may
+    // not have them yet) but once either is touched, both must be
+    // present and valid — same rule the backend enforces.
+    const touchesContact = form.country.trim() || form.mobile_number.trim();
+
+    if (touchesContact) {
+      if (!form.country.trim()) {
+        toast.error("Country is required.");
+        return;
+      }
+
+      const country = getCountryByName(form.country);
+      if (!country) {
+        toast.error("Please select a valid country.");
+        return;
+      }
+
+      const mobileValue = form.mobile_number.trim();
+      if (!mobileValue) {
+        toast.error("Mobile number is required.");
+        return;
+      }
+      if (!/^[0-9\-\s()]+$/.test(mobileValue)) {
+        toast.error("Mobile number contains invalid characters.");
+        return;
+      }
+      const digitsOnly = mobileValue.replace(/\D/g, "");
+      if (digitsOnly.length < 6 || digitsOnly.length > 14) {
+        toast.error("Please enter a valid mobile number.");
+        return;
+      }
+
+      payload.country = form.country;
+      payload.country_code = country.dialCode;
+      payload.mobile_number = mobileValue;
+    }
+
     try {
       setSaving(true);
-      const res = await authApi.updateProfile(form);
+      const res = await authApi.updateProfile(payload);
       setProfile(res.data.user);
+      setForm({
+        name: res.data.user.name || "",
+        company_name: res.data.user.company_name || "",
+        country: res.data.user.country || "",
+        mobile_number: res.data.user.mobile_number || "",
+      });
       updateUser(res.data.user);
       toast.success("Profile updated successfully.");
     } catch (err) {
@@ -160,6 +213,8 @@ export default function Profile() {
     );
   }
 
+  const selectedCountry = getCountryByName(form.country);
+
   const currentPlanSlug = subscription?.slug;
   const otherPlans = plans.filter((p) => p.slug !== currentPlanSlug);
   const switchingPlan = plans.find((p) => p.id === switchingPlanId);
@@ -200,6 +255,44 @@ export default function Profile() {
               onChange={(e) => setForm({ ...form, company_name: e.target.value })}
               className="w-full rounded-xl border border-slate-200 p-3 text-black outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-black flex items-center gap-2 mb-2">
+              <Globe size={16} /> Country
+            </label>
+            <select
+              value={form.country}
+              onChange={(e) => setForm({ ...form, country: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 p-3 text-black outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select country</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-black flex items-center gap-2 mb-2">
+              <Phone size={16} /> Mobile Number
+            </label>
+            <div className="flex items-center rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-blue-500">
+              <span className="pl-3 pr-1 text-slate-500">
+                {selectedCountry?.dialCode || "+--"}
+              </span>
+              <input
+                type="tel"
+                value={form.mobile_number}
+                onChange={(e) =>
+                  setForm({ ...form, mobile_number: e.target.value })
+                }
+                placeholder="3001234567"
+                className="w-full rounded-xl p-3 text-black outline-none"
+              />
+            </div>
           </div>
 
           <div className="md:col-span-2">

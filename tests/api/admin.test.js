@@ -80,6 +80,56 @@ describe("Admin — cross-user visibility (the flip side of client/invoice isola
   });
 });
 
+describe("Admin — customer login history", () => {
+  it("rejects unauthenticated requests (401)", async () => {
+    const { user } = await registerAndLogin();
+
+    const res = await request(app).get(
+      `/api/admin/customers/${user.id}/login-history`
+    );
+
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects a regular customer (403)", async () => {
+    const { token, user } = await registerAndLogin();
+
+    const res = await request(app)
+      .get(`/api/admin/customers/${user.id}/login-history`)
+      .set(authed(token));
+
+    expect(res.status).toBe(403);
+  });
+
+  it("404s for a customer id that doesn't exist", async () => {
+    const { token: adminToken } = await loginAsAdmin();
+
+    const res = await request(app)
+      .get("/api/admin/customers/999999999/login-history")
+      .set(authed(adminToken));
+
+    expect(res.status).toBe(404);
+  });
+
+  it("lets the admin see a customer's login history after that customer logs in", async () => {
+    const { email, password, user } = await registerAndLogin();
+    const { token: adminToken } = await loginAsAdmin();
+
+    await request(app)
+      .post("/api/auth/login")
+      .set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari/604.1")
+      .send({ email, password });
+
+    const res = await request(app)
+      .get(`/api/admin/customers/${user.id}/login-history`)
+      .set(authed(adminToken));
+
+    expect(res.status).toBe(200);
+    expect(res.body.history.length).toBe(1);
+    expect(res.body.history[0].device).toBe("iPhone");
+  });
+});
+
 describe("Admin — subscription cancellation visibility (BUG-BILLING-002)", () => {
   it("surfaces cancel_at_period_end and stripe_status so a canceling subscription doesn't look like a normal active one", async () => {
     const { user } = await registerAndLogin();

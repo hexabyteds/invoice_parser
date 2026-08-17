@@ -1,4 +1,5 @@
 const adminRepository = require("../repositories/adminRepository");
+const loginHistoryRepository = require("../repositories/loginHistoryRepository");
 const {
   normalizePlan,
   VALID_PLANS,
@@ -68,6 +69,16 @@ class AdminService {
       })),
       invoiceStats,
     };
+  }
+
+  async getCustomerLoginHistory(id) {
+    const customer = await adminRepository.getCustomerById(id);
+
+    if (!customer) {
+      throw new Error("Customer not found.");
+    }
+
+    return await loginHistoryRepository.findByUserId(id, 50);
   }
 
   async updateCustomer(id, data) {

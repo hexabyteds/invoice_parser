@@ -53,7 +53,10 @@ class AuthController {
                 });
             }
 
-            const result = await authService.login(email, password);
+            const result = await authService.login(email, password, {
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"],
+            });
 
             res.json({
                 success: true,
@@ -104,6 +107,28 @@ class AuthController {
             res.json({
                 success: true,
                 user
+            });
+
+        } catch (err) {
+
+            res.status(400).json({
+                success: false,
+                error: err.message
+            });
+
+        }
+
+    }
+
+    async loginHistory(req, res) {
+
+        try {
+
+            const history = await authService.getLoginHistory(req.user.id);
+
+            res.json({
+                success: true,
+                history
             });
 
         } catch (err) {

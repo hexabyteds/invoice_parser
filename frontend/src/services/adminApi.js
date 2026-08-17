@@ -18,6 +18,11 @@ const adminApi = {
     return data;
   },
 
+  getCustomerLoginHistory: async (id) => {
+    const { data } = await api.get(`/admin/customers/${id}/login-history`);
+    return data;
+  },
+
   updateCustomer: async (id, payload) => {
     const { data } = await api.put(`/admin/customers/${id}`, payload);
     return data;
