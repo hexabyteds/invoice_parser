@@ -6,7 +6,7 @@ import AdminPageShell from "../../components/admin/AdminPageShell";
 import adminApi from "../../services/adminApi";
 
 const statConfig = [
-  { key: "totalCustomers", label: "Total Customers", icon: Users, color: "from-violet-500 to-purple-600" },
+  { key: "totalCustomers", label: "Total Customers", icon: Users, color: "from-indigo-500 to-indigo-600" },
   { key: "activeSubscriptions", label: "Active Subscriptions", icon: CreditCard, color: "from-blue-500 to-indigo-600" },
   { key: "totalInvoices", label: "Total Invoices", icon: FileText, color: "from-emerald-500 to-teal-600" },
   { key: "monthlyRevenue", label: "Monthly Revenue", icon: TrendingUp, color: "from-amber-500 to-orange-600", prefix: "$" },
@@ -111,7 +111,7 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="text-right text-sm">
-                    <p className="capitalize text-violet-600">
+                    <p className="capitalize text-indigo-600">
                       {customer.plan}
                     </p>
                     <p className="text-slate-400">

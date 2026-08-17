@@ -120,7 +120,7 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
             <input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
             />
           </label>
 
@@ -130,7 +130,7 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
             />
           </label>
 
@@ -141,7 +141,7 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
               onChange={(e) =>
                 setForm({ ...form, company_name: e.target.value })
               }
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
             />
           </label>
 
@@ -152,7 +152,7 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               placeholder="+971 50 123 4567"
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
             />
           </label>
 
@@ -161,7 +161,7 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
             <select
               value={form.country}
               onChange={(e) => setForm({ ...form, country: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">Select country</option>
               {COUNTRY_OPTIONS.map((option) => (
@@ -175,7 +175,7 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
           <button
             onClick={handleSaveProfile}
             disabled={busy === "profile"}
-            className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-medium text-white transition hover:bg-violet-700 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
           >
             <Save size={18} />
             {busy === "profile" ? "Saving..." : "Save Changes"}
@@ -186,7 +186,7 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
       <div className="space-y-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
-            <BadgeCheck size={20} className="text-violet-600" />
+            <BadgeCheck size={20} className="text-indigo-600" />
             Change Plan
           </h2>
 
@@ -231,7 +231,7 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
-            <KeyRound size={20} className="text-violet-600" />
+            <KeyRound size={20} className="text-indigo-600" />
             Reset Password
           </h2>
 
@@ -241,7 +241,7 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="New password (min 8 chars)"
-              className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+              className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
             />
 
             <button

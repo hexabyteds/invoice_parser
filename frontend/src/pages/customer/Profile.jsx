@@ -222,7 +222,7 @@ export default function Profile() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-black">My Profile</h1>
+        <h1 className="text-3xl font-bold text-slate-900">My Profile</h1>
         <p className="text-slate-500 mt-2">
           Manage your account details and subscription plan.
         </p>
@@ -230,30 +230,30 @@ export default function Profile() {
 
       {/* Profile Information */}
       <div className="bg-white rounded-3xl shadow border p-8">
-        <h2 className="text-xl font-semibold text-black mb-6">
+        <h2 className="text-xl font-semibold text-slate-900 mb-6">
           Profile Information
         </h2>
 
         <form onSubmit={handleSaveProfile} className="grid md:grid-cols-2 gap-6 max-w-2xl">
           <div>
-            <label className="text-sm font-semibold text-black flex items-center gap-2 mb-2">
+            <label className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2">
               <User size={16} /> Name *
             </label>
             <input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 p-3 text-black outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border border-slate-200 p-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
           <div>
-            <label className="text-sm font-semibold text-black flex items-center gap-2 mb-2">
+            <label className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-2">
               <Building2 size={16} /> Company Name
             </label>
             <input
               value={form.company_name}
               onChange={(e) => setForm({ ...form, company_name: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 p-3 text-black outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-xl border border-slate-200 p-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
@@ -309,7 +309,7 @@ export default function Profile() {
           <div className="md:col-span-2">
             <button
               disabled={saving}
-              className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-60 transition"
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold disabled:opacity-60 transition"
             >
               {saving ? "Saving..." : "Save Changes"}
             </button>
@@ -320,7 +320,7 @@ export default function Profile() {
       {/* Current Plan */}
       <div className="bg-white rounded-3xl shadow border p-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-black">Current Plan</h2>
+          <h2 className="text-xl font-semibold text-slate-900">Current Plan</h2>
           {subscription && (
             <div className="flex items-center gap-2">
               {subscription.cancel_at_period_end ? (
@@ -394,13 +394,13 @@ export default function Profile() {
       {/* Switch Plan */}
       {otherPlans.length > 0 && (
         <div className="bg-white rounded-3xl shadow border p-8">
-          <h2 className="text-xl font-semibold text-black mb-6">Switch Plan</h2>
+          <h2 className="text-xl font-semibold text-slate-900 mb-6">Switch Plan</h2>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {otherPlans.map((plan) => (
               <div key={plan.id} className="border rounded-2xl p-6 flex flex-col">
-                <h3 className="font-bold text-lg text-black">{plan.name}</h3>
-                <p className="text-2xl font-bold text-black mt-2">
+                <h3 className="font-bold text-lg text-slate-900">{plan.name}</h3>
+                <p className="text-2xl font-bold text-slate-900 mt-2">
                   AED {Number(plan.monthly_price).toFixed(2)}
                   <span className="text-sm font-normal text-slate-500">/mo</span>
                 </p>
@@ -413,7 +413,7 @@ export default function Profile() {
 
                 <button
                   onClick={() => setSwitchingPlanId(plan.id)}
-                  className="mt-5 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition"
+                  className="mt-5 w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold transition"
                 >
                   Switch to {plan.name}
                 </button>
@@ -469,7 +469,7 @@ function PlanStat({ label, value, icon }) {
         {icon}
         {label}
       </p>
-      <p className="mt-1 font-bold text-black capitalize">{value}</p>
+      <p className="mt-1 font-bold text-slate-900 capitalize">{value}</p>
     </div>
   );
 }

@@ -86,7 +86,7 @@ function Field({ label, children, hint }) {
 }
 
 const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500";
+  "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500";
 
 export default function PlanModal({ open, plan, onClose, onSaved }) {
   const isEdit = Boolean(plan?.id);
@@ -172,15 +172,16 @@ export default function PlanModal({ open, plan, onClose, onSaved }) {
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close"
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
           >
-            <X size={20} />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8 p-6">
           <section className="grid gap-4 md:grid-cols-2">
-            <h3 className="md:col-span-2 text-sm font-semibold uppercase tracking-wide text-violet-600">
+            <h3 className="md:col-span-2 text-sm font-semibold uppercase tracking-wide text-indigo-600">
               Basic Info
             </h3>
 
@@ -208,7 +209,7 @@ export default function PlanModal({ open, plan, onClose, onSaved }) {
           </section>
 
           <section className="grid gap-4 md:grid-cols-2">
-            <h3 className="md:col-span-2 text-sm font-semibold uppercase tracking-wide text-violet-600">
+            <h3 className="md:col-span-2 text-sm font-semibold uppercase tracking-wide text-indigo-600">
               Pricing
             </h3>
 
@@ -236,7 +237,7 @@ export default function PlanModal({ open, plan, onClose, onSaved }) {
           </section>
 
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <h3 className="sm:col-span-2 lg:col-span-3 text-sm font-semibold uppercase tracking-wide text-violet-600">
+            <h3 className="sm:col-span-2 lg:col-span-3 text-sm font-semibold uppercase tracking-wide text-indigo-600">
               Limits
             </h3>
 
@@ -292,7 +293,7 @@ export default function PlanModal({ open, plan, onClose, onSaved }) {
           </section>
 
           <section className="grid gap-4 md:grid-cols-2">
-            <h3 className="md:col-span-2 text-sm font-semibold uppercase tracking-wide text-violet-600">
+            <h3 className="md:col-span-2 text-sm font-semibold uppercase tracking-wide text-indigo-600">
               Stripe Billing
             </h3>
 
@@ -336,7 +337,7 @@ export default function PlanModal({ open, plan, onClose, onSaved }) {
           </section>
 
           <section className="grid gap-3 sm:grid-cols-2">
-            <h3 className="sm:col-span-2 text-sm font-semibold uppercase tracking-wide text-violet-600">
+            <h3 className="sm:col-span-2 text-sm font-semibold uppercase tracking-wide text-indigo-600">
               Features & Visibility
             </h3>
 
@@ -355,7 +356,7 @@ export default function PlanModal({ open, plan, onClose, onSaved }) {
                   checked={form[item.key]}
                   onChange={(e) => update(item.key, e.target.checked)}
                   disabled={item.key === "active" && plan?.slug === "free"}
-                  className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 />
                 <span className="text-sm font-medium text-slate-700">
                   {item.label}
@@ -376,7 +377,7 @@ export default function PlanModal({ open, plan, onClose, onSaved }) {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
             >
               {saving ? (
                 <Loader2 size={18} className="animate-spin" />

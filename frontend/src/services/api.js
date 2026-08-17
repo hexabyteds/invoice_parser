@@ -23,6 +23,7 @@ const PUBLIC_ENDPOINTS = [
   "/auth/register",
   "/auth/forgot-password",
   "/auth/reset-password",
+  "/contact",
 ];
 
 api.interceptors.request.use(

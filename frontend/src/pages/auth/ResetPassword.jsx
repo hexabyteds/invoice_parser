@@ -77,7 +77,7 @@ export default function ResetPassword() {
                     {!token ? (
                         <div className="mt-8 text-center">
 
-                            <h2 className="text-2xl font-bold">
+                            <h2 className="text-2xl font-bold font-display tracking-tight">
                                 Invalid reset link
                             </h2>
 
@@ -88,7 +88,7 @@ export default function ResetPassword() {
 
                             <Link
                                 to="/forgot-password"
-                                className="mt-6 inline-block text-blue-500"
+                                className="mt-6 inline-block text-indigo-400 transition-colors hover:text-indigo-300"
                             >
                                 Request a new link
                             </Link>
@@ -97,7 +97,7 @@ export default function ResetPassword() {
                     ) : (
                         <form onSubmit={handleSubmit(onSubmit)}>
 
-                            <h2 className="mt-8 text-3xl font-bold">
+                            <h2 className="mt-8 text-3xl font-bold font-display tracking-tight">
                                 Reset Password
                             </h2>
 
@@ -130,6 +130,9 @@ export default function ResetPassword() {
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                        aria-pressed={showPassword}
+                                        className="-m-2 p-2 text-slate-400 transition-colors hover:text-white"
                                     >
                                         {showPassword ? (
                                             <EyeOff size={20} />
@@ -173,6 +176,9 @@ export default function ResetPassword() {
                                     <button
                                         type="button"
                                         onClick={() => setShowConfirm(!showConfirm)}
+                                        aria-label={showConfirm ? "Hide password" : "Show password"}
+                                        aria-pressed={showConfirm}
+                                        className="-m-2 p-2 text-slate-400 transition-colors hover:text-white"
                                     >
                                         {showConfirm ? (
                                             <EyeOff size={20} />
@@ -193,7 +199,7 @@ export default function ResetPassword() {
 
                             <button
                                 disabled={isSubmitting}
-                                className="mt-8 w-full rounded-xl bg-blue-600 py-4 font-semibold transition hover:bg-blue-500 disabled:opacity-60"
+                                className="mt-8 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-4 font-semibold text-white shadow-lg shadow-indigo-950/30 transition-all hover:from-indigo-500 hover:to-violet-500 disabled:opacity-60"
                             >
                                 {isSubmitting ? "Resetting..." : "Reset Password"}
                             </button>

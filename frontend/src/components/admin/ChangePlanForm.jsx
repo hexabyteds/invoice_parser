@@ -5,7 +5,7 @@ import adminApi from "../../services/adminApi";
 import planApi from "../../services/planApi";
 
 const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500";
+  "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500";
 
 function resolveInitialPlanId(plans, { initialPlanId, initialPlanSlug }) {
   if (initialPlanId != null && initialPlanId !== "") {
@@ -159,8 +159,8 @@ export default function ChangePlanForm({
           disabled={saving || loadingPlans}
           className={
             showCancel
-              ? "inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 font-medium text-white hover:bg-violet-700 disabled:opacity-60"
-              : "inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-5 py-3 font-medium text-violet-700 transition hover:bg-violet-100 disabled:opacity-60"
+              ? "inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+              : "inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-5 py-3 font-medium text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-60"
           }
         >
           {saving ? (

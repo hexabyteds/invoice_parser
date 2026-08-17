@@ -21,7 +21,7 @@ export default function TopClientsChart({ data = [] }) {
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border p-6">
-      <h2 className="text-xl font-semibold text-black mb-6">
+      <h2 className="text-xl font-semibold text-slate-900 mb-6">
         Top Clients by Invoice Count
       </h2>
 

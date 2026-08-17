@@ -7,7 +7,7 @@ function formatStorageCell(usedBytes, limitMb) {
   const percentage =
     limitBytes > 0 ? Math.min((used / limitBytes) * 100, 100) : 0;
 
-  let barColor = "bg-violet-500";
+  let barColor = "bg-indigo-500";
   if (percentage >= 90) barColor = "bg-red-500";
   else if (percentage >= 70) barColor = "bg-amber-500";
 
@@ -54,7 +54,7 @@ export default function UsageRow({ customer, onView }) {
       </td>
 
       <td className="px-4 py-4">
-        <span className="inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-medium capitalize text-violet-700">
+        <span className="inline-flex rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium capitalize text-indigo-700">
           {customer.plan_name || "—"}
         </span>
       </td>
@@ -95,7 +95,7 @@ export default function UsageRow({ customer, onView }) {
         <button
           type="button"
           onClick={() => onView(customer)}
-          className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-50"
+          className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
         >
           <Eye size={16} />
           View

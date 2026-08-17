@@ -136,7 +136,7 @@ export default function RegisterForm() {
           Full Name
         </label>
 
-        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4">
+        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4 transition-colors focus-within:border-indigo-500">
 
           <User size={20} className="text-slate-500" />
 
@@ -164,13 +164,13 @@ export default function RegisterForm() {
           Company (Optional)
         </label>
 
-        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4">
+        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4 transition-colors focus-within:border-indigo-500">
 
           <Building2 size={20} className="text-slate-500" />
 
           <input
             {...register("company")}
-            placeholder="EazeeBooks Inc."
+            placeholder="Acme Trading LLC"
             className="w-full bg-transparent px-4 py-4 outline-none"
           />
 
@@ -256,7 +256,7 @@ export default function RegisterForm() {
           Email Address
         </label>
 
-        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4">
+        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4 transition-colors focus-within:border-indigo-500">
 
           <Mail size={20} className="text-slate-500" />
 
@@ -285,7 +285,7 @@ export default function RegisterForm() {
           Password
         </label>
 
-        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4">
+        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4 transition-colors focus-within:border-indigo-500">
 
           <Lock size={20} className="text-slate-500" />
 
@@ -299,6 +299,9 @@ export default function RegisterForm() {
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-pressed={showPassword}
+            className="-m-2 shrink-0 p-2 text-slate-500 transition-colors hover:text-white"
           >
             {showPassword ? (
               <EyeOff size={20} />
@@ -360,7 +363,7 @@ export default function RegisterForm() {
           Confirm Password
         </label>
 
-        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4">
+        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4 transition-colors focus-within:border-indigo-500">
 
           <Lock size={20} className="text-slate-500" />
 
@@ -374,6 +377,9 @@ export default function RegisterForm() {
           <button
             type="button"
             onClick={() => setShowConfirm(!showConfirm)}
+            aria-label={showConfirm ? "Hide password" : "Show password"}
+            aria-pressed={showConfirm}
+            className="-m-2 shrink-0 p-2 text-slate-500 transition-colors hover:text-white"
           >
             {showConfirm ? (
               <EyeOff size={20} />
@@ -440,7 +446,7 @@ export default function RegisterForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 py-4 font-semibold transition hover:opacity-90 disabled:opacity-60"
+        className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-4 font-semibold transition hover:opacity-90 disabled:opacity-60"
       >
         {isSubmitting ? "Creating Account..." : "Create Account"}
       </button>
@@ -451,7 +457,7 @@ export default function RegisterForm() {
 
         <Link
           to="/login"
-          className="ml-2 font-medium text-blue-400 hover:text-blue-300"
+          className="ml-2 font-medium text-indigo-400 transition-colors hover:text-indigo-300"
         >
           Sign In
         </Link>

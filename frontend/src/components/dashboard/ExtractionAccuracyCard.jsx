@@ -18,7 +18,7 @@ export default function ExtractionAccuracyCard({ data }) {
   return (
     <div className="bg-white rounded-3xl shadow-sm border p-6">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-semibold text-black">Extraction Accuracy</h2>
+        <h2 className="text-xl font-semibold text-slate-900">Extraction Accuracy</h2>
         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${toneClasses.badge}`}>
           {overallAccuracy}%
         </span>
@@ -44,7 +44,7 @@ function Stat({ label, value, span }) {
   return (
     <div className={`p-3 rounded-xl bg-slate-50 ${span ? "col-span-2" : ""}`}>
       <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-1 text-lg font-bold text-black">{value}</p>
+      <p className="mt-1 text-lg font-bold text-slate-900">{value}</p>
     </div>
   );
 }

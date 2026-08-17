@@ -59,10 +59,10 @@ export default function FAQ() {
   return (
     <section className="mx-auto max-w-4xl px-6 py-24 sm:px-8">
       <div className="text-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-400">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-400">
           FAQ
         </p>
-        <h2 className="mt-4 text-4xl font-bold text-white sm:text-5xl">
+        <h2 className="mt-4 text-4xl font-bold font-display tracking-tight text-white sm:text-5xl">
           Questions, answered.
         </h2>
       </div>

@@ -18,7 +18,7 @@ export default function LegalStub({ title }) {
 
         <p className="mt-6 text-lg text-slate-400">
           This page is being finalized. In the meantime, reach out to{" "}
-          <a href="mailto:sales@eazeebooks.com" className="text-blue-400 hover:text-blue-300">
+          <a href="mailto:sales@eazeebooks.com" className="text-indigo-400 transition-colors hover:text-indigo-300">
             sales@eazeebooks.com
           </a>{" "}
           with any questions about how EazeeBooks handles your data or the

@@ -18,14 +18,14 @@ export default function UsageFilters({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search customer, email, company..."
-          className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+          className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
         />
       </div>
 
       <select
         value={planFilter}
         onChange={(e) => onPlanFilterChange(e.target.value)}
-        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500"
+        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
       >
         <option value="all">All plans</option>
         {plans.map((plan) => (

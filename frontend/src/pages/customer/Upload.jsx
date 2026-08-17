@@ -186,7 +186,7 @@ export default function Upload() {
       <div className="bg-white rounded-3xl shadow border p-8">
 
         <div className="mb-8">
-          <label className="block mb-2 text-sm font-semibold text-black">
+          <label className="block mb-2 text-sm font-semibold text-slate-900">
             {isClientLocked ? "Client" : "Select Client"}
           </label>
 
@@ -194,7 +194,7 @@ export default function Upload() {
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             disabled={isClientLocked}
-            className="w-full rounded-xl border p-3 bg-white text-black disabled:bg-slate-100"
+            className="w-full rounded-xl border p-3 bg-white text-slate-900 disabled:bg-slate-100"
           >
             <option value="">Select Client</option>
 
@@ -224,14 +224,14 @@ export default function Upload() {
         </div>
 
         <div className="mb-8">
-          <label className="block mb-2 text-sm font-semibold text-black">
+          <label className="block mb-2 text-sm font-semibold text-slate-900">
             Document Type
           </label>
 
           <select
             value={documentType}
             onChange={(e) => setDocumentType(e.target.value)}
-            className="w-full rounded-xl border p-3 bg-white text-black"
+            className="w-full rounded-xl border p-3 bg-white text-slate-900"
           >
             <option value="">Select Document Type</option>
 
@@ -256,10 +256,10 @@ export default function Upload() {
           onDrop={dropFile}
           className={`
             border-2 border-dashed rounded-2xl p-12 text-center transition
-            ${dragging ? "border-blue-500 bg-blue-50" : "border-slate-300"}
+            ${dragging ? "border-indigo-500 bg-indigo-50" : "border-slate-300"}
           `}
         >
-          <UploadCloud className="mx-auto text-blue-600" size={60} />
+          <UploadCloud className="mx-auto text-indigo-600" size={60} />
 
           <h2 className="text-xl font-semibold mt-5">
             Drag & Drop Invoice
@@ -276,7 +276,7 @@ export default function Upload() {
               accept=".pdf,.jpg,.jpeg,.png"
               onChange={chooseFile}
             />
-            <span className="cursor-pointer bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition">
+            <span className="cursor-pointer bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-6 py-3 rounded-xl hover:from-indigo-500 hover:to-violet-500 transition">
               Browse File
             </span>
           </label>
@@ -285,7 +285,7 @@ export default function Upload() {
         {file && (
           <div className="mt-8 rounded-2xl border p-5 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <FileText className="text-blue-600" size={40} />
+              <FileText className="text-indigo-600" size={40} />
               <div>
                 <h3 className="font-semibold">{file.name}</h3>
                 <p className="text-sm text-slate-500">
@@ -311,7 +311,7 @@ export default function Upload() {
         <button
           disabled={loading || selectedClientInactive}
           onClick={upload}
-          className="mt-8 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl flex items-center gap-2 disabled:opacity-60"
+          className="mt-8 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white px-8 py-3 rounded-xl flex items-center gap-2 disabled:opacity-60"
         >
           {loading ? (
             <>
@@ -332,56 +332,56 @@ export default function Upload() {
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label className="text-slate-500">Bank Name</label>
-              <p className="font-semibold text-black">
+              <p className="font-semibold text-slate-900">
                 {result.bankStatement.bankName || "-"}
               </p>
             </div>
 
             <div>
               <label className="text-slate-500">Account Title</label>
-              <p className="font-semibold text-black">
+              <p className="font-semibold text-slate-900">
                 {result.bankStatement.accountTitle || "-"}
               </p>
             </div>
 
             <div>
               <label className="text-slate-500">Account Number</label>
-              <p className="font-semibold text-black">
+              <p className="font-semibold text-slate-900">
                 {result.bankStatement.accountNumber || "-"}
               </p>
             </div>
 
             <div>
               <label className="text-slate-500">IBAN</label>
-              <p className="font-semibold text-black">
+              <p className="font-semibold text-slate-900">
                 {result.bankStatement.iban || "-"}
               </p>
             </div>
 
             <div>
               <label className="text-slate-500">Statement Period</label>
-              <p className="font-semibold text-black">
+              <p className="font-semibold text-slate-900">
                 {result.bankStatement.fromDate || "-"} to {result.bankStatement.toDate || "-"}
               </p>
             </div>
 
             <div>
               <label className="text-slate-500">Opening Balance</label>
-              <p className="font-semibold text-black">
+              <p className="font-semibold text-slate-900">
                 {result.bankStatement.currency} {result.bankStatement.openingBalance ?? "-"}
               </p>
             </div>
 
             <div>
               <label className="text-slate-500">Closing Balance</label>
-              <p className="font-semibold text-black">
+              <p className="font-semibold text-slate-900">
                 {result.bankStatement.currency} {result.bankStatement.closingBalance ?? "-"}
               </p>
             </div>
 
             <div>
               <label className="text-slate-500">Transactions Extracted</label>
-              <p className="font-semibold text-black">
+              <p className="font-semibold text-slate-900">
                 {result.transactionCount}
               </p>
             </div>
@@ -391,7 +391,7 @@ export default function Upload() {
             onClick={() =>
               navigate(`/dashboard/bank-statements/${result.bankStatement.id}`)
             }
-            className="mt-8 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl transition"
+            className="mt-8 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white px-6 py-3 rounded-xl transition"
           >
             View Bank Statement
           </button>
@@ -402,49 +402,49 @@ export default function Upload() {
         <div className="bg-white rounded-3xl shadow border p-8 grid md:grid-cols-2 gap-6">
           <div>
             <label className="text-slate-500">Invoice Number</label>
-            <p className="font-semibold text-black">
+            <p className="font-semibold text-slate-900">
               {result.invoice?.invoiceNo}
             </p>
           </div>
 
           <div>
             <label className="text-slate-500">Document Type</label>
-            <p className="font-semibold text-black">
+            <p className="font-semibold text-slate-900">
               {documentTypeLabel(result.invoice?.document_type)}
             </p>
           </div>
 
           <div>
             <label className="text-slate-500">Client</label>
-            <p className="font-semibold text-black">
+            <p className="font-semibold text-slate-900">
               {result.invoice?.clientName || selectedClient?.company_name}
             </p>
           </div>
 
           <div>
             <label className="text-slate-500">Invoice Date</label>
-            <p className="font-semibold text-black">
+            <p className="font-semibold text-slate-900">
               {result.invoice?.invoiceDate}
             </p>
           </div>
 
           <div>
             <label className="text-slate-500">Total Amount</label>
-            <p className="font-semibold text-black">
+            <p className="font-semibold text-slate-900">
               {result.invoice?.currency} {result.invoice?.totalAmount}
             </p>
           </div>
 
           <div>
             <label className="text-slate-500">VAT Amount</label>
-            <p className="font-semibold text-black">
+            <p className="font-semibold text-slate-900">
               {result.invoice?.vatAmount}
             </p>
           </div>
 
           <div>
             <label className="text-slate-500">TRN</label>
-            <p className="font-semibold text-black">
+            <p className="font-semibold text-slate-900">
               {result.invoice?.trn}
             </p>
           </div>

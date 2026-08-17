@@ -174,7 +174,7 @@ export default function Analytics() {
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-black">Reports & Analytics</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Reports & Analytics</h1>
           <p className="text-slate-500 mt-2">
             {selectedClient
               ? `Reports and analytics for ${selectedClient.company_name}`
@@ -217,13 +217,13 @@ export default function Analytics() {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="md:w-72">
-            <label className="block mb-2 text-sm font-semibold text-black">
+            <label className="block mb-2 text-sm font-semibold text-slate-900">
               Select Client
             </label>
             <select
               value={clientId}
               onChange={(e) => handleClientChange(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-slate-900"
             >
               <option value="">All Clients</option>
               {clients.map((client) => (
@@ -235,13 +235,13 @@ export default function Analytics() {
           </div>
 
           <div className="md:w-72">
-            <label className="block mb-2 text-sm font-semibold text-black">
+            <label className="block mb-2 text-sm font-semibold text-slate-900">
               Document Type
             </label>
             <select
               value={documentType}
               onChange={(e) => setDocumentType(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-black"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-slate-900"
             >
               <option value="">All Types</option>
               {DOCUMENT_TYPES.map((type) => (
@@ -331,7 +331,7 @@ export default function Analytics() {
       {/* Recent Invoices */}
       <div className="bg-white rounded-3xl shadow border overflow-hidden">
         <div className="p-6 border-b flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-black">Recent Invoices</h2>
+          <h2 className="text-xl font-semibold text-slate-900">Recent Invoices</h2>
           <button
             onClick={() => navigate("/dashboard/invoices")}
             className="text-indigo-600 text-sm font-medium hover:underline"
@@ -349,24 +349,24 @@ export default function Analytics() {
             <table className="w-full">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="text-left px-6 py-4 font-medium text-black">Invoice</th>
-                  <th className="text-left px-6 py-4 font-medium text-black">Client</th>
-                  <th className="text-left px-6 py-4 font-medium text-black">Date</th>
-                  <th className="text-right px-6 py-4 font-medium text-black">Amount</th>
-                  <th className="text-center px-6 py-4 font-medium text-black">Action</th>
+                  <th className="text-left px-6 py-4 font-medium text-slate-900">Invoice</th>
+                  <th className="text-left px-6 py-4 font-medium text-slate-900">Client</th>
+                  <th className="text-left px-6 py-4 font-medium text-slate-900">Date</th>
+                  <th className="text-right px-6 py-4 font-medium text-slate-900">Amount</th>
+                  <th className="text-center px-6 py-4 font-medium text-slate-900">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {invoices.slice(0, 10).map((invoice) => (
                   <tr key={invoice.id} className="border-t hover:bg-slate-50">
-                    <td className="px-6 py-4 font-medium text-black">{invoice.invoiceNo}</td>
-                    <td className="px-6 py-4 font-medium text-black">{invoice.clientName}</td>
-                    <td className="px-6 py-4 font-medium text-black">
+                    <td className="px-6 py-4 font-medium text-slate-900">{invoice.invoiceNo}</td>
+                    <td className="px-6 py-4 font-medium text-slate-900">{invoice.clientName}</td>
+                    <td className="px-6 py-4 font-medium text-slate-900">
                       {invoice.invoiceDate
                         ? new Date(invoice.invoiceDate).toLocaleDateString()
                         : "-"}
                     </td>
-                    <td className="px-6 py-4 text-right font-medium text-black">
+                    <td className="px-6 py-4 text-right font-medium text-slate-900">
                       {invoice.currency} {Number(invoice.totalAmount || 0).toFixed(2)}
                     </td>
                     <td className="px-6 py-4">

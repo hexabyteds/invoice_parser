@@ -4,11 +4,11 @@ export default function CTASection() {
   return (
     <section className="px-6 pb-24 sm:px-8">
       <div className="mx-auto max-w-6xl rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 px-8 py-16 text-center sm:px-16">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-400">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-400">
           Ready to start?
         </p>
 
-        <h2 className="mt-6 text-4xl font-bold text-white sm:text-5xl">
+        <h2 className="mt-6 text-4xl font-bold font-display tracking-tight text-white sm:text-5xl">
           Turn your invoices into structured data.
         </h2>
 
@@ -20,7 +20,7 @@ export default function CTASection() {
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
             to="/register"
-            className="rounded-full bg-blue-600 px-8 py-4 font-semibold text-white transition hover:bg-blue-500"
+            className="rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-8 py-4 font-semibold text-white transition hover:from-indigo-500 hover:to-violet-500"
           >
             Start Free — No Card Required
           </Link>

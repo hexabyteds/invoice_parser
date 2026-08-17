@@ -57,6 +57,7 @@ class EmailService {
         subject,
         text,
         html,
+        replyTo,
     }) {
         if (!this.configured) {
             throw new Error(
@@ -71,6 +72,7 @@ class EmailService {
             subject,
             text,
             html,
+            ...(replyTo ? { replyTo } : {}),
         });
 
         return result;

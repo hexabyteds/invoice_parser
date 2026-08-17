@@ -40,9 +40,10 @@ export default function DeletePlanModal({ open, plan, onClose, onDeleted }) {
         <button
           type="button"
           onClick={onClose}
+          aria-label="Close"
           className="absolute right-4 top-4 rounded-lg p-2 text-slate-500 hover:bg-slate-100"
         >
-          <X size={18} />
+          <X size={18} aria-hidden="true" />
         </button>
 
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">

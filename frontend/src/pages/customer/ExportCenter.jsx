@@ -232,7 +232,7 @@ export default function ExportCenter() {
                 value={form.clientId}
                 onChange={(e) => update("clientId", e.target.value)}
                 disabled={loadingClients}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               >
                 <option value="">All Clients</option>
                 {clients.map((client) => (
@@ -251,7 +251,7 @@ export default function ExportCenter() {
               <select
                 value={form.documentType}
                 onChange={(e) => update("documentType", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               >
                 <option value="">All Types</option>
                 {DOCUMENT_TYPES.map((type) => (
@@ -270,7 +270,7 @@ export default function ExportCenter() {
               <select
                 value={form.format}
                 onChange={(e) => update("format", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               >
                 {FORMATS.map((format) => (
                   <option key={format.value} value={format.value}>
@@ -289,7 +289,7 @@ export default function ExportCenter() {
                 type="date"
                 value={form.from}
                 onChange={(e) => update("from", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               />
             </div>
 
@@ -302,7 +302,7 @@ export default function ExportCenter() {
                 type="date"
                 value={form.to}
                 onChange={(e) => update("to", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-black outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               />
             </div>
 

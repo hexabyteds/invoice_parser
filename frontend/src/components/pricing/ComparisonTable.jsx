@@ -217,7 +217,7 @@ export default function ComparisonTable() {
 
       <div className="mb-12 text-center">
 
-        <h2 className="text-5xl font-bold">
+        <h2 className="text-5xl font-bold font-display tracking-tight">
           Compare every feature
         </h2>
 
@@ -247,7 +247,7 @@ export default function ComparisonTable() {
                 Starter
               </th>
 
-              <th className="text-center text-blue-400">
+              <th className="text-center text-indigo-400">
                 Business
               </th>
 
@@ -266,7 +266,7 @@ export default function ComparisonTable() {
                 <tr className="bg-slate-950">
                   <td
                     colSpan={5}
-                    className="px-8 py-5 text-lg font-bold text-blue-400"
+                    className="px-8 py-5 text-lg font-bold text-indigo-400"
                   >
                     {group.category}
                   </td>

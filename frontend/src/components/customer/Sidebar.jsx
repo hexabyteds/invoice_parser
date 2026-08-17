@@ -177,17 +177,19 @@ export default function Sidebar({
                     shadow-indigo-950/50
                   "
                 >
-                  IP
+                  EB
                 </div>
-    
+
                 {!collapsed && (
                   <div>
-    
+
                     <h2
                       className="
                         text-white
                         text-xl
                         font-bold
+                        font-display
+                        tracking-tight
                       "
                     >
                       EazeeBooks
@@ -211,10 +213,12 @@ export default function Sidebar({
     
               <button
                 onClick={closeSidebar}
+                aria-label="Close sidebar"
                 className="
                   lg:hidden
                   text-slate-400
                   hover:text-white
+                  transition-colors
                 "
               >
                 <Menu size={22} />
@@ -395,6 +399,7 @@ export default function Sidebar({
                     className="
                       text-white
                       font-semibold
+                      truncate
                     "
                   >
                     {user?.name || "User"}

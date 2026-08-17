@@ -122,13 +122,13 @@ export default function InvoiceDetails() {
         <div>
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-blue-600 mb-4 hover:underline"
+            className="flex items-center gap-2 text-indigo-600 mb-4 transition-colors hover:underline"
           >
             <ArrowLeft size={18} />
             Back
           </button>
 
-          <h1 className="text-3xl font-bold text-black">
+          <h1 className="text-3xl font-bold text-slate-900">
             Document Details
           </h1>
 
@@ -168,7 +168,7 @@ export default function InvoiceDetails() {
         <div className="lg:col-span-2 bg-white rounded-2xl shadow border overflow-hidden">
 
           <div className="border-b bg-slate-50 px-6 py-4">
-            <h2 className="text-lg font-bold text-black">Document Details</h2>
+            <h2 className="text-lg font-bold text-slate-900">Document Details</h2>
           </div>
 
           <div className="overflow-x-auto">
@@ -239,7 +239,7 @@ export default function InvoiceDetails() {
           </div>
 
           <div className="border-t px-6 py-4">
-            <h2 className="text-lg font-bold text-black">
+            <h2 className="text-lg font-bold text-slate-900">
               Line Items ({lineItems.length})
             </h2>
           </div>
@@ -248,22 +248,22 @@ export default function InvoiceDetails() {
             <table className="w-full min-w-[820px]">
               <thead>
                 <tr className="border-y-[3px] border-double border-slate-800 bg-slate-50">
-                  <th className="text-left px-6 py-3 text-black font-bold">
+                  <th className="text-left px-6 py-3 text-slate-900 font-bold">
                     Description
                   </th>
-                  <th className="text-center px-6 py-3 text-black font-bold w-28">
+                  <th className="text-center px-6 py-3 text-slate-900 font-bold w-28">
                     Qty
                   </th>
-                  <th className="text-right px-6 py-3 text-black font-bold w-40">
+                  <th className="text-right px-6 py-3 text-slate-900 font-bold w-40">
                     Unit Price
                   </th>
-                  <th className="text-right px-6 py-3 text-black font-bold w-32">
+                  <th className="text-right px-6 py-3 text-slate-900 font-bold w-32">
                     Amount Exc. VAT
                   </th>
-                  <th className="text-right px-6 py-3 text-black font-bold w-28">
+                  <th className="text-right px-6 py-3 text-slate-900 font-bold w-28">
                     VAT
                   </th>
-                  <th className="text-right px-6 py-3 text-black font-bold w-32">
+                  <th className="text-right px-6 py-3 text-slate-900 font-bold w-32">
                     Amount Inc. VAT
                   </th>
                 </tr>
@@ -293,27 +293,27 @@ export default function InvoiceDetails() {
 
                     return (
                       <tr key={index} className="border-t">
-                        <td className="px-6 py-3 text-black">
+                        <td className="px-6 py-3 text-slate-900">
                           {item.description}
                         </td>
 
-                        <td className="px-6 py-3 text-center text-black">
+                        <td className="px-6 py-3 text-center text-slate-900">
                           {item.quantity}
                         </td>
 
-                        <td className="px-6 py-3 text-right text-black">
+                        <td className="px-6 py-3 text-right text-slate-900">
                           {Number(item.unit_price).toFixed(2)}
                         </td>
 
-                        <td className="px-6 py-3 text-right text-black">
+                        <td className="px-6 py-3 text-right text-slate-900">
                           {withoutVat.toFixed(2)}
                         </td>
 
-                        <td className="px-6 py-3 text-right text-black">
+                        <td className="px-6 py-3 text-right text-slate-900">
                           {vatAmount.toFixed(2)}
                         </td>
 
-                        <td className="px-6 py-3 text-right font-semibold text-black">
+                        <td className="px-6 py-3 text-right font-semibold text-slate-900">
                           {totalPrice.toFixed(2)}
                         </td>
                       </tr>
@@ -327,7 +327,7 @@ export default function InvoiceDetails() {
         </div>
 
         <div className="bg-slate-200 rounded-2xl shadow border p-6 lg:sticky lg:top-8">
-          <h2 className="text-lg font-bold text-black text-center mb-4">
+          <h2 className="text-lg font-bold text-slate-900 text-center mb-4">
             Document View
           </h2>
 
@@ -376,7 +376,7 @@ function StaticCell({ label, value, isLast = false }) {
         {label}
       </td>
       <td
-        className={`px-3 py-3 text-black font-semibold break-words align-top ${isLast ? "" : "border-r"
+        className={`px-3 py-3 text-slate-900 font-semibold break-words align-top ${isLast ? "" : "border-r"
           }`}
       >
         {value ?? "-"}
