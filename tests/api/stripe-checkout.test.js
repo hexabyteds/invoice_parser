@@ -318,10 +318,18 @@ describe("POST /api/subscriptions/cancel (Stripe-backed subscription)", () => {
       .set("stripe-signature", "valid_test_signature")
       .send(Buffer.from("{}"));
 
-    stripeMock.subscriptions.update.mockResolvedValue({
-      id: "sub_cancel_1",
-      cancel_at_period_end: true,
-    });
+    // A realistic full subscription object — cancelSubscription now syncs
+    // from Stripe's actual update() response (see BUG-BILLING-001) rather
+    // than assuming its own requested value was applied, so the mock has
+    // to look like a real Stripe subscription, not just {id, cancel_at_period_end}.
+    stripeMock.subscriptions.update.mockResolvedValue(
+      fakeStripeSubscription({
+        id: "sub_cancel_1",
+        customer: "cus_cancel_1",
+        cancel_at_period_end: true,
+        metadata: { userId: String(user.id), planId: String(starter.id) },
+      })
+    );
 
     const res = await request(app)
       .post("/api/subscriptions/cancel")
@@ -342,6 +350,217 @@ describe("POST /api/subscriptions/cancel (Stripe-backed subscription)", () => {
     expect(current.body.subscription.status).toBe("active");
     expect(current.body.subscription.plan_id).toBe(starter.id);
     expect(Number(current.body.subscription.cancel_at_period_end)).toBe(1);
+  });
+
+  it("writes what Stripe's response actually says, not the value we asked for — closes the concurrent cancel+resume race (BUG-BILLING-001)", async () => {
+    const { token, user } = await registerAndLogin();
+    const starter = await getPlanBySlug("starter");
+
+    stripeMock.customers.create.mockResolvedValue({ id: "cus_race_1" });
+    stripeMock.checkout.sessions.create.mockResolvedValue({
+      url: "https://checkout.stripe.com/session_race",
+    });
+
+    await request(app)
+      .post("/api/subscriptions/checkout")
+      .set(authed(token))
+      .send({ planId: starter.id, interval: "monthly" });
+
+    stripeMock.subscriptions.retrieve.mockResolvedValue(
+      fakeStripeSubscription({
+        id: "sub_race_1",
+        customer: "cus_race_1",
+        metadata: { userId: String(user.id), planId: String(starter.id) },
+      })
+    );
+    stripeMock.webhooks.constructEvent.mockReturnValue({
+      id: "evt_race_activate_1",
+      type: "checkout.session.completed",
+      data: { object: { mode: "subscription", subscription: "sub_race_1" } },
+    });
+    await request(app)
+      .post("/api/stripe/webhook")
+      .set("stripe-signature", "valid_test_signature")
+      .send(Buffer.from("{}"));
+
+    // Simulates the exact race: this request asked Stripe to cancel, but
+    // by the time Stripe's response comes back, a concurrent resume has
+    // already won on Stripe's side — Stripe's own response reflects that
+    // (cancel_at_period_end: false), even though this call's *intent* was
+    // true. The old code ignored the response and blindly wrote its own
+    // intended value (true); the fix must write what Stripe actually said.
+    stripeMock.subscriptions.update.mockResolvedValue(
+      fakeStripeSubscription({
+        id: "sub_race_1",
+        customer: "cus_race_1",
+        cancel_at_period_end: false,
+        metadata: { userId: String(user.id), planId: String(starter.id) },
+      })
+    );
+
+    const res = await request(app)
+      .post("/api/subscriptions/cancel")
+      .set(authed(token));
+
+    expect(res.status).toBe(200);
+
+    const current = await request(app)
+      .get("/api/subscriptions/current")
+      .set(authed(token));
+
+    // Must reflect Stripe's actual answer (false), not the true we asked for.
+    expect(Number(current.body.subscription.cancel_at_period_end)).toBe(0);
+  });
+});
+
+describe("POST /api/subscriptions/renew (Resume Plan — Stripe-backed subscription)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("requires authentication", async () => {
+    const res = await request(app).post("/api/subscriptions/renew");
+    expect(res.status).toBe(401);
+  });
+
+  it("clears cancel_at_period_end on Stripe and keeps the paid plan active", async () => {
+    const { token, user } = await registerAndLogin();
+    const starter = await getPlanBySlug("starter");
+
+    stripeMock.customers.create.mockResolvedValue({ id: "cus_resume_1" });
+    stripeMock.checkout.sessions.create.mockResolvedValue({
+      url: "https://checkout.stripe.com/session_resume",
+    });
+
+    await request(app)
+      .post("/api/subscriptions/checkout")
+      .set(authed(token))
+      .send({ planId: starter.id, interval: "monthly" });
+
+    stripeMock.subscriptions.retrieve.mockResolvedValue(
+      fakeStripeSubscription({
+        id: "sub_resume_1",
+        customer: "cus_resume_1",
+        metadata: { userId: String(user.id), planId: String(starter.id) },
+      })
+    );
+    stripeMock.webhooks.constructEvent.mockReturnValue({
+      id: "evt_resume_activate_1",
+      type: "checkout.session.completed",
+      data: { object: { mode: "subscription", subscription: "sub_resume_1" } },
+    });
+    await request(app)
+      .post("/api/stripe/webhook")
+      .set("stripe-signature", "valid_test_signature")
+      .send(Buffer.from("{}"));
+
+    // Schedule cancellation first, same as a real "Cancel Plan" click. Full
+    // subscription objects, not just {id, cancel_at_period_end} — see the
+    // cancel test above for why (BUG-BILLING-001).
+    stripeMock.subscriptions.update.mockResolvedValue(
+      fakeStripeSubscription({
+        id: "sub_resume_1",
+        customer: "cus_resume_1",
+        cancel_at_period_end: true,
+        metadata: { userId: String(user.id), planId: String(starter.id) },
+      })
+    );
+    await request(app).post("/api/subscriptions/cancel").set(authed(token));
+
+    let current = await request(app)
+      .get("/api/subscriptions/current")
+      .set(authed(token));
+    expect(Number(current.body.subscription.cancel_at_period_end)).toBe(1);
+
+    // Now resume before the period ends.
+    stripeMock.subscriptions.update.mockResolvedValue(
+      fakeStripeSubscription({
+        id: "sub_resume_1",
+        customer: "cus_resume_1",
+        cancel_at_period_end: false,
+        metadata: { userId: String(user.id), planId: String(starter.id) },
+      })
+    );
+
+    const res = await request(app)
+      .post("/api/subscriptions/renew")
+      .set(authed(token));
+
+    expect(res.status).toBe(200);
+    expect(stripeMock.subscriptions.update).toHaveBeenLastCalledWith(
+      "sub_resume_1",
+      { cancel_at_period_end: false }
+    );
+
+    current = await request(app)
+      .get("/api/subscriptions/current")
+      .set(authed(token));
+
+    // Still active, still on Starter, and no longer flagged for cancellation.
+    expect(current.body.subscription.status).toBe("active");
+    expect(current.body.subscription.plan_id).toBe(starter.id);
+    expect(Number(current.body.subscription.cancel_at_period_end)).toBe(0);
+  });
+});
+
+describe("Stripe API failures leave local subscription state unchanged", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("does not set cancel_at_period_end locally when Stripe's cancel call fails", async () => {
+    const { token, user } = await registerAndLogin();
+    const starter = await getPlanBySlug("starter");
+
+    stripeMock.customers.create.mockResolvedValue({ id: "cus_cancelfail_1" });
+    stripeMock.checkout.sessions.create.mockResolvedValue({
+      url: "https://checkout.stripe.com/session_cancelfail",
+    });
+    await request(app)
+      .post("/api/subscriptions/checkout")
+      .set(authed(token))
+      .send({ planId: starter.id, interval: "monthly" });
+
+    stripeMock.subscriptions.retrieve.mockResolvedValue(
+      fakeStripeSubscription({
+        id: "sub_cancelfail_1",
+        customer: "cus_cancelfail_1",
+        metadata: { userId: String(user.id), planId: String(starter.id) },
+      })
+    );
+    stripeMock.webhooks.constructEvent.mockReturnValue({
+      id: "evt_cancelfail_activate_1",
+      type: "checkout.session.completed",
+      data: {
+        object: { mode: "subscription", subscription: "sub_cancelfail_1" },
+      },
+    });
+    await request(app)
+      .post("/api/stripe/webhook")
+      .set("stripe-signature", "valid_test_signature")
+      .send(Buffer.from("{}"));
+
+    stripeMock.subscriptions.update.mockImplementation(() => {
+      const err = new Error("Your card was declined.");
+      err.type = "StripeInvalidRequestError";
+      throw err;
+    });
+
+    const res = await request(app)
+      .post("/api/subscriptions/cancel")
+      .set(authed(token));
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+
+    const current = await request(app)
+      .get("/api/subscriptions/current")
+      .set(authed(token));
+
+    // Untouched — still active, on the paid plan, not flagged for cancellation.
+    expect(current.body.subscription.status).toBe("active");
+    expect(current.body.subscription.plan_id).toBe(starter.id);
+    expect(Number(current.body.subscription.cancel_at_period_end)).toBe(0);
   });
 });
 

@@ -172,6 +172,62 @@ class StripeService {
 
   }
 
+  // =====================================================
+  // Resume (undo a pending cancel_at_period_end)
+  // =====================================================
+
+  async resumeSubscription(stripeSubscriptionId) {
+
+    try {
+
+      return await stripe.subscriptions.update(stripeSubscriptionId, {
+        cancel_at_period_end: false
+      });
+
+    } catch (err) {
+      normalizeStripeError(err, "resumeSubscription");
+    }
+
+  }
+
+  // =====================================================
+  // Payment History (Stripe is the source of truth — nothing about past
+  // invoices is duplicated locally, this is always a live read)
+  // =====================================================
+
+  async listInvoices({ customerId, limit = 10, startingAfter }) {
+
+    try {
+
+      return await stripe.invoices.list({
+        customer: customerId,
+        limit,
+        starting_after: startingAfter || undefined
+      });
+
+    } catch (err) {
+      normalizeStripeError(err, "listInvoices");
+    }
+
+  }
+
+  async getInvoice(invoiceId) {
+
+    try {
+
+      // Invoices on this account's pinned API version (Stripe.API_VERSION,
+      // see config/stripe.js) no longer carry `charge`/`payment_intent` —
+      // payment-method detail, when set, lives on `default_payment_method`.
+      return await stripe.invoices.retrieve(invoiceId, {
+        expand: ["default_payment_method"]
+      });
+
+    } catch (err) {
+      normalizeStripeError(err, "getInvoice");
+    }
+
+  }
+
 }
 
 module.exports = new StripeService();

@@ -81,6 +81,35 @@ describe("Customer self-service subscription management", () => {
   });
 
   describe("POST /api/subscriptions/cancel", () => {
+    it("requires authentication", async () => {
+      const res = await request(app).post("/api/subscriptions/cancel");
+      expect(res.status).toBe(401);
+    });
+
+    it("can only ever cancel the caller's own subscription — the endpoint takes no target userId", async () => {
+      const userA = await registerAndLogin();
+      const userB = await registerAndLogin();
+      const starter = await getPlanBySlug("starter");
+      const admin = await loginAsAdmin();
+
+      // Put B on a paid plan.
+      await request(app)
+        .post("/api/subscriptions/change-plan")
+        .set(authed(admin.token))
+        .send({ userId: userB.user.id, planId: starter.id, billingCycle: "monthly" });
+
+      // A cancels their own (Free) subscription — there is no request field
+      // that could redirect this at B's subscription instead.
+      await request(app).post("/api/subscriptions/cancel").set(authed(userA.token));
+
+      const currentB = await request(app)
+        .get("/api/subscriptions/current")
+        .set(authed(userB.token));
+
+      // B is untouched — still on Starter.
+      expect(currentB.body.subscription.plan_id).toBe(starter.id);
+    });
+
     it("drops a paid (non-Stripe, admin-assigned) plan straight back to Free", async () => {
       const { token, user } = await registerAndLogin();
       const starter = await getPlanBySlug("starter");

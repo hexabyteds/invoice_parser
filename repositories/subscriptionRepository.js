@@ -288,6 +288,8 @@ class SubscriptionRepository {
           s.next_billing,
           s.cancelled_at,
           s.created_at,
+          s.cancel_at_period_end,
+          s.stripe_status,
           u.name AS customer_name,
           u.email AS customer_email,
           u.company_name,
@@ -489,17 +491,6 @@ class SubscriptionRepository {
     );
 
     return await this.getSubscriptionById(result.insertId);
-  }
-
-  async setCancelAtPeriodEnd(subscriptionId, value) {
-    await db.execute(
-      `
-      UPDATE subscriptions
-      SET cancel_at_period_end = ?, updated_at = NOW()
-      WHERE id = ?
-      `,
-      [value ? 1 : 0, subscriptionId]
-    );
   }
 
   // ===========================

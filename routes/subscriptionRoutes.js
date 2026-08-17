@@ -69,6 +69,20 @@ router.post(
   subscriptionController.renewSubscription
 );
 
+// Payment History (Billing & Payments page) — read live from Stripe,
+// scoped to the caller's own Stripe customer id only.
+router.get(
+  "/payments",
+  authMiddleware,
+  subscriptionController.getPaymentHistory
+);
+
+router.get(
+  "/payments/:invoiceId",
+  authMiddleware,
+  subscriptionController.getPaymentDetail
+);
+
 // =====================================================
 // Admin APIs
 // =====================================================

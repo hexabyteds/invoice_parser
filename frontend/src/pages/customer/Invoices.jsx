@@ -164,7 +164,13 @@ export default function Invoices() {
         if (doc.documentType === BANK_STATEMENT) {
             navigate(`/dashboard/bank-statements/${doc.id}`);
         } else {
-            navigate(`/dashboard/invoices/${doc.id}`);
+            const invoiceIds = filteredDocuments
+                .filter((d) => d.documentType !== BANK_STATEMENT)
+                .map((d) => d.id);
+
+            navigate(`/dashboard/invoices/${doc.id}`, {
+                state: { invoiceIds },
+            });
         }
     }
 

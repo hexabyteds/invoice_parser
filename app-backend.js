@@ -165,12 +165,34 @@ app.get('/api/health', async (req, res) => {
 });
 
 
+// Storage quota was reserved before processing but never released when
+// processing failed — every failed upload permanently leaked quota (and
+// left the file orphaned on disk). Called from every failure branch below,
+// and from the outer catch, once a reservation has actually been made.
+async function releaseFailedUploadStorage(userId, file) {
+  try {
+    await usageService.removeStorage(userId, file.size);
+  } catch (err) {
+    console.error("Failed to release storage quota after failed upload:", err.message);
+  }
+
+  try {
+    await fs.promises.unlink(file.path);
+  } catch (err) {
+    if (err.code !== "ENOENT") {
+      console.error("Failed to delete orphaned upload file:", err.message);
+    }
+  }
+}
+
 app.post(
   "/api/upload",
   authMiddleware,
   uploadRateLimiter,
   upload.single("image"),
   async (req, res) => {
+    let storageReserved = false;
+
     try {
       if (!req.file) {
         return res.status(400).json({
@@ -208,8 +230,12 @@ app.post(
       // ===========================
       await clientService.assertActive(clientId, req.user.id);
 
-      await usageService.checkStorageLimit(req.user.id, req.file.size);
-      await usageService.addStorage(req.user.id, req.file.size);
+      // Reserves the bytes atomically — under concurrent uploads, the old
+      // checkStorageLimit()-then-addStorage() pair let every request read
+      // the same pre-upload storage_used and all pass, so N concurrent
+      // uploads near the limit could all add their bytes past it.
+      await usageService.reserveStorage(req.user.id, req.file.size);
+      storageReserved = true;
 
       console.log(`📸 Processing: ${req.file.filename}`);
 
@@ -240,6 +266,8 @@ app.post(
             );
 
         if (bsResult.status !== "success") {
+          await releaseFailedUploadStorage(req.user.id, req.file);
+
           try {
             await auditLogRepository.create({
               userId: req.user.id,
@@ -306,6 +334,8 @@ app.post(
       }
 
       if (result.status !== "success") {
+        await releaseFailedUploadStorage(req.user.id, req.file);
+
         // Activity feed is a nice-to-have — a logging failure must never
         // break the response, but the write itself is awaited so the
         // dashboard reflects it immediately (no fire-and-forget race).
@@ -418,6 +448,10 @@ app.post(
 
     } catch (error) {
       console.error("Upload error:", error);
+
+      if (storageReserved) {
+        await releaseFailedUploadStorage(req.user.id, req.file);
+      }
 
       const statusCode =
         error.statusCode ||
@@ -1041,6 +1075,19 @@ app.post('/api/clear', authMiddleware, async (req, res) => {
 
   }
 
+});
+
+// Any /api/* request that didn't match one of the routes above is an
+// unknown endpoint — respond with a clean 404 instead of falling through
+// to the SPA wildcard below. That wildcard only serves index.html when the
+// URL does NOT start with /api; for a /api/* URL it matched (app.get('*')
+// matches every path) but then returned without ever calling res.send()/
+// res.json()/next(), so the request just hung forever with no response.
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: "Not found."
+  });
 });
 
 /**

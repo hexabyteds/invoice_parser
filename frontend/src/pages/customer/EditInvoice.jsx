@@ -351,7 +351,7 @@ export default function EditInvoice() {
                 </tr>
 
                 <tr className="border-b">
-                  <EditCell label="Client">
+                  <EditCell label="Party Name">
                     <input
                       value={form.client_name}
                       onChange={(e) => handleField("client_name", e.target.value)}

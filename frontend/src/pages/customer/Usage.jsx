@@ -1,35 +1,18 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Sparkles, ArrowUpRight, CreditCard } from "lucide-react";
 import { getUsage } from "../../services/usageApi";
-import subscriptionApi from "../../services/subscriptionApi";
 import UsageCard from "../../components/usage/UsageCard";
 
 export default function Usage() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [usage, setUsage] = useState(null);
   const [error, setError] = useState("");
-  const [portalLoading, setPortalLoading] = useState(false);
-  const [portalError, setPortalError] = useState("");
 
   useEffect(() => {
     loadUsage();
   }, []);
-
-  async function handleManageBilling() {
-    setPortalError("");
-    setPortalLoading(true);
-
-    try {
-      const response = await subscriptionApi.createPortalSession();
-      window.location.href = response.data.url;
-    } catch (err) {
-      setPortalError(
-        err.response?.data?.error || "Couldn't open the billing portal."
-      );
-      setPortalLoading(false);
-    }
-  }
 
   async function loadUsage() {
     try {
@@ -115,15 +98,10 @@ export default function Usage() {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <button
-              onClick={handleManageBilling}
-              disabled={portalLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/15 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => navigate("/dashboard/billing")}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/15 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
             >
-              {portalLoading ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <CreditCard size={16} />
-              )}
+              <CreditCard size={16} />
               Manage Billing
             </button>
 
@@ -136,10 +114,6 @@ export default function Usage() {
             </Link>
           </div>
         </div>
-
-        {portalError && (
-          <p className="mt-4 text-sm text-red-100">{portalError}</p>
-        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">

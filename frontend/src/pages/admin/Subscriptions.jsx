@@ -47,6 +47,18 @@ function StatusBadge({ status }) {
   );
 }
 
+// A subscription scheduled to cancel at period end still reports
+// status: "active" (the user keeps access until the period actually
+// ends) — without this, an admin has no way to tell it's about to lapse
+// (BUG-BILLING-002).
+function CancelingBadge() {
+  return (
+    <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+      Canceling
+    </span>
+  );
+}
+
 export default function Subscriptions() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -215,7 +227,10 @@ export default function Subscriptions() {
                     </td>
 
                     <td className="px-4 py-5">
-                      <StatusBadge status={subscription.status} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <StatusBadge status={subscription.status} />
+                        {subscription.cancel_at_period_end && <CancelingBadge />}
+                      </div>
                     </td>
 
                     <td className="px-4 py-5 text-slate-700">

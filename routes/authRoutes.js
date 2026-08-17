@@ -70,6 +70,16 @@ router.put("/profile",
     (req, res) => authController.updateProfile(req, res)
 );
 
+// Deliberately not named "/login-*" — api.js's request interceptor treats
+// any URL containing "/auth/login" as a public (unauthenticated) endpoint
+// so a stale token doesn't get attached to the login form's own request;
+// a "/auth/login-history" path would accidentally match that same check
+// via string includes() and go out with no Authorization header.
+router.get("/recent-logins",
+    authMiddleware,
+    (req, res) => authController.loginHistory(req, res)
+);
+
 router.post("/forgot-password",
     forgotPasswordRateLimiter,
     (req, res) => authController.forgotPassword(req, res)

@@ -196,6 +196,22 @@ async incrementClients(userId) {
     `,[userId]);
 
 }
+
+// Same atomic check-and-increment pattern as incrementInvoicesIfUnderLimit
+// — the WHERE clause is evaluated against the row's live value under its
+// write lock, so two concurrent client-creation requests for the same
+// user can never both succeed past `limit`.
+async incrementClientsIfUnderLimit(userId, limit) {
+
+    const [result] = await db.execute(`
+        UPDATE usage_stats
+        SET clients_used = clients_used + 1
+        WHERE user_id = ? AND clients_used < ?
+    `,[userId, limit]);
+
+    return result.affectedRows > 0;
+
+}
 async decrementClients(userId) {
 
     await db.execute(`
@@ -236,6 +252,21 @@ async addStorage(userId,bytes){
       SET storage_used = storage_used + ?
       WHERE user_id=?
   `,[bytes,userId]);
+
+}
+
+// Same atomic check-and-increment pattern as incrementOCRIfUnderLimit,
+// sized in bytes — concurrent uploads for the same user can never push
+// storage_used past limitBytes between them.
+async addStorageIfUnderLimit(userId, bytes, limitBytes) {
+
+  const [result] = await db.execute(`
+      UPDATE usage_stats
+      SET storage_used = storage_used + ?
+      WHERE user_id = ? AND storage_used + ? <= ?
+  `,[bytes, userId, bytes, limitBytes]);
+
+  return result.affectedRows > 0;
 
 }
 

@@ -15,5 +15,5 @@ export function formatAed(usdAmount) {
 }
 
 export function formatUsd(usdAmount) {
-  return `$${Number(usdAmount).toLocaleString()}`;
+  return `AED ${Number(usdAmount).toLocaleString()}`;
 }
