@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { CheckCircle2, Loader2, AlertTriangle } from "lucide-react";
 import subscriptionApi from "../../services/subscriptionApi";
+
+const REDIRECT_DELAY_MS = 2000;
 
 // Stripe Checkout's success_url lands here. We deliberately do NOT trust
 // the redirect itself as proof of payment — the webhook is what actually
 // activates the plan, so this page just re-fetches the real subscription
 // state from our own API and shows whatever it finds.
 export default function BillingReturn() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState(null);
   const [error, setError] = useState("");
@@ -53,6 +56,18 @@ export default function BillingReturn() {
     };
   }, []);
 
+  // Confirmed active — hand off to the main dashboard automatically instead
+  // of making the user click through.
+  useEffect(() => {
+    if (loading || error || subscription?.stripe_status !== "active") return;
+
+    const timer = setTimeout(() => {
+      navigate("/dashboard", { replace: true });
+    }, REDIRECT_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, [loading, error, subscription, navigate]);
+
   return (
     <div className="mx-auto flex max-w-lg flex-col items-center rounded-2xl border border-slate-200 bg-white px-8 py-16 text-center shadow-sm">
       {loading && (
@@ -86,6 +101,9 @@ export default function BillingReturn() {
           <p className="mt-2 text-slate-500">
             Your subscription is active. Your new plan limits apply
             immediately.
+          </p>
+          <p className="mt-2 text-sm text-slate-400">
+            Taking you to your dashboard...
           </p>
         </>
       )}

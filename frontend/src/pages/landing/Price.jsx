@@ -9,6 +9,8 @@ import BillingToggle from "../../components/pricing/BillingToggle";
 import PricingCard from "../../components/pricing/PricingCard";
 import ComparisonTable from "../../components/pricing/ComparisonTable";
 import { useSeo } from "../../hooks/useSeo";
+import { useAuth } from "../../context/AuthContext";
+import CustomerLayout from "../../layouts/CustomerLayout";
 
 export default function Pricing() {
   useSeo({
@@ -17,6 +19,8 @@ export default function Pricing() {
       "Simple, transparent pricing for AI invoice processing — priced in AED, no per-user fees. Compare Free, Starter, Business, and Enterprise plans.",
     path: "/price",
   });
+
+  const { user } = useAuth();
 
   const [yearly, setYearly] = useState(false);
 
@@ -43,14 +47,17 @@ export default function Pricing() {
     loadPlans();
   }, []);
 
-  return (
-    <div className="min-h-screen bg-[#020617] text-white">
+  // Logged-in users reach this page via "Upgrade Plan" / "Manage Billing"
+  // from inside the dashboard — keep them inside the dashboard shell
+  // (sidebar/topbar) instead of dropping them onto the marketing site.
+  const pricingContent = (
+    <div className={user ? "rounded-3xl bg-[#020617] text-white" : "min-h-screen bg-[#020617] text-white"}>
 
-      <Navbar />
+      {!user && <Navbar />}
 
       {/* Hero */}
 
-      <section className="mx-auto max-w-7xl px-6 pt-36 pb-16">
+      <section className={`mx-auto max-w-7xl px-6 pb-16 ${user ? "pt-16" : "pt-36"}`}>
 
         <motion.h1
           initial={{
@@ -135,8 +142,14 @@ export default function Pricing() {
 
       {/* <ComparisonTable /> */}
 
-      <Footer />
+      {!user && <Footer />}
 
     </div>
   );
+
+  if (user) {
+    return <CustomerLayout>{pricingContent}</CustomerLayout>;
+  }
+
+  return pricingContent;
 }
