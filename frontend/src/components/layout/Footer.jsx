@@ -35,9 +35,9 @@ export default function Footer() {
             <p className="text-sm font-semibold text-white">Company</p>
             <ul className="mt-4 space-y-3 text-sm text-slate-400">
               <li>
-                <a href="mailto:sales@eazeebooks.com" className="transition-colors hover:text-white">
+                <Link to="/contact" className="transition-colors hover:text-white">
                   Contact
-                </a>
+                </Link>
               </li>
               <li><Link to="/privacy" className="transition-colors hover:text-white">Privacy Policy</Link></li>
               <li><Link to="/terms" className="transition-colors hover:text-white">Terms of Service</Link></li>

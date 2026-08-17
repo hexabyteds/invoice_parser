@@ -7,8 +7,8 @@
 ---
 
 **Project:** EazeeBooks
-**Generated:** 2026-08-11 14:30:57
-**Category:** Analytics Dashboard
+**Updated:** 2026-08-17 (rewritten to match the implemented UI — the previous version documented a navy/green light theme that was never built; this reflects what actually ships)
+**Category:** AI Invoice / Billing / Financial SaaS
 
 ---
 
@@ -16,53 +16,58 @@
 
 ### Color Palette
 
-| Role | Hex | CSS Variable |
-|------|-----|--------------|
-| Primary | `#1E3A5F` | `--color-primary` |
-| On Primary | `#FFFFFF` | `--color-on-primary` |
-| Secondary | `#2563EB` | `--color-secondary` |
-| Accent/CTA | `#059669` | `--color-accent` |
-| Background | `#F8FAFC` | `--color-background` |
-| Foreground | `#0F172A` | `--color-foreground` |
-| Muted | `#F1F3F5` | `--color-muted` |
-| Border | `#E4E7EB` | `--color-border` |
-| Destructive | `#DC2626` | `--color-destructive` |
-| Ring | `#1E3A5F` | `--color-ring` |
+Dark-only public/auth surface. Near-black canvas, indigo→violet as the single brand accent, semantic status colors for financial states (paid/processed = green, pending = amber, overdue/error = red).
 
-**Color Notes:** Navy professional + paid green
+| Role | Hex | Usage |
+|------|-----|-------|
+| Canvas | `#020617` / `#030712` | Page background (`bg-[#020617]`, `bg-[#030712]` — both used, treat as equivalent) |
+| Surface | `#0F172A` (slate-900) | Cards, panels, inputs |
+| Surface muted | `#020617`/`60%` (slate-950/60) | Recessed bands (e.g. IntegrationsBand) |
+| Border | slate-800 (`#1E293B`) | Card/section borders |
+| Border (hover/focus) | slate-700 / indigo-500 | Hover and `focus-within` states |
+| Text primary | white | Headings, key values |
+| Text secondary | slate-400 | Body copy, descriptions |
+| Text tertiary | slate-500 | Captions, timestamps, metadata |
+| Brand gradient | indigo-600 → violet-600 (`#4F46E5` → `#7C3AED`) | Primary CTAs, badges, active states |
+| Success | green-400 (`#4ADE80`) on green-500/10 bg | Processed/paid status, positive deltas |
+| Warning | amber-400 on amber-500/10 bg | Reviewing/pending status |
+| Destructive | red-400 (`#F87171`) / red-500 | Form errors, destructive actions |
+| Focus ring | `#6366F1` (indigo-500) | `:focus-visible` outline, global |
+
+**Notes:** This is the same dark, indigo/violet-accented family used by Stripe, Mercury, Ramp, and Linear — validated as a legitimate trust-appropriate dark palette for financial/dev-tool SaaS, not just a generic "AI startup" look. Keep it dark-only on public/auth pages; the authenticated dashboard has a separate light/dark toggle (see `.dark` overrides in `index.css`) that is out of scope for the public site.
 
 ### Typography
 
-- **Heading Font:** Calistoga
-- **Body Font:** Inter
-- **Mood:** saas, boutique, electric, warm, editorial, bold, premium, fintech, business, dual font, human warmth
-- **Google Fonts:** [Calistoga + Inter](https://fonts.googleapis.com/css2?family=Calistoga:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap)
+- **Display font:** Plus Jakarta Sans (`font-display` utility) — hero headlines, page titles, large numerals
+- **Body/UI font:** Inter — everything else (paragraphs, labels, buttons, nav)
+- **Mood:** confident, modern fintech — not corporate-navy, not playful/startup-generic
+- **Google Fonts (already loaded in `frontend/index.html`):**
+  `https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap`
+- Tailwind v4 tokens (`frontend/src/index.css`):
+  ```css
+  @theme {
+    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  }
+  ```
 
-**CSS Import:**
-```css
-@import url('https://fonts.googleapis.com/css2?family=Calistoga:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-```
-
-### Spacing Variables
+### Spacing & Radius
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--space-xs` | `4px` / `0.25rem` | Tight gaps |
-| `--space-sm` | `8px` / `0.5rem` | Icon gaps, inline spacing |
-| `--space-md` | `16px` / `1rem` | Standard padding |
-| `--space-lg` | `24px` / `1.5rem` | Section padding |
-| `--space-xl` | `32px` / `2rem` | Large gaps |
-| `--space-2xl` | `48px` / `3rem` | Section margins |
-| `--space-3xl` | `64px` / `4rem` | Hero padding |
+| Section padding (marketing) | `py-24` (96px) | Landing/features/pricing sections |
+| Card padding | `p-6`–`p-8` | Cards, form panels |
+| Card radius | `rounded-3xl` (24px) | Cards, panels, modals, pricing cards |
+| Control radius | `rounded-xl` (12px) | Inputs, buttons inside cards |
+| Pill radius | `rounded-full` | Nav bar, primary CTAs, toggle switches, badges |
 
-### Shadow Depths
+### Shadows
 
 | Level | Value | Usage |
 |-------|-------|-------|
-| `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle lift |
-| `--shadow-md` | `0 4px 6px rgba(0,0,0,0.1)` | Cards, buttons |
-| `--shadow-lg` | `0 10px 15px rgba(0,0,0,0.1)` | Modals, dropdowns |
-| `--shadow-xl` | `0 20px 25px rgba(0,0,0,0.15)` | Hero images, featured cards |
+| CTA glow | `shadow-lg shadow-indigo-950/30` | Primary gradient buttons |
+| Popular-plan glow | `shadow-2xl shadow-indigo-500/20` | Featured pricing card |
+| Panel | `shadow-2xl` | Auth cards, dropdowns |
 
 ---
 
@@ -70,125 +75,101 @@
 
 ### Buttons
 
-```css
-/* Primary Button */
-.btn-primary {
-  background: #059669;
-  color: white;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  transition: all 200ms ease;
-  cursor: pointer;
-}
+```
+/* Primary — gradient pill */
+bg-gradient-to-r from-indigo-600 to-violet-600
+hover:from-indigo-500 hover:to-violet-500
+text-white font-semibold rounded-full (marketing) / rounded-xl (forms)
+px-7 py-4 (marketing) / py-4 (form submit, full width)
+shadow-lg shadow-indigo-950/30
+transition-all duration-200
+disabled:opacity-60 disabled:cursor-not-allowed
 
-.btn-primary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-/* Secondary Button */
-.btn-secondary {
-  background: transparent;
-  color: #1E3A5F;
-  border: 2px solid #1E3A5F;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  transition: all 200ms ease;
-  cursor: pointer;
-}
+/* Secondary — outline */
+border border-slate-700 text-white
+hover:bg-slate-900 (marketing) / hover:bg-slate-800 (in-card)
+rounded-full / rounded-xl
+transition duration-200
 ```
 
 ### Cards
 
-```css
-.card {
-  background: #F8FAFC;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: var(--shadow-md);
-  transition: all 200ms ease;
-  cursor: pointer;
-}
-
-.card:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
-}
+```
+bg-slate-900 border border-slate-800 rounded-3xl p-6-8
+hover:border-slate-700 (where interactive)
+Featured/popular variant: border-indigo-500 + shadow-2xl shadow-indigo-500/20
 ```
 
-### Inputs
+### Inputs (auth/forms)
 
-```css
-.input {
-  padding: 12px 16px;
-  border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  font-size: 16px;
-  transition: border-color 200ms ease;
-}
-
-.input:focus {
-  border-color: #1E3A5F;
-  outline: none;
-  box-shadow: 0 0 0 3px #1E3A5F20;
-}
+```
+flex items-center rounded-xl border bg-slate-800 (auth) / bg-slate-900 (register) px-4
+border-slate-700, focus-within:border-indigo-500
+Error state: border-red-500, error text text-red-400 text-sm below field
+Leading icon: lucide-react, 20px, text-slate-400/500
+Password fields: trailing show/hide icon button — must have >=44x44px hit area (add padding, not just a 20px icon)
 ```
 
-### Modals
+### Badges / Status pills
 
-```css
-.modal-overlay {
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-}
+```
+rounded-full px-2.5-4 py-1-2 text-xs-sm font-medium
+Processed/paid: bg-green-500/10 text-green-400
+Pending/reviewing: bg-amber-500/10 text-amber-400
+Popular/featured: bg-gradient-to-r from-indigo-600 to-violet-600 text-white
+```
 
-.modal {
-  background: white;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: var(--shadow-xl);
-  max-width: 500px;
-  width: 90%;
-}
+### Navigation
+
+```
+Fixed pill navbar: rounded-full border border-slate-800 bg-slate-900/70 backdrop-blur-xl
+Mobile: dedicated dropdown panel (not a bare hidden->flex toggle), rounded-3xl, own backdrop-blur
+Primary CTA always visible in nav (desktop + mobile), single obvious "Start Free"
+```
+
+### Footer
+
+```
+border-t border-slate-800 bg-slate-950
+Columns: Brand+blurb / Product (Features, Pricing, Start Free) / Company (Contact mailto, Privacy, Terms)
+Only link to pages/profiles that actually exist — no placeholder social icons
 ```
 
 ---
 
 ## Style Guidelines
 
-**Style:** Data-Dense Dashboard
+**Style:** Modern Dark SaaS (fintech-adjacent) — near-black canvas, single indigo/violet brand accent, generous whitespace, gradient-pill CTAs, subtle scroll-triggered motion.
 
-**Keywords:** Multiple charts/widgets, data tables, KPI cards, minimal padding, grid layout, space-efficient, maximum data visibility
+**Best for:** B2B financial/document-processing SaaS aimed at operators who already trust dark, developer/fintech-grade tools (vs. a light corporate-navy "enterprise sales" look).
 
-**Best For:** Business intelligence dashboards, financial analytics, enterprise reporting, operational dashboards, data warehousing
+**Key effects:** `whileInView` fade/slide-up on section entry (Framer Motion, ~0.4–0.5s, staggered by index), hover `y: -2 to -10` lift on cards, layoutId shared-element transitions on toggles (billing monthly/yearly).
 
-**Key Effects:** Hover tooltips, chart zoom on click, row highlighting on hover, smooth filter animations, data loading spinners
+### Page Pattern — Marketing Landing
 
-### Page Pattern
+**Section order (already implemented, keep):** 1. Hero (product value + live product glimpse), 2. Integrations/works-with band, 3. How it works (4-step), 4. Pricing teaser, 5. FAQ, 6. Final CTA, 7. Footer.
 
-**Pattern Name:** Real-Time / Operations Landing
+**Conversion strategy:** Single clear primary action ("Start Free — No Card Required") repeated at hero + final CTA; secondary "Book Demo" via mailto; pricing always one click away.
 
-- **Conversion Strategy:** For ops/security/iot products. Demo or sandbox link. Trust signals.
-- **CTA Placement:** Primary CTA in nav + After metrics
-- **Section Order:** 1. Hero (product + live preview or status), 2. Key metrics/indicators, 3. How it works, 4. CTA (Start trial / Contact)
+### Page Pattern — Auth
+
+**Login:** minimal and focused — brand mark, short trust line, form, forgot-password + signup links. No invented metrics, no revenue charts.
+**Register:** may keep a light value-reinforcement side panel (what you get, in plain language) since it's the conversion moment — but same rule: no fabricated statistics or fake activity feeds.
 
 ---
 
 ## Anti-Patterns (Do NOT Use)
 
-- ❌ Ornate design
-- ❌ No filtering
-
-### Additional Forbidden Patterns
-
-- ❌ **Emojis as icons** — Use SVG icons (Heroicons, Lucide, Simple Icons)
-- ❌ **Missing cursor:pointer** — All clickable elements must have cursor:pointer
-- ❌ **Layout-shifting hovers** — Avoid scale transforms that shift layout
-- ❌ **Low contrast text** — Maintain 4.5:1 minimum contrast ratio
-- ❌ **Instant state changes** — Always use transitions (150-300ms)
-- ❌ **Invisible focus states** — Focus states must be visible for a11y
+- ❌ Fabricated statistics, fake activity feeds, or real-sounding-but-invented company/client names presented as if genuine (this was found live in `Hero.jsx` / `AuthLayout.jsx` and is being corrected)
+- ❌ Marketing-heavy login screen (stat cards / charts / testimonials on `/login`)
+- ❌ Emojis as icons — use SVG icons (project already standardizes on `lucide-react`)
+- ❌ Missing `cursor:pointer` — all clickable elements must have it
+- ❌ Layout-shifting hovers — avoid scale transforms that shift surrounding layout
+- ❌ Low contrast text — maintain 4.5:1 minimum contrast ratio
+- ❌ Instant state changes — always use transitions (150–300ms)
+- ❌ Invisible focus states — focus states must be visible for a11y
+- ❌ Icon-only interactive controls with <44×44px hit area (e.g. unpadded password show/hide toggles)
+- ❌ Ornate decoration, unnecessary 3D/skeuomorphism
 
 ---
 
@@ -197,12 +178,14 @@
 Before delivering any UI code, verify:
 
 - [ ] No emojis used as icons (use SVG instead)
-- [ ] All icons from consistent icon set (Heroicons/Lucide)
+- [ ] All icons from consistent icon set (lucide-react)
 - [ ] `cursor-pointer` on all clickable elements
 - [ ] Hover states with smooth transitions (150-300ms)
-- [ ] Light mode: text contrast 4.5:1 minimum
+- [ ] Text contrast 4.5:1 minimum against the dark canvas
 - [ ] Focus states visible for keyboard navigation
 - [ ] `prefers-reduced-motion` respected
 - [ ] Responsive: 375px, 768px, 1024px, 1440px
 - [ ] No content hidden behind fixed navbars
-- [ ] No horizontal scroll on mobile
+- [ ] No horizontal scroll on mobile (except intentionally-scrollable tables, with a visible hint)
+- [ ] No invented stats, testimonials, customers, or integrations
+- [ ] Interactive icon-only buttons have >=44×44px hit area

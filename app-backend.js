@@ -69,6 +69,7 @@ app.use("/api/usage", require("./routes/usageRoutes"));
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/bank-statements", require("./routes/bankStatementRoutes"));
 app.use("/api/documents", require("./routes/documentsRoutes"));
+app.use("/api/contact", require("./routes/contactRoutes"));
 // Middleware
 app.use(cors());
 app.use(express.json());

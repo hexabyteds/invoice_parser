@@ -61,26 +61,29 @@ export default function Hero() {
 
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
 
-            <div className="mb-6 flex justify-between">
+            <div className="mb-6 flex items-center justify-between">
 
               <div>
-                <p className="text-slate-400">Invoices Today</p>
-                <h2 className="mt-2 text-4xl font-bold text-white">
-                  1,284
+                <p className="text-slate-400">Upload</p>
+                <h2 className="mt-2 text-3xl font-bold text-white">
+                  PDF or photo
                 </h2>
               </div>
 
               <div>
-                <p className="text-slate-400">AI Accuracy</p>
-                <h2 className="mt-2 text-4xl font-bold text-green-400">
-                  99.8%
+                <p className="text-slate-400">Export to</p>
+                <h2 className="mt-2 text-3xl font-bold text-white">
+                  Books & Excel
                 </h2>
               </div>
 
             </div>
 
-            {/* Mock product glimpse — static illustrative data, not live figures */}
-            <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
+            {/* Mock product glimpse — illustrative sample data, not a live customer's figures */}
+            <p className="text-xs font-medium uppercase tracking-[0.15em] text-slate-500">
+              Sample workspace
+            </p>
+            <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
 
               <div className="flex items-end justify-between gap-2 h-28">
                 {[38, 62, 48, 80, 56, 92, 70, 100, 78, 60].map((h, i) => (
@@ -96,9 +99,9 @@ export default function Hero() {
 
               <div className="mt-5 space-y-3 border-t border-slate-800 pt-4">
                 {[
-                  { name: "INV-4471 · Al Futtaim Group", amount: "AED 12,450.00", status: "Processed" },
-                  { name: "INV-4472 · Emaar Retail LLC", amount: "AED 3,180.75", status: "Processed" },
-                  { name: "INV-4473 · Noon Fulfilment", amount: "AED 940.20", status: "Reviewing" },
+                  { name: "INV-4471 · Vendor A", amount: "AED 12,450.00", status: "Processed" },
+                  { name: "INV-4472 · Vendor B", amount: "AED 3,180.75", status: "Processed" },
+                  { name: "INV-4473 · Vendor C", amount: "AED 940.20", status: "Reviewing" },
                 ].map((row) => (
                   <div key={row.name} className="flex items-center justify-between text-sm">
                     <span className="truncate text-slate-300">{row.name}</span>

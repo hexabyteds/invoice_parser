@@ -170,7 +170,7 @@ export default function RegisterForm() {
 
           <input
             {...register("company")}
-            placeholder="EazeeBooks Inc."
+            placeholder="Acme Trading LLC"
             className="w-full bg-transparent px-4 py-4 outline-none"
           />
 
@@ -301,7 +301,7 @@ export default function RegisterForm() {
             onClick={() => setShowPassword(!showPassword)}
             aria-label={showPassword ? "Hide password" : "Show password"}
             aria-pressed={showPassword}
-            className="shrink-0 text-slate-500 transition-colors hover:text-white"
+            className="-m-2 shrink-0 p-2 text-slate-500 transition-colors hover:text-white"
           >
             {showPassword ? (
               <EyeOff size={20} />
@@ -379,7 +379,7 @@ export default function RegisterForm() {
             onClick={() => setShowConfirm(!showConfirm)}
             aria-label={showConfirm ? "Hide password" : "Show password"}
             aria-pressed={showConfirm}
-            className="shrink-0 text-slate-500 transition-colors hover:text-white"
+            className="-m-2 shrink-0 p-2 text-slate-500 transition-colors hover:text-white"
           >
             {showConfirm ? (
               <EyeOff size={20} />

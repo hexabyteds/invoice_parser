@@ -132,7 +132,7 @@ export default function ResetPassword() {
                                         onClick={() => setShowPassword(!showPassword)}
                                         aria-label={showPassword ? "Hide password" : "Show password"}
                                         aria-pressed={showPassword}
-                                        className="text-slate-400 transition-colors hover:text-white"
+                                        className="-m-2 p-2 text-slate-400 transition-colors hover:text-white"
                                     >
                                         {showPassword ? (
                                             <EyeOff size={20} />
@@ -178,7 +178,7 @@ export default function ResetPassword() {
                                         onClick={() => setShowConfirm(!showConfirm)}
                                         aria-label={showConfirm ? "Hide password" : "Show password"}
                                         aria-pressed={showConfirm}
-                                        className="text-slate-400 transition-colors hover:text-white"
+                                        className="-m-2 p-2 text-slate-400 transition-colors hover:text-white"
                                     >
                                         {showConfirm ? (
                                             <EyeOff size={20} />

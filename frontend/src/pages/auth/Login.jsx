@@ -68,6 +68,7 @@ export default function Login() {
 
     return (
         <AuthLayout
+            variant="minimal"
             title="Welcome Back"
             subtitle="Sign in to continue to your dashboard."
         >
@@ -132,7 +133,7 @@ export default function Login() {
                             onClick={() => setShowPassword(!showPassword)}
                             aria-label={showPassword ? "Hide password" : "Show password"}
                             aria-pressed={showPassword}
-                            className="shrink-0 text-slate-400 transition-colors hover:text-white"
+                            className="-m-2 shrink-0 p-2 text-slate-400 transition-colors hover:text-white"
                         >
                             {showPassword ? (
                                 <EyeOff size={20} />
