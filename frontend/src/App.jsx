@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Landing from "./pages/landing/Landing";
 import Price from "./pages/landing/Price";
 import LegalStub from "./pages/landing/LegalStub";
+import Terms from "./pages/landing/Terms";
 import NotFound from "./pages/landing/NotFound";
 import Contact from "./pages/landing/Contact";
 import Login from "./pages/auth/Login";
@@ -56,7 +57,7 @@ function App() {
         <Route path="/features" element={<Features />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/privacy" element={<LegalStub title="Privacy Policy" />} />
-        <Route path="/terms" element={<LegalStub title="Terms of Service" />} />
+        <Route path="/terms" element={<Terms />} />
         <Route
           path="/dashboard"
           element={

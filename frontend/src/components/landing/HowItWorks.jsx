@@ -4,7 +4,7 @@ const steps = [
   ["01", "Upload", "Drop in a PDF or photo of any invoice."],
   ["02", "Extract", "AI reads it and structures every field."],
   ["03", "Review", "Check the data, fix anything that needs it."],
-  ["04", "Export", "Send it to QuickBooks, Zoho, Xero, or Excel."],
+  ["04", "Export", "Send it to QuickBooks, Zoho Books, or Excel."],
 ];
 
 export default function HowItWorks() {

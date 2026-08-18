@@ -91,9 +91,8 @@ export default function Pricing() {
         >
           Process invoices using AI,
           automate bookkeeping,
-          export to QuickBooks,
-          Zoho,
-          Xero and grow your business without paying per user.
+          export to QuickBooks or Zoho Books,
+          and grow your business without paying per user.
         </motion.p>
 
         <div className="mt-14 flex flex-col items-center gap-3">

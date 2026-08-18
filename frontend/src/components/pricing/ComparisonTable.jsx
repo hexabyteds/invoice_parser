@@ -24,23 +24,9 @@ const features = [
         enterprise: true,
       },
       {
-        name: "Bulk Upload",
-        free: false,
-        starter: false,
-        business: true,
-        enterprise: true,
-      },
-      {
         name: "Multi-page PDF Support",
         free: true,
         starter: true,
-        business: true,
-        enterprise: true,
-      },
-      {
-        name: "Duplicate Detection",
-        free: false,
-        starter: false,
         business: true,
         enterprise: true,
       },
@@ -68,14 +54,6 @@ const features = [
 
       {
         name: "Unlimited Clients",
-        free: false,
-        starter: false,
-        business: true,
-        enterprise: true,
-      },
-
-      {
-        name: "Client Portal",
         free: false,
         starter: false,
         business: true,
@@ -111,52 +89,6 @@ const features = [
         business: true,
         enterprise: true,
       },
-
-      {
-        name: "Xero Export",
-        free: false,
-        starter: false,
-        business: true,
-        enterprise: true,
-      },
-    ],
-  },
-
-  {
-    category: "Automation",
-
-    items: [
-      {
-        name: "Email Upload",
-        free: false,
-        starter: false,
-        business: true,
-        enterprise: true,
-      },
-
-      {
-        name: "WhatsApp Upload",
-        free: false,
-        starter: false,
-        business: true,
-        enterprise: true,
-      },
-
-      {
-        name: "Approval Workflow",
-        free: false,
-        starter: false,
-        business: true,
-        enterprise: true,
-      },
-
-      {
-        name: "Auto Categorization",
-        free: false,
-        starter: false,
-        business: true,
-        enterprise: true,
-      },
     ],
   },
 
@@ -185,14 +117,6 @@ const features = [
         free: false,
         starter: false,
         business: true,
-        enterprise: true,
-      },
-
-      {
-        name: "Single Sign-On",
-        free: false,
-        starter: false,
-        business: false,
         enterprise: true,
       },
     ],

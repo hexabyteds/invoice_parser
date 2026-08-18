@@ -1,4 +1,4 @@
-const integrations = ["QuickBooks", "Zoho Books", "Xero", "Excel / CSV"];
+const integrations = ["QuickBooks", "Zoho Books", "Excel / CSV"];
 
 export default function IntegrationsBand() {
   return (
