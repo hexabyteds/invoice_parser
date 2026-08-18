@@ -137,7 +137,7 @@ export const TERMS_SECTIONS = [
     id: "s13",
     title: "Third-Party Integrations and Services",
     blocks: [
-      { p: "EazeeBooks may integrate with or provide exports for third-party services, including accounting platforms, payment processors, AI providers, hosting providers, email providers, and other technology providers, such as Stripe, QuickBooks, Zoho Books, and Xero." },
+      { p: "EazeeBooks may integrate with or provide exports for third-party services, including accounting platforms, payment processors, AI providers, hosting providers, email providers, and other technology providers, such as Stripe, QuickBooks, and Zoho Books." },
       { p: "Third-party services are controlled by their respective providers. We are not responsible for third-party outages, errors, security incidents, data loss, changes to third-party APIs, pricing, or terms, or third-party service availability. Your use of a third-party service may also be subject to that provider's own terms and privacy policy." },
     ],
   },
