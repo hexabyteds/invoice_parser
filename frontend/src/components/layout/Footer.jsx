@@ -36,7 +36,7 @@ export default function Footer() {
             <ul className="mt-4 space-y-3 text-sm text-slate-400">
               <li>
                 <Link to="/contact" className="transition-colors hover:text-white">
-                  Contact
+                  Contact Us
                 </Link>
               </li>
               <li><Link to="/privacy" className="transition-colors hover:text-white">Privacy Policy</Link></li>

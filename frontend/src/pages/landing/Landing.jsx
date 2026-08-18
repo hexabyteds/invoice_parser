@@ -36,7 +36,13 @@ export default function Landing() {
   });
 
   return (
-    <main className="min-h-screen bg-[#030712]">
+    <main className="min-h-screen">
+
+      {/* Fixed to the viewport (not the page) so the ambient glow stays
+          visible in the side margins at every scroll position — without it,
+          everything past the Hero sits on flat black and the margins read
+          as empty dead space on wide/ultrawide screens. */}
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_12%_15%,#4f46e522,transparent_38%),radial-gradient(circle_at_88%_20%,#7c3aed1c,transparent_38%),radial-gradient(circle_at_20%_85%,#7c3aed18,transparent_35%),radial-gradient(circle_at_85%_80%,#4f46e51c,transparent_35%)]" />
 
       <Navbar />
 

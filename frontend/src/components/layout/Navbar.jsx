@@ -4,8 +4,10 @@ import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
+  { to: "/", label: "Home" },
   { to: "/features", label: "Features" },
   { to: "/price", label: "Pricing" },
+  { to: "/contact", label: "Contact Us" },
 ];
 
 export default function Navbar() {
