@@ -24,7 +24,7 @@ const faqs = [
   },
   {
     q: "Which accounting platforms can I export to?",
-    a: "QuickBooks, Zoho Books, and Xero are supported directly, alongside Excel and CSV export for any other workflow.",
+    a: "QuickBooks and Zoho Books are supported directly, alongside Excel and CSV export for any other workflow.",
   },
 ];
 

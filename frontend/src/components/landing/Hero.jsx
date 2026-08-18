@@ -28,8 +28,8 @@ export default function Hero() {
 
           <p className="mt-8 max-w-xl text-lg leading-8 text-slate-400">
             Upload a PDF or photo and get structured, categorized
-            invoice data in seconds. Export straight to QuickBooks,
-            Zoho, or Xero — no manual entry, no per-seat pricing.
+            invoice data in seconds. Export straight to QuickBooks
+            or Zoho Books — no manual entry, no per-seat pricing.
           </p>
 
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:gap-5">

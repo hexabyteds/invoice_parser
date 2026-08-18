@@ -10,7 +10,7 @@ import { useSeo, useJsonLd } from "../../hooks/useSeo";
 import { SITE_URL } from "../../utils/seo";
 
 const DESCRIPTION =
-  "EazeeBooks uses AI to extract, structure, and export invoice data straight into QuickBooks, Zoho, and Xero — no manual entry, no per-seat pricing. Built for UAE businesses.";
+  "EazeeBooks uses AI to extract, structure, and export invoice data straight into QuickBooks and Zoho Books — no manual entry, no per-seat pricing. Built for UAE businesses.";
 
 export default function Landing() {
   useSeo({

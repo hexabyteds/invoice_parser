@@ -11,7 +11,7 @@ const capabilities = [
   {
     icon: Download,
     label: "Export to",
-    value: "QuickBooks, Zoho, Xero",
+    value: "QuickBooks, Zoho Books",
   },
   {
     icon: ShieldCheck,
