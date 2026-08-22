@@ -2,13 +2,24 @@ const db = require("../config/database");
 
 class UsageRepository {
 
+  // company_id is populated when this user owns a company (every COMPANY
+  // account, by the time they'd ever reach this path), and left NULL
+  // otherwise (a FREELANCER, who owns none) — see migration 0014. This is
+  // NOT real per-company quota tracking; usage_stats is still one row per
+  // user. It just stops row creation itself from failing.
   async create(userId) {
+
+    const [[membership]] = await db.execute(
+      `SELECT company_id FROM company_memberships WHERE user_id = ? AND role = 'OWNER' AND status = 'ACTIVE' LIMIT 1`,
+      [userId]
+    );
 
     const [result] = await db.execute(
       `
       INSERT INTO usage_stats
       (
         user_id,
+        company_id,
         invoices_used,
         bank_statements_used,
         clients_used,
@@ -17,9 +28,9 @@ class UsageRepository {
         api_calls_used,
         team_members_used
       )
-      VALUES (?,0,0,0,0,0,0,1)
+      VALUES (?,?,0,0,0,0,0,0,1)
       `,
-      [userId]
+      [userId, membership?.company_id ?? null]
     );
 
     return result.insertId;

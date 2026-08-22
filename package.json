@@ -13,6 +13,8 @@
     "tunnel": "bash scripts/tunnel.sh",
     "share": "bash scripts/start-with-tunnel.sh",
     "dev": "nodemon app-backend.js",
+    "dev:branch": "nodemon -r dotenv/config app-backend.js dotenv_config_path=.env.branch",
+    "migrate:branch": "node -r dotenv/config scripts/migrate.js dotenv_config_path=.env.branch",
     "test": "cross-env NODE_ENV=test jest --runInBand",
     "test:watch": "cross-env NODE_ENV=test jest --watch --runInBand"
   },

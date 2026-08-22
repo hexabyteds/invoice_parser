@@ -1,5 +1,7 @@
 const userRepository = require("../repositories/userRepository");
 const loginHistoryRepository = require("../repositories/loginHistoryRepository");
+const companyRepository = require("../repositories/companyRepository");
+const companyService = require("./companyService");
 const subscriptionService = require("./subscriptionService");
 const usageService = require("./usageService");
 const emailService = require("./emailService");
@@ -57,7 +59,14 @@ function toPublicUser(user) {
         role: user.role || "customer",
         plan: user.plan || "free",
         status: fromDbStatus(user.status, user.deleted_at),
+        account_type: user.account_type || null,
     };
+}
+
+function validateAccountType(accountType) {
+    if (accountType !== "COMPANY" && accountType !== "FREELANCER") {
+        throw new Error('Account type must be "COMPANY" or "FREELANCER".');
+    }
 }
 
 function toPublicSubscription(subscription) {
@@ -83,6 +92,11 @@ class AuthService {
 
             validateEmailFormat(data.email);
             validatePasswordPolicy(data.password);
+            validateAccountType(data.account_type);
+
+            if (data.account_type === "COMPANY" && !data.company_name?.trim()) {
+                throw new Error("Company name is required.");
+            }
 
             // Mandatory for every new signup — see utils/countries.js and
             // utils/phone.js. Existing accounts predating this change are
@@ -116,22 +130,45 @@ class AuthService {
 
             const id = await userRepository.create({
                 name: data.name?.trim(),
-                company_name: data.company_name?.trim() ?? null,
+                company_name: data.account_type === "COMPANY" ? data.company_name?.trim() : null,
                 email: data.email?.trim().toLowerCase(),
                 country,
                 country_code: countryCode,
                 mobile_number: mobileNumber,
                 password,
                 plan: "FREE",
+                account_type: data.account_type,
             });
 
             console.log("Created ID:", id);
 
-            let subscription;
+            // A Company account owns a workspace from the moment it signs
+            // up — create it (and the OWNER membership) alongside the user,
+            // same transaction-by-cleanup pattern as the subscription below.
+            // A Freelancer owns no workspace and gets neither a company nor
+            // a personal subscription/usage record: usage_stats.company_id
+            // is NOT NULL (see migration 0013) and there's no company yet
+            // to attach it to — a freelancer's usage is charged to whichever
+            // company they're actively working in, never to themselves.
+            let subscription = null;
 
             try {
-                subscription = await subscriptionService.createFreeSubscription(id);
-                await usageService.ensureUsageRecord(id);
+                if (data.account_type === "COMPANY") {
+                    const companyId = await companyRepository.create({
+                        name: data.company_name.trim(),
+                        ownerUserId: id,
+                    });
+
+                    await companyRepository.createMembership({
+                        companyId,
+                        userId: id,
+                        role: "OWNER",
+                        status: "ACTIVE",
+                    });
+
+                    subscription = await subscriptionService.createFreeSubscription(id);
+                    await usageService.ensureUsageRecord(id);
+                }
             } catch (subscriptionError) {
                 await userRepository.delete(id);
                 throw subscriptionError;
@@ -207,6 +244,10 @@ class AuthService {
         }));
     }
 
+    // Also returns the caller's companies (active memberships — this is
+    // what the frontend's workspace switcher is built from) and pending
+    // invitations, so AuthContext gets everything it needs to render the
+    // logged-in shell in one round trip instead of a second fetch.
     async me(id) {
         const user = await userRepository.findById(id);
 
@@ -214,7 +255,13 @@ class AuthService {
             throw new Error("User not found.");
         }
 
-        return toPublicUser(user);
+        const { companies, invitations } = await companyService.getMembershipsForUser(id);
+
+        return {
+            ...toPublicUser(user),
+            companies,
+            invitations,
+        };
     }
 
     async updateProfile(id, data) {

@@ -14,6 +14,8 @@ require('dotenv').config();
 const authRoutes = require("./routes/authRoutes");
 const FreeInvoiceAgent = require('./free-invoice-agent');
 const authMiddleware = require("./middleware/authMiddleware");
+const companyContext = require("./middleware/companyContext");
+const requireCompanyPermission = require("./middleware/requireCompanyPermission");
 const clientRoutes = require("./routes/clientRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const planRoutes = require("./routes/planRoutes");
@@ -67,6 +69,7 @@ app.use("/api/plans", planRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/usage", require("./routes/usageRoutes"));
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/companies", require("./routes/companyRoutes"));
 app.use("/api/bank-statements", require("./routes/bankStatementRoutes"));
 app.use("/api/documents", require("./routes/documentsRoutes"));
 app.use("/api/contact", require("./routes/contactRoutes"));
@@ -189,6 +192,8 @@ async function releaseFailedUploadStorage(userId, file) {
 app.post(
   "/api/upload",
   authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "create"),
   uploadRateLimiter,
   upload.single("image"),
   async (req, res) => {
@@ -229,7 +234,7 @@ app.post(
       // ===========================
       // NEW: Reject uploads against a deactivated client
       // ===========================
-      await clientService.assertActive(clientId, req.user.id);
+      await clientService.assertActiveForCompany(clientId, req.company.id);
 
       // Reserves the bytes atomically — under concurrent uploads, the old
       // checkStorageLimit()-then-addStorage() pair let every request read
@@ -317,6 +322,7 @@ app.post(
         result = await agent.processPDF(
           req.file.path,
           req.user.id,
+          req.company.id,
           clientId,
           req.file.path,
           documentType
@@ -327,6 +333,7 @@ app.post(
         result = await agent.processImage(
           req.file.path,
           req.user.id,
+          req.company.id,
           clientId,
           req.file.path,
           documentType
@@ -520,7 +527,12 @@ app.post(
 const DEFAULT_INVOICE_LIMIT = 20;
 const MAX_INVOICE_LIMIT = 100;
 
-app.get("/api/invoices", authMiddleware, async (req, res) => {
+app.get(
+  "/api/invoices",
+  authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "view"),
+  async (req, res) => {
   try {
     const clientId = req.query.client_id;
     const limit = req.query.limit === undefined
@@ -594,12 +606,12 @@ app.get("/api/invoices", authMiddleware, async (req, res) => {
       }
 
       result = await agent.getInvoicesByClient(
-        req.user.id,
+        req.company.id,
         parsedClientId,
         { limit, offset, documentType, from, to }
       );
     } else {
-      result = await agent.getInvoices(req.user.id, { limit, offset, documentType, from, to });
+      result = await agent.getInvoices(req.company.id, { limit, offset, documentType, from, to });
     }
 
     res.json({
@@ -646,13 +658,15 @@ function validateStoredInvoice(invoiceRow, lineItems) {
 app.get(
   "/api/invoices/:id",
   authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "view"),
   async (req, res) => {
 
     try {
 
       const data = await agent.getInvoiceById(
         req.params.id,
-        req.user.id
+        req.company.id
       );
 
       if (!data) {
@@ -689,11 +703,13 @@ app.get(
 app.get(
   "/api/invoices/:id/source",
   authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "view"),
   async (req, res) => {
     try {
       const source = await agent.getInvoiceSourcePath(
         req.params.id,
-        req.user.id
+        req.company.id
       );
 
       if (!source) {
@@ -728,6 +744,8 @@ app.get(
 app.put(
   "/api/invoices/:id",
   authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "edit"),
   async (req, res) => {
 
     try {
@@ -744,7 +762,7 @@ app.put(
 
       const updated = await agent.updateInvoice(
         req.params.id,
-        req.user.id,
+        req.company.id,
         req.body
       );
 
@@ -781,12 +799,15 @@ app.put(
 app.delete(
   "/api/invoices/:id",
   authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "delete"),
   async (req, res) => {
     try {
       console.log("DELETE INVOICE", req.params.id);
       console.log("USER ID", req.user.id);
       const deleted = await agent.deleteInvoice(
         req.params.id,
+        req.company.id,
         req.user.id
       );
 
@@ -814,6 +835,8 @@ app.delete(
 app.get(
   "/api/analytics",
   authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "view"),
   async (req, res) => {
 
     try {
@@ -824,11 +847,12 @@ app.get(
 
       console.log("ANALYTICS QUERY", {
         userId: req.user.id,
+        companyId: req.company.id,
         clientId,
       });
 
       const analytics = await agent.getAnalytics(
-        req.user.id,
+        req.company.id,
         clientId
       );
 
@@ -852,19 +876,23 @@ app.get(
 );
 
 // Get statistics
-app.get('/api/stats', authMiddleware, async (req, res) => {
+app.get('/api/stats', authMiddleware, companyContext, requireCompanyPermission("invoices", "view"), async (req, res) => {
 
   const clientId = req.query.client_id;
 
   let stats;
 
   if (clientId) {
+    // Pre-existing bug, unrelated to this migration: FreeInvoiceAgent has
+    // no getStatsByClient method (only getStats(companyId, clientId)) — a
+    // stats request scoped to a specific client already 500s today. Left
+    // as-is rather than silently fixed alongside the tenancy change.
     stats = await agent.getStatsByClient(
-      req.user.id,
+      req.company.id,
       Number(clientId)
     );
   } else {
-    stats = await agent.getStats(req.user.id);
+    stats = await agent.getStats(req.company.id);
   }
 
   res.json({
@@ -901,7 +929,7 @@ function rejectInvalidExportDocumentType(req, res) {
 
 // Download Excel (regenerate from DB — one row per line item)
 // Supports: ?client_id=&from=YYYY-MM-DD&to=YYYY-MM-DD
-app.get("/api/download-excel", authMiddleware, async (req, res) => {
+app.get("/api/download-excel", authMiddleware, companyContext, requireCompanyPermission("invoices", "export"), async (req, res) => {
   try {
     if (rejectInvalidExportDocumentType(req, res)) return;
 
@@ -909,11 +937,12 @@ app.get("/api/download-excel", authMiddleware, async (req, res) => {
 
     console.log("DOWNLOAD EXCEL", {
       userId: req.user.id,
+      companyId: req.company.id,
       ...filters,
     });
 
     const file = await agent.saveToExcel(
-      req.user.id,
+      req.company.id,
       filters.clientId,
       undefined,
       filters
@@ -936,7 +965,7 @@ app.get("/api/download-excel", authMiddleware, async (req, res) => {
 // Unified export:
 // format = excel | csv | zoho | quickbooks | pdf | html
 // Supports: ?format=&client_id=&from=YYYY-MM-DD&to=YYYY-MM-DD
-app.get("/api/export", authMiddleware, async (req, res) => {
+app.get("/api/export", authMiddleware, companyContext, requireCompanyPermission("invoices", "export"), async (req, res) => {
   try {
     if (rejectInvalidExportDocumentType(req, res)) return;
 
@@ -948,12 +977,13 @@ app.get("/api/export", authMiddleware, async (req, res) => {
 
     console.log("EXPORT", {
       userId: req.user.id,
+      companyId: req.company.id,
       format,
       ...filters,
     });
 
     if (format === "csv") {
-      const { csv } = await agent.exportCSV(req.user.id, filters);
+      const { csv } = await agent.exportCSV(req.company.id, filters);
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader(
         "Content-Disposition",
@@ -963,7 +993,7 @@ app.get("/api/export", authMiddleware, async (req, res) => {
     }
 
     if (format === "zoho") {
-      const { filePath } = await agent.exportZoho(req.user.id, filters);
+      const { filePath } = await agent.exportZoho(req.company.id, filters);
       return res.download(filePath, `${prefix}_zoho_bills.xlsx`, (err) => {
         if (err) console.error("Zoho download error", err);
         fs.unlink(filePath, () => {});
@@ -971,7 +1001,7 @@ app.get("/api/export", authMiddleware, async (req, res) => {
     }
 
     if (format === "quickbooks" || format === "qb") {
-      const { csv } = await agent.exportQuickBooks(req.user.id, filters);
+      const { csv } = await agent.exportQuickBooks(req.company.id, filters);
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader(
         "Content-Disposition",
@@ -981,7 +1011,7 @@ app.get("/api/export", authMiddleware, async (req, res) => {
     }
 
     if (format === "pdf") {
-      const { filePath } = await agent.exportPDF(req.user.id, filters);
+      const { filePath } = await agent.exportPDF(req.company.id, filters);
       return res.download(filePath, `${prefix}.pdf`, (err) => {
         if (err) console.error("PDF download error", err);
         fs.unlink(filePath, () => {});
@@ -990,7 +1020,7 @@ app.get("/api/export", authMiddleware, async (req, res) => {
 
     if (format === "html" || format === "report") {
       const reportFile = await agent.generateHTMLReport(
-        req.user.id,
+        req.company.id,
         filters.clientId,
         undefined,
         filters
@@ -1007,7 +1037,7 @@ app.get("/api/export", authMiddleware, async (req, res) => {
 
     // Default: excel
     const file = await agent.saveToExcel(
-      req.user.id,
+      req.company.id,
       filters.clientId,
       undefined,
       filters
@@ -1024,7 +1054,7 @@ app.get("/api/export", authMiddleware, async (req, res) => {
 });
 
 // Generate HTML report
-app.get("/api/report", authMiddleware, async (req, res) => {
+app.get("/api/report", authMiddleware, companyContext, requireCompanyPermission("invoices", "export"), async (req, res) => {
 
   try {
     if (rejectInvalidExportDocumentType(req, res)) return;
@@ -1032,7 +1062,7 @@ app.get("/api/report", authMiddleware, async (req, res) => {
     const filters = getExportFilters(req.query);
 
     const reportFile = await agent.generateHTMLReport(
-      req.user.id,
+      req.company.id,
       filters.clientId,
       undefined,
       filters
@@ -1056,11 +1086,11 @@ app.get("/api/report", authMiddleware, async (req, res) => {
 });
 
 // Clear all data
-app.post('/api/clear', authMiddleware, async (req, res) => {
+app.post('/api/clear', authMiddleware, companyContext, requireCompanyPermission("invoices", "delete"), async (req, res) => {
 
   try {
 
-    await agent.clear(req.user.id);
+    await agent.clear(req.company.id, req.user.id);
 
     res.json({
       success: true,

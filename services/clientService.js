@@ -182,6 +182,44 @@ class ClientService {
         return client;
     }
 
+    // Company-scoped counterparts of get()/assertActive() — a client
+    // (customer/supplier contact) belongs to a company, not a user, so the
+    // invoice upload/edit path (which now operates in company context) must
+    // check the client is actually IN that company, not owned by whichever
+    // user happens to be making the request (a freelancer never owns any
+    // client directly). Added alongside the originals rather than replacing
+    // them: the not-yet-migrated Customers/Suppliers CRUD routes still call
+    // the user-scoped versions above.
+    async getForCompany(id, companyId) {
+
+        const client = await clientRepository.findByIdForCompany(id, companyId);
+
+        if (!client) {
+            throw new Error("Client not found.");
+        }
+
+        return client;
+    }
+
+    async assertActiveForCompany(id, companyId) {
+
+        const client = await clientRepository.findByIdForCompany(id, companyId);
+
+        if (!client) {
+            throw new Error("Client not found.");
+        }
+
+        if (client.status !== "ACTIVE") {
+            const err = new Error(
+                "This client is inactive. Please activate the client before adding documents."
+            );
+            err.statusCode = 403;
+            throw err;
+        }
+
+        return client;
+    }
+
     async delete(id, userId) {
 
         const client = await clientRepository.findById(id, userId);

@@ -40,14 +40,15 @@ class FreeInvoiceAgent {
     // partyNameService (see applyPartyName). Never throws — the upload
     // route already validated the client exists/is active before calling
     // in here, so a failure here should only disable the sanity check,
-    // never block the upload/edit itself.
-    async loadClientForPartyName(userId, clientId) {
+    // never block the upload/edit itself. Company-scoped: a client belongs
+    // to the company, not to whichever user is currently uploading.
+    async loadClientForPartyName(companyId, clientId) {
         if (!clientId) {
             return null;
         }
 
         try {
-            return await clientService.get(clientId, userId);
+            return await clientService.getForCompany(clientId, companyId);
         } catch (err) {
             return null;
         }
@@ -97,6 +98,7 @@ class FreeInvoiceAgent {
     async processImage(
         imagePath,
         userId,
+        companyId,
         clientId,
         sourceFilePath = imagePath,
         documentType = null
@@ -170,11 +172,12 @@ class FreeInvoiceAgent {
         );
 
         result.invoice.user_id = userId;
+        result.invoice.company_id = companyId;
         result.invoice.client_id = clientId;
         result.invoice.document_type = documentType;
 
         const selectedClient = await this.loadClientForPartyName(
-            userId,
+            companyId,
             clientId
         );
 
@@ -201,7 +204,7 @@ class FreeInvoiceAgent {
 
             await invoiceRepository.updateImagePath(
                 invoiceId,
-                userId,
+                companyId,
                 stored
             );
 
@@ -238,6 +241,7 @@ class FreeInvoiceAgent {
     async processPDF(
         pdfPath,
         userId,
+        companyId,
         clientId,
         sourceFilePath = pdfPath,
         documentType = null
@@ -335,7 +339,7 @@ class FreeInvoiceAgent {
         // clientId/documentType are the same for every invoice in this
         // PDF, so the selected client only needs to be loaded once.
         const selectedClient = await this.loadClientForPartyName(
-            userId,
+            companyId,
             clientId
         );
 
@@ -354,6 +358,7 @@ class FreeInvoiceAgent {
                 invoiceNormalizer.normalize(item.invoice);
 
             invoice.user_id = userId;
+            invoice.company_id = companyId;
             invoice.client_id = clientId;
             invoice.document_type = documentType;
 
@@ -368,17 +373,17 @@ class FreeInvoiceAgent {
                     invoice,
                     sourcePaths[i]
                 );
-    
+
             try {
-    
+
                 const invoiceId =
                     await invoiceRepository.create(
                         invoice
                     );
-    
+
                 await invoiceRepository.updateImagePath(
                     invoiceId,
-                    userId,
+                    companyId,
                     stored
                 );
     
@@ -435,13 +440,13 @@ class FreeInvoiceAgent {
     // =========================
 
     async getInvoices(
-        userId,
+        companyId,
         { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}
     ) {
         const [invoices, total] =
             await Promise.all([
-                invoiceRepository.findByUser(
-                    userId,
+                invoiceRepository.findByCompany(
+                    companyId,
                     {
                         limit,
                         offset,
@@ -451,8 +456,8 @@ class FreeInvoiceAgent {
                     }
                 ),
 
-                invoiceRepository.countByUser(
-                    userId,
+                invoiceRepository.countByCompany(
+                    companyId,
                     { documentType, from, to }
                 )
             ]);
@@ -469,12 +474,12 @@ class FreeInvoiceAgent {
 
     async getInvoiceById(
         invoiceId,
-        userId
+        companyId
     ) {
         const invoice =
             await invoiceRepository.findById(
                 invoiceId,
-                userId
+                companyId
             );
 
         if (!invoice) {
@@ -498,12 +503,12 @@ class FreeInvoiceAgent {
 
     async getInvoiceSourcePath(
         invoiceId,
-        userId
+        companyId
     ) {
         const invoice =
             await invoiceRepository.findById(
                 invoiceId,
-                userId
+                companyId
             );
 
         if (!invoice?.image_path) {
@@ -534,14 +539,19 @@ class FreeInvoiceAgent {
     // DELETE INVOICE
     // =========================
 
+    // userId is kept alongside companyId only because storage quota
+    // (usage_stats) is still tracked per-user, not per-company — see the
+    // Milestone 2 note on usage_stats. The row itself is found/deleted by
+    // companyId; userId here is purely for the quota refund below.
     async deleteInvoice(
         invoiceId,
+        companyId,
         userId
     ) {
         const existing =
             await invoiceRepository.findById(
                 invoiceId,
-                userId
+                companyId
             );
 
         if (!existing) {
@@ -555,7 +565,7 @@ class FreeInvoiceAgent {
         const removed =
             await invoiceRepository.deleteById(
                 invoiceId,
-                userId
+                companyId
             );
 
         // Storage quota was never released when an invoice was deleted —
@@ -579,13 +589,13 @@ class FreeInvoiceAgent {
 
     async updateInvoice(
         invoiceId,
-        userId,
+        companyId,
         data
     ) {
         const existing =
             await invoiceRepository.findById(
                 invoiceId,
-                userId
+                companyId
             );
 
         if (!existing) {
@@ -698,7 +708,7 @@ class FreeInvoiceAgent {
             (existing.seller_name || existing.buyer_name)
         ) {
             const selectedClient = await this.loadClientForPartyName(
-                userId,
+                companyId,
                 existing.client_id
             );
 
@@ -730,7 +740,7 @@ class FreeInvoiceAgent {
 
         await invoiceRepository.update(
             invoiceId,
-            userId,
+            companyId,
             merged
         );
 
@@ -746,7 +756,7 @@ class FreeInvoiceAgent {
 
         return await this.getInvoiceById(
             invoiceId,
-            userId
+            companyId
         );
     }
 
@@ -755,19 +765,19 @@ class FreeInvoiceAgent {
     // =========================
 
     async getStats(
-        userId,
+        companyId,
         clientId = null
     ) {
         if (clientId) {
             return await invoiceRepository
                 .getStatisticsByClient(
-                    userId,
+                    companyId,
                     clientId
                 );
         }
 
         return await invoiceRepository
-            .getStatistics(userId);
+            .getStatistics(companyId);
     }
 
     // =========================
@@ -775,11 +785,11 @@ class FreeInvoiceAgent {
     // =========================
 
     async getExportInvoices(
-        userId,
+        companyId,
         filters = {}
     ) {
         return await invoiceRepository
-            .findForExport(userId, {
+            .findForExport(companyId, {
                 clientId:
                     filters.clientId || null,
 
@@ -799,7 +809,7 @@ class FreeInvoiceAgent {
     // =========================
 
     async saveToExcel(
-        userId,
+        companyId,
         clientId = null,
         file = `invoices_${new Date()
             .toISOString()
@@ -808,7 +818,7 @@ class FreeInvoiceAgent {
     ) {
         const invoices =
             await this.getExportInvoices(
-                userId,
+                companyId,
                 {
                     clientId,
                     ...filters
@@ -826,12 +836,12 @@ class FreeInvoiceAgent {
     // =========================
 
     async exportCSV(
-        userId,
+        companyId,
         filters = {}
     ) {
         const invoices =
             await this.getExportInvoices(
-                userId,
+                companyId,
                 filters
             );
 
@@ -849,13 +859,13 @@ class FreeInvoiceAgent {
     // =========================
 
     async exportZoho(
-        userId,
+        companyId,
         filters = {},
         file = `zoho_bills_${Date.now()}.xlsx`
     ) {
         const invoices =
             await this.getExportInvoices(
-                userId,
+                companyId,
                 filters
             );
 
@@ -877,12 +887,12 @@ class FreeInvoiceAgent {
     // =========================
 
     async exportQuickBooks(
-        userId,
+        companyId,
         filters = {}
     ) {
         const invoices =
             await this.getExportInvoices(
-                userId,
+                companyId,
                 filters
             );
 
@@ -900,13 +910,13 @@ class FreeInvoiceAgent {
     // =========================
 
     async exportPDF(
-        userId,
+        companyId,
         filters = {},
         file = `invoices_export_${Date.now()}.pdf`
     ) {
         const invoices =
             await this.getExportInvoices(
-                userId,
+                companyId,
                 filters
             );
 
@@ -927,14 +937,14 @@ class FreeInvoiceAgent {
     // =========================
 
     async generateHTMLReport(
-        userId,
+        companyId,
         clientId = null,
         file = "invoice_report.html",
         filters = {}
     ) {
         const invoices =
             await this.getExportInvoices(
-                userId,
+                companyId,
                 {
                     clientId,
                     ...filters
@@ -951,14 +961,18 @@ class FreeInvoiceAgent {
     // CLEAR
     // =========================
 
+    // userId is kept alongside companyId for the same reason as
+    // deleteInvoice: storage quota (usage_stats) is still per-user, not
+    // per-company. Rows are found/deleted by companyId.
     async clear(
+        companyId,
         userId,
         clientId = null
     ) {
         if (clientId) {
             return await invoiceRepository
                 .deleteByClient(
-                    userId,
+                    companyId,
                     clientId
                 );
         }
@@ -967,10 +981,10 @@ class FreeInvoiceAgent {
         // that reference them, then reclaim storage/disk for all of them
         // in one pass — same fix as deleteInvoice, applied to bulk clear.
         const imagePaths =
-            await invoiceRepository.findImagePathsByUser(userId);
+            await invoiceRepository.findImagePathsByCompany(companyId);
 
         const removed =
-            await invoiceRepository.deleteAll(userId);
+            await invoiceRepository.deleteAll(companyId);
 
         let freedBytes = 0;
 
@@ -990,12 +1004,12 @@ class FreeInvoiceAgent {
     // =========================
 
     async getAnalytics(
-        userId,
+        companyId,
         clientId = null
     ) {
         return await invoiceRepository
             .getAnalytics(
-                userId,
+                companyId,
                 clientId
             );
     }
@@ -1005,14 +1019,14 @@ class FreeInvoiceAgent {
     // =========================
 
     async getInvoicesByClient(
-        userId,
+        companyId,
         clientId,
         { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}
     ) {
         const [invoices, total] =
             await Promise.all([
                 invoiceRepository.findByClient(
-                    userId,
+                    companyId,
                     clientId,
                     {
                         limit,
@@ -1024,7 +1038,7 @@ class FreeInvoiceAgent {
                 ),
 
                 invoiceRepository.countByClient(
-                    userId,
+                    companyId,
                     clientId,
                     { documentType, from, to }
                 )

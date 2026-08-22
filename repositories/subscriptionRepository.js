@@ -101,12 +101,33 @@ class SubscriptionRepository {
   // Create Subscription
   // ===========================
 
+  // subscriptions.company_id is NOT NULL (migration 0013) — a subscription
+  // belongs to the company, not the user, per the architecture's core rule
+  // (spec §17). Every caller here still only has a userId in hand (both
+  // call sites predate the tenancy model), so company_id is resolved via
+  // the same OWNER-membership join the migration itself backfilled from —
+  // no call site needs to change. Only a COMPANY account's own user ever
+  // reaches this method (a Freelancer has no plan of their own), so an
+  // owner-less user here is a real caller bug, not a normal case — surfaced
+  // as a clear error instead of a raw FK/NOT NULL failure.
   async createSubscription(data) {
+    const [[membership]] = await db.execute(
+      `SELECT company_id FROM company_memberships WHERE user_id = ? AND role = 'OWNER' AND status = 'ACTIVE' LIMIT 1`,
+      [data.user_id]
+    );
+
+    if (!membership) {
+      throw new Error(
+        `Cannot create a subscription for user ${data.user_id}: they don't own a company.`
+      );
+    }
+
     const [result] = await db.execute(
       `
       INSERT INTO subscriptions
       (
         user_id,
+        company_id,
         plan_id,
         status,
         billing_cycle,
@@ -116,10 +137,11 @@ class SubscriptionRepository {
         next_billing
       )
       VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?)
+      (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.user_id,
+        membership.company_id,
         data.plan_id,
         data.status,
         data.billing_cycle,

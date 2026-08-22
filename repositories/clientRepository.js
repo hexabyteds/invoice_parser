@@ -147,9 +147,31 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
             `,
             [id, userId]
         );
-    
+
         return rows[0];
-    
+
+    }
+
+    // Company-scoped lookup — used by the invoice flow now that a client
+    // (customer/supplier contact) is company-owned, not user-owned. Added
+    // alongside findById (unchanged) rather than replacing it: the rest of
+    // this repository's user_id scoping still serves the not-yet-migrated
+    // Customers/Suppliers CRUD routes.
+    async findByIdForCompany(id, companyId) {
+
+        const [rows] = await db.execute(
+            `
+            SELECT *
+            FROM clients
+            WHERE id = ?
+            AND company_id = ?
+            LIMIT 1
+            `,
+            [id, companyId]
+        );
+
+        return rows[0];
+
     }
 
 }
