@@ -291,6 +291,7 @@ app.post(
           try {
             await auditLogRepository.create({
               userId: req.user.id,
+              companyId: req.company.id,
               clientId,
               action: "bank_statement_error",
               description: bsResult.message,
@@ -306,6 +307,7 @@ app.post(
         try {
           await auditLogRepository.create({
             userId: req.user.id,
+            companyId: req.company.id,
             clientId,
             action: "bank_statement_uploaded",
             description: `Bank statement (${bsResult.transactionCount} transaction(s))`,
@@ -314,6 +316,7 @@ app.post(
           if (bsResult.meta?.failedPages > 0) {
             await auditLogRepository.create({
               userId: req.user.id,
+              companyId: req.company.id,
               clientId,
               action: "bank_statement_error",
               description: `${bsResult.meta.failedPages} page(s) failed during extraction`,
@@ -364,6 +367,7 @@ app.post(
         try {
           await auditLogRepository.create({
             userId: req.user.id,
+            companyId: req.company.id,
             clientId,
             // A validation-object means Gemini extracted something but it
             // wasn't a valid invoice; no validation object means a hard
@@ -387,6 +391,7 @@ app.post(
         try {
           await auditLogRepository.create({
             userId: req.user.id,
+            companyId: req.company.id,
             clientId,
             action: "invoice_uploaded",
             description: `${result.totalInvoices} invoice(s) processed from PDF`,
@@ -395,6 +400,7 @@ app.post(
           if (result.meta?.failedPages > 0) {
             await auditLogRepository.create({
               userId: req.user.id,
+              companyId: req.company.id,
               clientId,
               action: "invoice_error",
               description: `${result.meta.failedPages} page(s) failed during PDF extraction`,
@@ -421,6 +427,7 @@ app.post(
       try {
         await auditLogRepository.create({
           userId: req.user.id,
+          companyId: req.company.id,
           clientId,
           action: "invoice_uploaded",
           description: invoice.invoiceNo ? `Invoice ${invoice.invoiceNo}` : "Invoice",
@@ -428,6 +435,7 @@ app.post(
 
         await auditLogRepository.create({
           userId: req.user.id,
+          companyId: req.company.id,
           clientId,
           action: "invoice_processed",
           description: `${validation.confidence}% confidence`,

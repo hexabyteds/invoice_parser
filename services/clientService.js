@@ -82,6 +82,7 @@ class ClientService {
         try {
             await auditLogRepository.create({
                 userId,
+                companyId,
                 clientId: id,
                 action: "client_added",
                 description: data.company_name,

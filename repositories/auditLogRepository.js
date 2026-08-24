@@ -2,12 +2,12 @@ const db = require("../config/database");
 
 class AuditLogRepository {
 
-    async create({ userId, action, description = null, clientId = null }) {
+    async create({ userId, companyId = null, action, description = null, clientId = null }) {
 
         await db.execute(
-            `INSERT INTO audit_logs (user_id, client_id, action, description)
-             VALUES (?, ?, ?, ?)`,
-            [userId, clientId, action, description]
+            `INSERT INTO audit_logs (user_id, company_id, client_id, action, description)
+             VALUES (?, ?, ?, ?, ?)`,
+            [userId, companyId, clientId, action, description]
         );
     }
 
