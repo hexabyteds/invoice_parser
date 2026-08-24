@@ -3,10 +3,19 @@ import toast from "react-hot-toast";
 import { ShieldCheck } from "lucide-react";
 
 import authApi from "../../services/authApi";
+import TeamAccess from "../../components/customer/TeamAccess";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Settings() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { user, currentCompany } = useAuth();
+
+  // Team management is OWNER-only server-side (requireCompanyPermission's
+  // OWNER bypass) — a Company account is always the owner of its own
+  // workspace, a Freelancer never owns the company they're currently
+  // acting in, so this section simply doesn't apply to them.
+  const canManageTeam = user?.account_type === "COMPANY" && currentCompany?.role === "OWNER";
 
   useEffect(() => {
     load();
@@ -34,6 +43,8 @@ export default function Settings() {
           Manage your account security and activity.
         </p>
       </div>
+
+      {canManageTeam && <TeamAccess />}
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow">
         <div className="flex items-center gap-2 border-b border-slate-200 px-8 py-6">

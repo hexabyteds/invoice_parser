@@ -62,7 +62,7 @@ class DocumentsController {
                 });
             }
 
-            const { documents, total } = await documentsService.list(req.user.id, {
+            const { documents, total } = await documentsService.list(req.company.id, {
                 clientId,
                 documentType,
                 from,

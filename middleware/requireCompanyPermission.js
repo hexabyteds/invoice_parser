@@ -14,11 +14,22 @@
 
 const OWNER_BYPASS = new Set(["OWNER"]);
 
-module.exports = function requireCompanyPermission(module, action) {
-  return (req, res, next) => {
-    const membership = req.membership;
+// The check itself, usable outside of Express middleware — needed by
+// routes like /api/upload that serve more than one module (invoices vs.
+// bank statements) from a single endpoint, where which module applies
+// isn't known until after the request body is parsed, so it can't be
+// decided by a static route-level middleware.
+function hasPermission(membership, module, action) {
+  if (!membership) return false;
+  if (OWNER_BYPASS.has(membership.role)) return true;
 
-    if (!membership) {
+  const allowedActions = membership.permissions && membership.permissions[module];
+  return Array.isArray(allowedActions) && allowedActions.includes(action);
+}
+
+function requireCompanyPermission(module, action) {
+  return (req, res, next) => {
+    if (!req.membership) {
       return res.status(500).json({
         success: false,
         error:
@@ -26,13 +37,7 @@ module.exports = function requireCompanyPermission(module, action) {
       });
     }
 
-    if (OWNER_BYPASS.has(membership.role)) {
-      return next();
-    }
-
-    const allowedActions = membership.permissions && membership.permissions[module];
-
-    if (!Array.isArray(allowedActions) || !allowedActions.includes(action)) {
+    if (!hasPermission(req.membership, module, action)) {
       return res.status(403).json({
         success: false,
         error: `You don't have ${action} access to ${module} in this company.`,
@@ -41,4 +46,7 @@ module.exports = function requireCompanyPermission(module, action) {
 
     next();
   };
-};
+}
+
+module.exports = requireCompanyPermission;
+module.exports.hasPermission = hasPermission;

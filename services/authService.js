@@ -225,9 +225,15 @@ class AuthService {
             });
         } catch (logErr) {}
 
+        // Same enrichment as me() — the frontend's AuthContext.login() uses
+        // this response directly (not a follow-up GET /auth/me), so the
+        // workspace switcher and pending-invitations state must be correct
+        // from the first response, not just after a later refresh.
+        const { companies, invitations } = await companyService.getMembershipsForUser(user.id);
+
         return {
             token,
-            user: toPublicUser(user),
+            user: { ...toPublicUser(user), companies, invitations },
         };
     }
 

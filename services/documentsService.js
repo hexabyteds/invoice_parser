@@ -58,11 +58,11 @@ function normalizeBankStatement(row) {
 class DocumentsService {
 
     // Fans out to invoiceRepository + bankStatementRepository (each of
-    // which already bakes "WHERE user_id = ?" ownership into its SQL),
+    // which already bakes "WHERE company_id = ?" ownership into its SQL),
     // normalizes both into a common row shape, merges, sorts by upload
     // date, and paginates in memory. GET /api/invoices is untouched and
     // keeps serving invoice/bill-only consumers (Analytics, export).
-    async list(userId, {
+    async list(companyId, {
         clientId = null,
         documentType = null,
         from = null,
@@ -82,26 +82,26 @@ class DocumentsService {
         const [invoiceRows, invoiceTotal, bankStatementRows, bankStatementTotal] = await Promise.all([
             wantInvoices
                 ? (clientId
-                    ? invoiceRepository.findByClient(userId, clientId, { limit: fetchSize, offset: 0, documentType: invoiceDocumentType, from, to })
-                    : invoiceRepository.findByUser(userId, { limit: fetchSize, offset: 0, documentType: invoiceDocumentType, from, to }))
+                    ? invoiceRepository.findByClient(companyId, clientId, { limit: fetchSize, offset: 0, documentType: invoiceDocumentType, from, to })
+                    : invoiceRepository.findByCompany(companyId, { limit: fetchSize, offset: 0, documentType: invoiceDocumentType, from, to }))
                 : Promise.resolve([]),
 
             wantInvoices
                 ? (clientId
-                    ? invoiceRepository.countByClient(userId, clientId, { documentType: invoiceDocumentType, from, to })
-                    : invoiceRepository.countByUser(userId, { documentType: invoiceDocumentType, from, to }))
+                    ? invoiceRepository.countByClient(companyId, clientId, { documentType: invoiceDocumentType, from, to })
+                    : invoiceRepository.countByCompany(companyId, { documentType: invoiceDocumentType, from, to }))
                 : Promise.resolve(0),
 
             wantBankStatements
                 ? (clientId
-                    ? bankStatementRepository.findByClient(userId, clientId, { limit: fetchSize, offset: 0, from, to })
-                    : bankStatementRepository.findByUser(userId, { limit: fetchSize, offset: 0, from, to }))
+                    ? bankStatementRepository.findByClient(companyId, clientId, { limit: fetchSize, offset: 0, from, to })
+                    : bankStatementRepository.findByCompany(companyId, { limit: fetchSize, offset: 0, from, to }))
                 : Promise.resolve([]),
 
             wantBankStatements
                 ? (clientId
-                    ? bankStatementRepository.countByClient(userId, clientId, { from, to })
-                    : bankStatementRepository.countByUser(userId, { from, to }))
+                    ? bankStatementRepository.countByClient(companyId, clientId, { from, to })
+                    : bankStatementRepository.countByCompany(companyId, { from, to }))
                 : Promise.resolve(0),
         ]);
 

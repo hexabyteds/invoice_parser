@@ -64,11 +64,11 @@ function buildFilterClause({ search, from, to, hasCredit, hasDebit } = {}, param
 
 class BankStatementTransactionRepository {
 
-    // The transactions table has no user_id column of its own, so every
-    // query here joins bank_statements and scopes on bs.user_id — the same
-    // "bake ownership into the SQL" pattern used elsewhere in the app,
+    // The transactions table has no company_id column of its own, so every
+    // query here joins bank_statements and scopes on bs.company_id — the
+    // same "bake ownership into the SQL" pattern used elsewhere in the app,
     // applied through the parent row. Without this join, a transaction id
-    // alone would let one user read another user's rows (IDOR).
+    // alone would let one company read another company's rows (IDOR).
 
     async createMany(bankStatementId, transactions = []) {
 
@@ -107,7 +107,7 @@ class BankStatementTransactionRepository {
         }
     }
 
-    async findByStatement(bankStatementId, userId, {
+    async findByStatement(bankStatementId, companyId, {
         page = 1,
         pageSize = 50,
         sortBy = "id",
@@ -125,11 +125,11 @@ class BankStatementTransactionRepository {
         let sql = `
             SELECT t.*
             FROM bank_statement_transactions t
-            INNER JOIN bank_statements bs ON bs.id = t.bank_statement_id AND bs.user_id = ?
+            INNER JOIN bank_statements bs ON bs.id = t.bank_statement_id AND bs.company_id = ?
             WHERE t.bank_statement_id = ?
         `;
 
-        const params = [userId, bankStatementId];
+        const params = [companyId, bankStatementId];
 
         sql += buildFilterClause({ search, from, to, hasCredit, hasDebit }, params);
 
@@ -141,7 +141,7 @@ class BankStatementTransactionRepository {
         return rows.map(mapTransaction);
     }
 
-    async countByStatement(bankStatementId, userId, {
+    async countByStatement(bankStatementId, companyId, {
         search = null,
         from = null,
         to = null,
@@ -152,11 +152,11 @@ class BankStatementTransactionRepository {
         let sql = `
             SELECT COUNT(*) AS total
             FROM bank_statement_transactions t
-            INNER JOIN bank_statements bs ON bs.id = t.bank_statement_id AND bs.user_id = ?
+            INNER JOIN bank_statements bs ON bs.id = t.bank_statement_id AND bs.company_id = ?
             WHERE t.bank_statement_id = ?
         `;
 
-        const params = [userId, bankStatementId];
+        const params = [companyId, bankStatementId];
 
         sql += buildFilterClause({ search, from, to, hasCredit, hasDebit }, params);
 

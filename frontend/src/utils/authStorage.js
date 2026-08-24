@@ -4,6 +4,7 @@
 // reader checks both so it doesn't matter which one a given session used.
 const TOKEN_KEY = "token";
 const USER_KEY = "user";
+const COMPANY_KEY = "currentCompanyId";
 
 function readFrom(key) {
   return localStorage.getItem(key) ?? sessionStorage.getItem(key);
@@ -44,6 +45,23 @@ export function updateStoredUser(user) {
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(COMPANY_KEY);
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(COMPANY_KEY);
+}
+
+// Which company/workspace the UI is currently acting as — read by
+// services/api.js's request interceptor and sent as X-Company-Id on every
+// request. Naming one here is never itself authorization (the backend's
+// companyContext middleware always re-verifies membership) — it only
+// selects which of the caller's own memberships the request should use.
+export function getCurrentCompanyId() {
+  const raw = readFrom(COMPANY_KEY);
+  return raw ? Number(raw) : null;
+}
+
+export function setCurrentCompanyId(companyId) {
+  const store = localStorage.getItem(TOKEN_KEY) ? localStorage : sessionStorage;
+  store.setItem(COMPANY_KEY, String(companyId));
 }

@@ -59,7 +59,16 @@ class UsageService {
     const plan = await this.getPlanLimits(userId);
 
     const actualClients = await clientRepository.countByUser(userId);
-    const actualInvoices = await invoiceRepository.countByUser(userId);
+
+    // Invoices are company-scoped (see migrations 0012-0013), but this
+    // usage_stats row is still one-per-user — company_id on it is only
+    // populated opportunistically for a company owner (migration 0014).
+    // A Freelancer's row has no company_id yet, so there's nothing to
+    // reconcile the counter against; leave the stored value as-is rather
+    // than crash or silently zero it out.
+    const actualInvoices = usage.company_id
+      ? await invoiceRepository.countByCompany(usage.company_id)
+      : usage.invoices_used;
 
     if (usage.clients_used !== actualClients) {
       await usageRepository.updateClients(userId, actualClients);

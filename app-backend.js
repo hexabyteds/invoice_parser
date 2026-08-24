@@ -193,7 +193,6 @@ app.post(
   "/api/upload",
   authMiddleware,
   companyContext,
-  requireCompanyPermission("invoices", "create"),
   uploadRateLimiter,
   upload.single("image"),
   async (req, res) => {
@@ -231,6 +230,19 @@ app.post(
         });
       }
 
+      // Which module this upload needs permission for isn't known until
+      // now (it depends on document_type, parsed from the body) — can't be
+      // a static route-level requireCompanyPermission like every other
+      // route. See middleware/requireCompanyPermission.js's hasPermission.
+      const uploadModule = isBankStatementType(documentType) ? "bank_statements" : "invoices";
+
+      if (!requireCompanyPermission.hasPermission(req.membership, uploadModule, "create")) {
+        return res.status(403).json({
+          success: false,
+          error: `You don't have create access to ${uploadModule} in this company.`,
+        });
+      }
+
       // ===========================
       // NEW: Reject uploads against a deactivated client
       // ===========================
@@ -261,12 +273,14 @@ app.post(
           ? await bankStatementService.processPDF(
               req.file.path,
               req.user.id,
+              req.company.id,
               clientId,
               req.file.path
             )
           : await bankStatementService.processImage(
               req.file.path,
               req.user.id,
+              req.company.id,
               clientId,
               req.file.path
             );

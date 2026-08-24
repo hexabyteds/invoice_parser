@@ -25,7 +25,7 @@ class BankStatementController {
 
             const statement = await bankStatementService.getById(
                 req.params.id,
-                req.user.id
+                req.company.id
             );
 
             if (!statement) {
@@ -56,7 +56,7 @@ class BankStatementController {
 
             const source = await bankStatementService.getSourcePath(
                 req.params.id,
-                req.user.id
+                req.company.id
             );
 
             if (!source) {
@@ -126,7 +126,7 @@ class BankStatementController {
 
             const result = await bankStatementService.getTransactions(
                 req.params.id,
-                req.user.id,
+                req.company.id,
                 {
                     page,
                     pageSize,
@@ -169,7 +169,7 @@ class BankStatementController {
 
             const updated = await bankStatementService.update(
                 req.params.id,
-                req.user.id,
+                req.company.id,
                 req.body
             );
 
@@ -203,6 +203,7 @@ class BankStatementController {
 
             const removed = await bankStatementService.deleteById(
                 req.params.id,
+                req.company.id,
                 req.user.id
             );
 

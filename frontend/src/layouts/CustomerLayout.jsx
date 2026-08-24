@@ -2,11 +2,20 @@ import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../components/customer/Sidebar";
 import Topbar from "../components/customer/Topbar";
+import NoCompanyState from "../components/customer/NoCompanyState";
+import { useAuth } from "../context/AuthContext";
 
 export default function CustomerLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [screenWidth, setScreenWidth] = useState(window.innerWidth);
+  const { user, companies } = useAuth();
+
+  // A Freelancer with no accepted company has nothing to see in any
+  // dashboard page — every one of them would just render empty/broken
+  // company-scoped data. Gating here, once, means no individual page
+  // needs its own "do I have a company" check.
+  const hasNoCompany = user?.account_type === "FREELANCER" && companies.length === 0;
 
   // Handle Resize
   useEffect(() => {
@@ -100,7 +109,7 @@ export default function CustomerLayout({ children }) {
 
           {/* Dynamic Content */}
 
-          {children || <Outlet />}
+          {hasNoCompany ? <NoCompanyState /> : (children || <Outlet />)}
 
         </main>
 

@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getToken, clearSession } from "../utils/authStorage";
+import { getToken, clearSession, getCurrentCompanyId } from "../utils/authStorage";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -37,6 +37,17 @@ api.interceptors.request.use(
 
     if (token && !isPublicEndpoint) {
       config.headers.Authorization = `Bearer ${token}`;
+
+      // Names which workspace this request acts in. The backend never
+      // trusts this alone — companyContext re-verifies the caller actually
+      // has an active membership in it — so this is purely a UI selection,
+      // not an authorization boundary. Omitted when unset, in which case
+      // the backend defaults to the caller's own owned company.
+      const companyId = getCurrentCompanyId();
+
+      if (companyId) {
+        config.headers["X-Company-Id"] = companyId;
+      }
     }
 
     return config;
