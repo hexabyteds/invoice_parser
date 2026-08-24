@@ -69,6 +69,7 @@ class StripeService {
     customerId,
     priceId,
     userId,
+    companyId,
     planId,
     successUrl,
     cancelUrl
@@ -88,11 +89,13 @@ class StripeService {
         client_reference_id: String(userId),
         metadata: {
           userId: String(userId),
+          companyId: String(companyId),
           planId: String(planId)
         },
         subscription_data: {
           metadata: {
             userId: String(userId),
+            companyId: String(companyId),
             planId: String(planId)
           }
         },

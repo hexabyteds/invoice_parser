@@ -173,9 +173,9 @@ app.get('/api/health', async (req, res) => {
 // processing failed — every failed upload permanently leaked quota (and
 // left the file orphaned on disk). Called from every failure branch below,
 // and from the outer catch, once a reservation has actually been made.
-async function releaseFailedUploadStorage(userId, file) {
+async function releaseFailedUploadStorage(companyId, file) {
   try {
-    await usageService.removeStorage(userId, file.size);
+    await usageService.removeStorage(companyId, file.size);
   } catch (err) {
     console.error("Failed to release storage quota after failed upload:", err.message);
   }
@@ -252,7 +252,7 @@ app.post(
       // checkStorageLimit()-then-addStorage() pair let every request read
       // the same pre-upload storage_used and all pass, so N concurrent
       // uploads near the limit could all add their bytes past it.
-      await usageService.reserveStorage(req.user.id, req.file.size);
+      await usageService.reserveStorage(req.company.id, req.file.size);
       storageReserved = true;
 
       console.log(`📸 Processing: ${req.file.filename}`);
@@ -286,7 +286,7 @@ app.post(
             );
 
         if (bsResult.status !== "success") {
-          await releaseFailedUploadStorage(req.user.id, req.file);
+          await releaseFailedUploadStorage(req.company.id, req.file);
 
           try {
             await auditLogRepository.create({
@@ -356,7 +356,7 @@ app.post(
       }
 
       if (result.status !== "success") {
-        await releaseFailedUploadStorage(req.user.id, req.file);
+        await releaseFailedUploadStorage(req.company.id, req.file);
 
         // Activity feed is a nice-to-have — a logging failure must never
         // break the response, but the write itself is awaited so the
@@ -472,7 +472,7 @@ app.post(
       console.error("Upload error:", error);
 
       if (storageReserved) {
-        await releaseFailedUploadStorage(req.user.id, req.file);
+        await releaseFailedUploadStorage(req.company.id, req.file);
       }
 
       const statusCode =
@@ -821,8 +821,7 @@ app.delete(
       console.log("USER ID", req.user.id);
       const deleted = await agent.deleteInvoice(
         req.params.id,
-        req.company.id,
-        req.user.id
+        req.company.id
       );
 
       if (!deleted) {
@@ -1104,7 +1103,7 @@ app.post('/api/clear', authMiddleware, companyContext, requireCompanyPermission(
 
   try {
 
-    await agent.clear(req.company.id, req.user.id);
+    await agent.clear(req.company.id);
 
     res.json({
       success: true,

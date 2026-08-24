@@ -1,4 +1,5 @@
 const subscriptionService = require("../services/subscriptionService");
+const companyRepository = require("../repositories/companyRepository");
 
 class SubscriptionController {
 
@@ -12,7 +13,7 @@ class SubscriptionController {
 
       const subscription =
         await subscriptionService.getCurrentSubscription(
-          req.user.id
+          req.company.id
         );
 
       res.json({
@@ -41,7 +42,7 @@ class SubscriptionController {
 
       const history =
         await subscriptionService.getSubscriptionHistory(
-          req.user.id
+          req.company.id
         );
 
       res.json({
@@ -61,7 +62,8 @@ class SubscriptionController {
   }
 
   // =====================================================
-  // Change Plan
+  // Change Plan (admin-only — targets an arbitrary customer's own
+  // company, resolved from the userId in the request body)
   // =====================================================
 
   async changePlan(req, res) {
@@ -78,10 +80,19 @@ class SubscriptionController {
 
       } = req.body;
 
+      const company = await companyRepository.findByOwnerUserId(userId);
+
+      if (!company) {
+        return res.status(400).json({
+          success: false,
+          error: "This customer does not own a company."
+        });
+      }
+
       const subscription =
         await subscriptionService.changePlan(
 
-          userId,
+          company.id,
 
           planId,
 
@@ -141,7 +152,7 @@ class SubscriptionController {
 
       const subscription =
         await subscriptionService.changePlan(
-          req.user.id,
+          req.company.id,
           planId,
           billingCycle
         );
@@ -176,6 +187,7 @@ class SubscriptionController {
 
       const result = await subscriptionService.startCheckout(
         req.user.id,
+        req.company.id,
         planId,
         interval
       );
@@ -232,7 +244,7 @@ class SubscriptionController {
 
       const result =
         await subscriptionService.cancelSubscription(
-          req.user.id
+          req.company.id
         );
 
       res.json({
@@ -269,7 +281,7 @@ class SubscriptionController {
 
       const subscription =
         await subscriptionService.renewSubscription(
-          req.user.id
+          req.company.id
         );
 
       res.json({
@@ -295,7 +307,8 @@ class SubscriptionController {
   }
 
   // =====================================================
-  // Payment History (Billing & Payments page)
+  // Payment History (Billing & Payments page) — Stripe identity stays on
+  // the caller's own user/owner, not the currently-selected company.
   // =====================================================
 
   async getPaymentHistory(req, res) {
@@ -362,22 +375,22 @@ class SubscriptionController {
 
       const invoice =
         await subscriptionService.checkInvoiceLimit(
-          req.user.id
+          req.company.id
         );
 
       const client =
         await subscriptionService.checkClientLimit(
-          req.user.id
+          req.company.id
         );
 
       const storage =
         await subscriptionService.checkStorageLimit(
-          req.user.id
+          req.company.id
         );
 
       const ocr =
         await subscriptionService.checkOCRLimit(
-          req.user.id
+          req.company.id
         );
 
       res.json({

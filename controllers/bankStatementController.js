@@ -203,8 +203,7 @@ class BankStatementController {
 
             const removed = await bankStatementService.deleteById(
                 req.params.id,
-                req.company.id,
-                req.user.id
+                req.company.id
             );
 
             if (!removed) {

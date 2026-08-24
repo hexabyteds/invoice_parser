@@ -11,6 +11,27 @@ class CompanyRepository {
         return result.insertId;
     }
 
+    async findById(companyId) {
+        const [rows] = await db.execute(
+            `SELECT * FROM companies WHERE id = ? LIMIT 1`,
+            [companyId]
+        );
+
+        return rows[0] || null;
+    }
+
+    // Used wherever a caller only has a target userId in hand (e.g. the
+    // admin panel's "change this customer's plan") but the row it needs to
+    // touch is keyed by company_id — resolves the company that user owns.
+    async findByOwnerUserId(userId) {
+        const [rows] = await db.execute(
+            `SELECT * FROM companies WHERE owner_user_id = ? LIMIT 1`,
+            [userId]
+        );
+
+        return rows[0] || null;
+    }
+
     async createMembership({ companyId, userId, role, status, invitedBy = null, permissions = null }) {
         const [result] = await db.execute(
             `INSERT INTO company_memberships

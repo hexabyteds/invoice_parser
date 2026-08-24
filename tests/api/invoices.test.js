@@ -20,6 +20,19 @@ async function createClient(token, name = "Upload Client") {
   return res.body.client.id;
 }
 
+// registerAndLogin() registers a COMPANY account (see tests/helpers/api.js)
+// but its response isn't enriched with companies[] the way /auth/login's
+// is — resolved directly here for the two tests below that call
+// FreeInvoiceAgent's processImage/processPDF outside of HTTP (so there's
+// no companyContext middleware to resolve it for them).
+async function ownedCompanyId(userId) {
+  const [[row]] = await pool.execute(
+    `SELECT id FROM companies WHERE owner_user_id = ? LIMIT 1`,
+    [userId]
+  );
+  return row.id;
+}
+
 function uploadImage(token, clientId, filename = "invoice.png", documentType) {
   const req = request(app)
     .post("/api/upload")
@@ -713,11 +726,13 @@ describe("Concurrency — usage limits cannot be exceeded by parallel requests (
       [planResult.insertId, user.id]
     );
 
+    const companyId = await ownedCompanyId(user.id);
+
     const agent = new FreeInvoiceAgent();
     const CONCURRENCY = 10;
     const settled = await Promise.allSettled(
       Array.from({ length: CONCURRENCY }, (_, i) =>
-        agent.processImage(`/fake/path-${i}.png`, user.id, clientId)
+        agent.processImage(`/fake/path-${i}.png`, user.id, companyId, clientId)
       )
     );
 
@@ -752,11 +767,13 @@ describe("Concurrency — usage limits cannot be exceeded by parallel requests (
     const pdfPath = path.join(os.tmpdir(), `concurrency-test-${user.id}.pdf`);
     fs.writeFileSync(pdfPath, await samplePdfBuffer(3));
 
+    const companyId = await ownedCompanyId(user.id);
+
     const agent = new FreeInvoiceAgent();
     const CONCURRENCY = 5;
     const settled = await Promise.allSettled(
       Array.from({ length: CONCURRENCY }, () =>
-        agent.processPDF(pdfPath, user.id, clientId)
+        agent.processPDF(pdfPath, user.id, companyId, clientId)
       )
     );
     fs.unlinkSync(pdfPath);

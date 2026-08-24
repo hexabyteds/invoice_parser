@@ -33,8 +33,7 @@ function validateFieldLengths(data) {
 class ClientService {
 
     // A client belongs to the company (companyId) — userId is only kept
-    // for audit attribution and the (still per-user, see usageService)
-    // usage quota.
+    // for audit attribution.
     async create(companyId, userId, data) {
         if (!data.company_name || !data.company_name.trim()) {
             throw new Error("Company name is required.");
@@ -55,7 +54,7 @@ class ClientService {
         // checkClientLimit()-then-incrementClients() pair let every request
         // read the same pre-increment count and all pass, so N concurrent
         // requests near the limit could all succeed past it.
-        await usageService.reserveClientSlot(userId);
+        await usageService.reserveClientSlot(companyId);
 
         let id;
 
@@ -75,7 +74,7 @@ class ClientService {
             });
         } catch (err) {
             // Creation failed after the slot was reserved — release it.
-            await usageService.decrementClients(userId);
+            await usageService.decrementClients(companyId);
             throw err;
         }
 
@@ -186,7 +185,7 @@ class ClientService {
         return client;
     }
 
-    async delete(id, companyId, userId) {
+    async delete(id, companyId) {
 
         const client = await clientRepository.findById(id, companyId);
 
@@ -196,7 +195,7 @@ class ClientService {
 
         await clientRepository.delete(id, companyId);
 
-        await usageService.decrementClients(userId);
+        await usageService.decrementClients(companyId);
 
         return true;
     }

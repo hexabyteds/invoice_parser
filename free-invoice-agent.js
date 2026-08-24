@@ -104,14 +104,14 @@ class FreeInvoiceAgent {
         documentType = null
     ) {
         // Reserve OCR quota atomically before Gemini.
-        await usageService.reserveOCRPages(userId, 1);
+        await usageService.reserveOCRPages(companyId, 1);
 
         // Reserve invoice quota atomically.
         try {
-            await usageService.reserveInvoiceSlot(userId);
+            await usageService.reserveInvoiceSlot(companyId);
         } catch (err) {
             // Invoice reservation failed, so release OCR reservation.
-            await usageService.decrementOCR(userId, 1);
+            await usageService.decrementOCR(companyId, 1);
             throw err;
         }
 
@@ -122,8 +122,8 @@ class FreeInvoiceAgent {
         // ==========================================
 
         if (!result.success) {
-            await usageService.decrementOCR(userId, 1);
-            await usageService.decrementInvoices(userId);
+            await usageService.decrementOCR(companyId, 1);
+            await usageService.decrementInvoices(companyId);
 
             return {
                 status: "error",
@@ -147,7 +147,7 @@ class FreeInvoiceAgent {
         // processing actually happened.
 
         if (!result.validation?.isValid) {
-            await usageService.decrementInvoices(userId);
+            await usageService.decrementInvoices(companyId);
 
             return {
                 status: "error",
@@ -222,7 +222,7 @@ class FreeInvoiceAgent {
             // OCR remains consumed because Gemini
             // successfully processed the document.
 
-            await usageService.decrementInvoices(userId);
+            await usageService.decrementInvoices(companyId);
 
             throw err;
         }
@@ -250,7 +250,7 @@ class FreeInvoiceAgent {
     
         // Reserve the maximum possible OCR usage before Gemini processing.
         // Failed pages will be refunded after extraction.
-        await usageService.reserveOCRPages(userId, pageCount);
+        await usageService.reserveOCRPages(companyId, pageCount);
     
         let result;
     
@@ -259,7 +259,7 @@ class FreeInvoiceAgent {
         } catch (err) {
             // Gemini/extraction failed completely.
             // Nothing was successfully processed, so release all reserved pages.
-            await usageService.decrementOCR(userId, pageCount);
+            await usageService.decrementOCR(companyId, pageCount);
     
             throw err;
         }
@@ -269,7 +269,7 @@ class FreeInvoiceAgent {
         // ============================================
     
         if (!result.success) {
-            await usageService.decrementOCR(userId, pageCount);
+            await usageService.decrementOCR(companyId, pageCount);
     
             return {
                 status: "error",
@@ -319,7 +319,7 @@ class FreeInvoiceAgent {
         if (failedPages > 0) {
     
             await usageService.decrementOCR(
-                userId,
+                companyId,
                 failedPages
             );
         }
@@ -352,7 +352,7 @@ class FreeInvoiceAgent {
             const item = result.invoices[i];
 
             // Reserve invoice quota atomically.
-            await usageService.reserveInvoiceSlot(userId);
+            await usageService.reserveInvoiceSlot(companyId);
 
             const invoice =
                 invoiceNormalizer.normalize(item.invoice);
@@ -401,7 +401,7 @@ class FreeInvoiceAgent {
                 // Invoice reservation was successful,
                 // but persistence failed.
                 await usageService.decrementInvoices(
-                    userId,
+                    companyId,
                     1
                 );
     
@@ -539,14 +539,9 @@ class FreeInvoiceAgent {
     // DELETE INVOICE
     // =========================
 
-    // userId is kept alongside companyId only because storage quota
-    // (usage_stats) is still tracked per-user, not per-company — see the
-    // Milestone 2 note on usage_stats. The row itself is found/deleted by
-    // companyId; userId here is purely for the quota refund below.
     async deleteInvoice(
         invoiceId,
-        companyId,
-        userId
+        companyId
     ) {
         const existing =
             await invoiceRepository.findById(
@@ -576,7 +571,7 @@ class FreeInvoiceAgent {
                 await deleteStoredFileAndGetSize(existing.image_path);
 
             if (freedBytes > 0) {
-                await usageService.removeStorage(userId, freedBytes);
+                await usageService.removeStorage(companyId, freedBytes);
             }
         }
 
@@ -961,12 +956,8 @@ class FreeInvoiceAgent {
     // CLEAR
     // =========================
 
-    // userId is kept alongside companyId for the same reason as
-    // deleteInvoice: storage quota (usage_stats) is still per-user, not
-    // per-company. Rows are found/deleted by companyId.
     async clear(
         companyId,
-        userId,
         clientId = null
     ) {
         if (clientId) {
@@ -993,7 +984,7 @@ class FreeInvoiceAgent {
         }
 
         if (freedBytes > 0) {
-            await usageService.removeStorage(userId, freedBytes);
+            await usageService.removeStorage(companyId, freedBytes);
         }
 
         return removed;

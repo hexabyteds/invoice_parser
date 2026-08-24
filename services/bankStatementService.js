@@ -25,12 +25,12 @@ class BankStatementService {
 
         // Reserve OCR quota atomically before Gemini — same pool/limit as
         // invoices (real Gemini page cost), refunded on failure below.
-        await usageService.reserveOCRPages(userId, 1);
+        await usageService.reserveOCRPages(companyId, 1);
 
         const result = await bankStatementExtractionService.extractImage(imagePath);
 
         if (!result.success) {
-            await usageService.decrementOCR(userId, 1);
+            await usageService.decrementOCR(companyId, 1);
 
             return {
                 status: "error",
@@ -55,7 +55,7 @@ class BankStatementService {
 
         // No plan limit gates bank statements yet — a simple increment on
         // successful creation, no reservation/refund dance needed.
-        await usageService.incrementBankStatements(userId);
+        await usageService.incrementBankStatements(companyId);
 
         const bankStatement = await bankStatementRepository.findById(statementId, companyId);
 
@@ -76,19 +76,19 @@ class BankStatementService {
 
         // Reserve the maximum possible OCR usage before Gemini processing;
         // failed chunks are refunded below, mirroring free-invoice-agent.js.
-        await usageService.reserveOCRPages(userId, pageCount);
+        await usageService.reserveOCRPages(companyId, pageCount);
 
         let result;
 
         try {
             result = await bankStatementExtractionService.extractPDF(pdfPath);
         } catch (err) {
-            await usageService.decrementOCR(userId, pageCount);
+            await usageService.decrementOCR(companyId, pageCount);
             throw err;
         }
 
         if (!result.success) {
-            await usageService.decrementOCR(userId, pageCount);
+            await usageService.decrementOCR(companyId, pageCount);
 
             return {
                 status: "error",
@@ -117,7 +117,7 @@ class BankStatementService {
         failedPages = Math.min(failedPages, pageCount);
 
         if (failedPages > 0) {
-            await usageService.decrementOCR(userId, failedPages);
+            await usageService.decrementOCR(companyId, failedPages);
         }
 
         const storedPath = toStoredSourcePath(sourceFilePath);
@@ -138,7 +138,7 @@ class BankStatementService {
 
             await bankStatementTransactionRepository.createMany(statementId, result.transactions);
 
-            await usageService.incrementBankStatements(userId);
+            await usageService.incrementBankStatements(companyId);
 
         } catch (err) {
             // Extraction succeeded but persistence failed — OCR stays
@@ -273,11 +273,7 @@ class BankStatementService {
         return await bankStatementRepository.findById(id, companyId);
     }
 
-    // userId is kept alongside companyId only because storage quota
-    // (usage_stats) is still tracked per-user, not per-company — same gap
-    // as invoice/clear deletion (see free-invoice-agent.js). The row itself
-    // is found/deleted by companyId.
-    async deleteById(id, companyId, userId) {
+    async deleteById(id, companyId) {
 
         const existing = await bankStatementRepository.findById(id, companyId);
 
@@ -289,7 +285,7 @@ class BankStatementService {
         const removed = await bankStatementRepository.deleteById(id, companyId);
 
         if (removed > 0) {
-            await usageService.decrementBankStatements(userId);
+            await usageService.decrementBankStatements(companyId);
 
             // Same storage-quota-never-released gap as invoice deletion —
             // reclaim the file and its bytes now (see deleteStoredFileAndGetSize
@@ -299,7 +295,7 @@ class BankStatementService {
                     await deleteStoredFileAndGetSize(existing.imagePath);
 
                 if (freedBytes > 0) {
-                    await usageService.removeStorage(userId, freedBytes);
+                    await usageService.removeStorage(companyId, freedBytes);
                 }
             }
         }

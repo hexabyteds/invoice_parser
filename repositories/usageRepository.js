@@ -2,17 +2,21 @@ const db = require("../config/database");
 
 class UsageRepository {
 
-  // company_id is populated when this user owns a company (every COMPANY
-  // account, by the time they'd ever reach this path), and left NULL
-  // otherwise (a FREELANCER, who owns none) — see migration 0014. This is
-  // NOT real per-company quota tracking; usage_stats is still one row per
-  // user. It just stops row creation itself from failing.
-  async create(userId) {
+  // Usage/quota belongs to the company, not to whoever happens to be
+  // acting (an owner today, a freelancer tomorrow) — every method below is
+  // keyed by company_id. user_id is still populated (as the company's
+  // owner) purely for the column's NOT NULL/FK constraint and for
+  // attribution; it is never used to look the row up.
+  async create(companyId) {
 
-    const [[membership]] = await db.execute(
-      `SELECT company_id FROM company_memberships WHERE user_id = ? AND role = 'OWNER' AND status = 'ACTIVE' LIMIT 1`,
-      [userId]
+    const [[company]] = await db.execute(
+      `SELECT owner_user_id FROM companies WHERE id = ? LIMIT 1`,
+      [companyId]
     );
+
+    if (!company) {
+      throw new Error(`Cannot create a usage record: company ${companyId} not found.`);
+    }
 
     const [result] = await db.execute(
       `
@@ -30,80 +34,87 @@ class UsageRepository {
       )
       VALUES (?,?,0,0,0,0,0,0,1)
       `,
-      [userId, membership?.company_id ?? null]
+      [company.owner_user_id, companyId]
     );
 
     return result.insertId;
 
   }
 
-  async getByUserId(userId) {
+  async getByCompanyId(companyId) {
 
     const [rows] = await db.execute(
       `
       SELECT *
       FROM usage_stats
-      WHERE user_id = ?
+      WHERE company_id = ?
       LIMIT 1
       `,
-      [userId]
+      [companyId]
     );
 
     return rows[0] || null;
 
   }
 
-  async updateInvoices(userId, count) {
+  async updateInvoices(companyId, count) {
 
     await db.execute(
       `
       UPDATE usage_stats
       SET invoices_used = ?
-      WHERE user_id = ?
+      WHERE company_id = ?
       `,
-      [count, userId]
+      [count, companyId]
     );
 
   }
 
-  async updateClients(userId, count) {
+  async updateClients(companyId, count) {
 
     await db.execute(
       `
       UPDATE usage_stats
       SET clients_used = ?
-      WHERE user_id = ?
+      WHERE company_id = ?
       `,
-      [count, userId]
+      [count, companyId]
     );
 
   }
 
-  async updateOCR(userId, count) {
+  async updateOCR(companyId, count) {
 
     await db.execute(
       `
       UPDATE usage_stats
       SET ocr_pages_used = ?
-      WHERE user_id = ?
+      WHERE company_id = ?
       `,
-      [count, userId]
+      [count, companyId]
     );
 
   }
 
-  async updateStorage(userId, bytes) {
+  async updateStorage(companyId, bytes) {
 
     await db.execute(
       `
       UPDATE usage_stats
       SET storage_used = ?
-      WHERE user_id = ?
+      WHERE company_id = ?
       `,
-      [bytes, userId]
+      [bytes, companyId]
     );
 
   }
+
+  // Admin-only aggregate views — deliberately left keyed by user_id (the
+  // owning company's owner). Every subscriptions/usage_stats row still
+  // carries a populated, valid user_id (the company's owner) alongside its
+  // company_id, so this remains correct as a one-row-per-company summary;
+  // it just isn't a per-company view by name yet. Revisit if/when a company
+  // can have an owner other than the account that created it.
   async getAllCustomersUsage() {
 
     const [rows] = await db.execute(`
@@ -150,27 +161,27 @@ class UsageRepository {
 // Atomically checks-and-increments in one statement: the WHERE clause is
 // evaluated against the row's live value at the moment MySQL applies this
 // UPDATE (under the row's write lock), not against a value read earlier by
-// the caller — so two concurrent calls for the same user can never both
+// the caller — so two concurrent calls for the same company can never both
 // succeed past `limit`. Returns whether the increment actually happened.
-async incrementInvoicesIfUnderLimit(userId, limit) {
+async incrementInvoicesIfUnderLimit(companyId, limit) {
 
   const [result] = await db.execute(`
       UPDATE usage_stats
       SET invoices_used = invoices_used + 1
-      WHERE user_id = ? AND invoices_used < ?
-  `,[userId, limit]);
+      WHERE company_id = ? AND invoices_used < ?
+  `,[companyId, limit]);
 
   return result.affectedRows > 0;
 
 }
 
-async decrementInvoices(userId) {
+async decrementInvoices(companyId) {
 
   await db.execute(`
       UPDATE usage_stats
       SET invoices_used = GREATEST(invoices_used-1,0)
-      WHERE user_id = ?
-  `,[userId]);
+      WHERE company_id = ?
+  `,[companyId]);
 
 }
 
@@ -179,115 +190,115 @@ async decrementInvoices(userId) {
 // plan limit gates this yet, so a plain increment/decrement is enough;
 // unlike incrementInvoicesIfUnderLimit there's no atomic check-and-cap
 // needed here.
-async incrementBankStatements(userId) {
+async incrementBankStatements(companyId) {
 
   await db.execute(`
       UPDATE usage_stats
       SET bank_statements_used = bank_statements_used + 1
-      WHERE user_id = ?
-  `,[userId]);
+      WHERE company_id = ?
+  `,[companyId]);
 
 }
 
-async decrementBankStatements(userId) {
+async decrementBankStatements(companyId) {
 
   await db.execute(`
       UPDATE usage_stats
       SET bank_statements_used = GREATEST(bank_statements_used-1,0)
-      WHERE user_id = ?
-  `,[userId]);
+      WHERE company_id = ?
+  `,[companyId]);
 
 }
-async incrementClients(userId) {
+async incrementClients(companyId) {
 
     await db.execute(`
         UPDATE usage_stats
         SET clients_used = clients_used + 1
-        WHERE user_id = ?
-    `,[userId]);
+        WHERE company_id = ?
+    `,[companyId]);
 
 }
 
 // Same atomic check-and-increment pattern as incrementInvoicesIfUnderLimit
 // — the WHERE clause is evaluated against the row's live value under its
 // write lock, so two concurrent client-creation requests for the same
-// user can never both succeed past `limit`.
-async incrementClientsIfUnderLimit(userId, limit) {
+// company can never both succeed past `limit`.
+async incrementClientsIfUnderLimit(companyId, limit) {
 
     const [result] = await db.execute(`
         UPDATE usage_stats
         SET clients_used = clients_used + 1
-        WHERE user_id = ? AND clients_used < ?
-    `,[userId, limit]);
+        WHERE company_id = ? AND clients_used < ?
+    `,[companyId, limit]);
 
     return result.affectedRows > 0;
 
 }
-async decrementClients(userId) {
+async decrementClients(companyId) {
 
     await db.execute(`
         UPDATE usage_stats
         SET clients_used = GREATEST(clients_used-1,0)
-        WHERE user_id = ?
-    `,[userId]);
+        WHERE company_id = ?
+    `,[companyId]);
 
 }
 // Same atomic check-and-increment pattern as incrementInvoicesIfUnderLimit,
 // sized in pages (a multi-page PDF reserves its whole page count in one
 // statement rather than page-by-page).
-async incrementOCRIfUnderLimit(userId, pages, limit) {
+async incrementOCRIfUnderLimit(companyId, pages, limit) {
 
     const [result] = await db.execute(`
         UPDATE usage_stats
         SET ocr_pages_used = ocr_pages_used + ?
-        WHERE user_id = ? AND ocr_pages_used + ? <= ?
-    `,[pages, userId, pages, limit]);
+        WHERE company_id = ? AND ocr_pages_used + ? <= ?
+    `,[pages, companyId, pages, limit]);
 
     return result.affectedRows > 0;
 
 }
 
-async decrementOCR(userId, pages = 1) {
+async decrementOCR(companyId, pages = 1) {
 
     await db.execute(`
         UPDATE usage_stats
         SET ocr_pages_used = GREATEST(ocr_pages_used - ?, 0)
-        WHERE user_id = ?
-    `,[pages, userId]);
+        WHERE company_id = ?
+    `,[pages, companyId]);
 
 }
-async addStorage(userId,bytes){
+async addStorage(companyId,bytes){
 
   await db.execute(`
       UPDATE usage_stats
       SET storage_used = storage_used + ?
-      WHERE user_id=?
-  `,[bytes,userId]);
+      WHERE company_id=?
+  `,[bytes,companyId]);
 
 }
 
 // Same atomic check-and-increment pattern as incrementOCRIfUnderLimit,
-// sized in bytes — concurrent uploads for the same user can never push
+// sized in bytes — concurrent uploads for the same company can never push
 // storage_used past limitBytes between them.
-async addStorageIfUnderLimit(userId, bytes, limitBytes) {
+async addStorageIfUnderLimit(companyId, bytes, limitBytes) {
 
   const [result] = await db.execute(`
       UPDATE usage_stats
       SET storage_used = storage_used + ?
-      WHERE user_id = ? AND storage_used + ? <= ?
-  `,[bytes, userId, bytes, limitBytes]);
+      WHERE company_id = ? AND storage_used + ? <= ?
+  `,[bytes, companyId, bytes, limitBytes]);
 
   return result.affectedRows > 0;
 
 }
 
-async removeStorage(userId,bytes){
+async removeStorage(companyId,bytes){
 
   await db.execute(`
       UPDATE usage_stats
       SET storage_used = GREATEST(storage_used-?,0)
-      WHERE user_id=?
-  `,[bytes,userId]);
+      WHERE company_id=?
+  `,[bytes,companyId]);
 
 }
 async getDashboardSummary() {

@@ -1,6 +1,5 @@
 const usageService = require("../services/usageService");
-console.log("UsageService methods:", Object.keys(usageService));
-console.log("getAllCustomersUsage:", typeof usageService.getAllCustomersUsage);
+
 class UsageController {
 
     // Customer Usage
@@ -8,7 +7,7 @@ class UsageController {
 
         try {
 
-            const usage = await usageService.getUsage(req.user.id);
+            const usage = await usageService.getUsage(req.company.id);
 
             res.json({
                 success: true,

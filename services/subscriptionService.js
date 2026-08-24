@@ -1,4 +1,5 @@
 const subscriptionRepository = require("../repositories/subscriptionRepository");
+const companyRepository = require("../repositories/companyRepository");
 const stripeService = require("./stripeService");
 
 // Stripe subscription.status -> local subscriptions.status enum.
@@ -42,14 +43,23 @@ class SubscriptionService {
   // Called immediately after user registration
   // =====================================================
 
-  async createFreeSubscription(userId) {
+  async createFreeSubscription(companyId) {
 
-    // User already has active subscription?
+    // Company already has an active subscription?
     const active =
-      await subscriptionRepository.getActiveSubscription(userId);
+      await subscriptionRepository.getActiveSubscription(companyId);
 
     if (active) {
       return active;
+    }
+
+    // Resolved from the company itself (not taken from the caller) so
+    // every call site only needs a companyId — used solely to sync the
+    // legacy users.plan display field below.
+    const company = await companyRepository.findById(companyId);
+
+    if (!company) {
+      throw new Error(`Cannot create a free subscription: company ${companyId} not found.`);
     }
 
     // Find Free plan
@@ -64,7 +74,7 @@ class SubscriptionService {
 
     const subscription = {
 
-      user_id: userId,
+      company_id: companyId,
 
       plan_id: freePlan.id,
 
@@ -82,26 +92,25 @@ class SubscriptionService {
 
     };
 
-    const subscriptionId =
-      await subscriptionRepository.createSubscription(subscription);
+    await subscriptionRepository.createSubscription(subscription);
 
     // Keep users.plan synchronized
     await subscriptionRepository.updateUserPlan(
-      userId,
+      company.owner_user_id,
       freePlan.slug
     );
 
-    return await subscriptionRepository.getActiveSubscription(userId);
+    return await subscriptionRepository.getActiveSubscription(companyId);
   }
 
   // =====================================================
   // Current Subscription
   // =====================================================
 
-  async getCurrentSubscription(userId) {
+  async getCurrentSubscription(companyId) {
 
     const subscription =
-      await subscriptionRepository.getActiveSubscription(userId);
+      await subscriptionRepository.getActiveSubscription(companyId);
 
     if (!subscription) {
       throw new Error("No active subscription found.");
@@ -115,10 +124,10 @@ class SubscriptionService {
   // Subscription History
   // =====================================================
 
-  async getSubscriptionHistory(userId) {
+  async getSubscriptionHistory(companyId) {
 
     const history =
-      await subscriptionRepository.getSubscriptionHistory(userId);
+      await subscriptionRepository.getSubscriptionHistory(companyId);
 
     return history;
 
@@ -149,10 +158,10 @@ class SubscriptionService {
   // Validate Active Subscription
   // =====================================================
 
-  async validateActiveSubscription(userId) {
+  async validateActiveSubscription(companyId) {
 
     const subscription =
-      await subscriptionRepository.getActiveSubscription(userId);
+      await subscriptionRepository.getActiveSubscription(companyId);
 
     if (!subscription) {
       throw new Error("Active subscription not found.");
@@ -223,7 +232,7 @@ class SubscriptionService {
 
   buildSubscription({
 
-    userId,
+    companyId,
 
     plan,
 
@@ -239,7 +248,7 @@ class SubscriptionService {
 
     return {
 
-      user_id: userId,
+      company_id: companyId,
 
       plan_id: plan.id,
 
@@ -265,11 +274,11 @@ class SubscriptionService {
   // Change Plan
   // =====================================================
 
-  async changePlan(userId, planId, billingCycle = "monthly") {
+  async changePlan(companyId, planId, billingCycle = "monthly") {
 
     // Get current active subscription
     const currentSubscription =
-      await this.validateActiveSubscription(userId);
+      await this.validateActiveSubscription(companyId);
 
     // Get new plan
     const plan =
@@ -298,7 +307,7 @@ class SubscriptionService {
     const subscription =
       this.buildSubscription({
 
-        userId,
+        companyId,
 
         plan,
 
@@ -318,11 +327,16 @@ class SubscriptionService {
         subscription
       );
 
-    // Update users.plan
-    await subscriptionRepository.updateUserPlan(
-      userId,
-      plan.slug
-    );
+    // Update users.plan (legacy display field, synced from the company's
+    // own owner — see createFreeSubscription for the same pattern).
+    const company = await companyRepository.findById(companyId);
+
+    if (company) {
+      await subscriptionRepository.updateUserPlan(
+        company.owner_user_id,
+        plan.slug
+      );
+    }
 
     // Return latest subscription
     return await subscriptionRepository.getSubscriptionById(
@@ -334,10 +348,10 @@ class SubscriptionService {
   // Cancel Subscription
   // =====================================================
 
-  async cancelSubscription(userId) {
+  async cancelSubscription(companyId) {
 
     const subscription =
-      await this.validateActiveSubscription(userId);
+      await this.validateActiveSubscription(companyId);
 
     // Stripe-backed subscriptions retain access until the paid period
     // actually ends — Stripe is the source of truth here, so we only flag
@@ -390,11 +404,11 @@ class SubscriptionService {
       subscription.id
     );
 
-    // Free is the floor, so drop straight to it instead of leaving the user
-    // with nothing active. Also resyncs users.plan, which cancelling alone
-    // left pointing at the paid plan.
+    // Free is the floor, so drop straight to it instead of leaving the
+    // company with nothing active. Also resyncs users.plan, which
+    // cancelling alone left pointing at the paid plan.
     const freeSubscription =
-      await this.createFreeSubscription(userId);
+      await this.createFreeSubscription(companyId);
 
     return {
       success: true,
@@ -427,7 +441,12 @@ class SubscriptionService {
   // existing Stripe subscription's price (upgrade/downgrade)
   // =====================================================
 
-  async startCheckout(userId, planId, interval) {
+  // userId identifies the Stripe customer (billing identity stays on the
+  // company's owner — see the module-level note in subscriptionRepository);
+  // companyId identifies which subscription row this checkout/upgrade
+  // writes to. Both are needed and refer to the same owner in practice
+  // today, but are kept distinct since they mean different things.
+  async startCheckout(userId, companyId, planId, interval) {
 
     if (!["monthly", "yearly"].includes(interval)) {
       throw new Error("Invalid billing interval.");
@@ -453,7 +472,7 @@ class SubscriptionService {
     }
 
     const current =
-      await subscriptionRepository.getActiveSubscription(userId);
+      await subscriptionRepository.getActiveSubscription(companyId);
 
     const currentIsLiveStripeSub =
       current &&
@@ -494,6 +513,7 @@ class SubscriptionService {
       customerId: customer.id,
       priceId,
       userId,
+      companyId,
       planId: plan.id,
       successUrl: `${frontendUrl}/dashboard/billing/return?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${frontendUrl}/price?checkout=cancelled`
@@ -742,6 +762,27 @@ class SubscriptionService {
       userId = user.id;
     }
 
+    // The subscription row belongs to a company, not the user (see
+    // subscriptionRepository's module note). Checkout stamps companyId
+    // into Stripe metadata (see stripeService.createCheckoutSession) so
+    // most webhooks resolve it directly; a subscription created before
+    // that metadata existed falls back to the userId's owned company.
+    let companyId = stripeSubscription.metadata?.companyId
+      ? Number(stripeSubscription.metadata.companyId)
+      : null;
+
+    if (!companyId) {
+      const company = await companyRepository.findByOwnerUserId(userId);
+
+      if (!company) {
+        throw new Error(
+          `No company found for Stripe customer ${stripeSubscription.customer} (user ${userId}).`
+        );
+      }
+
+      companyId = company.id;
+    }
+
     const billingCycle =
       priceId === plan.stripe_price_id_yearly ? "yearly" : "monthly";
 
@@ -759,6 +800,7 @@ class SubscriptionService {
 
     const subscription = await subscriptionRepository.upsertStripeSubscription({
       userId,
+      companyId,
       planId: plan.id,
       stripeSubscriptionId: stripeSubscription.id,
       stripeCustomerId: stripeSubscription.customer,
@@ -778,7 +820,7 @@ class SubscriptionService {
     } else {
       // Terminal Stripe state — Free is the floor, same fallback the
       // manual-cancel flow uses.
-      await this.createFreeSubscription(userId);
+      await this.createFreeSubscription(companyId);
     }
 
     return subscription;
@@ -790,10 +832,10 @@ class SubscriptionService {
   // pending cancel_at_period_end before the current period ends)
   // =====================================================
 
-  async renewSubscription(userId) {
+  async renewSubscription(companyId) {
 
     const subscription =
-      await this.validateActiveSubscription(userId);
+      await this.validateActiveSubscription(companyId);
 
     // Stripe-backed subscriptions: undo the pending cancellation on Stripe
     // itself rather than manually extending local dates — Stripe remains
@@ -860,13 +902,13 @@ class SubscriptionService {
   // Invoice Limit
   // =====================================================
 
-  async checkInvoiceLimit(userId) {
+  async checkInvoiceLimit(companyId) {
 
     const subscription =
-      await this.getCurrentSubscription(userId);
+      await this.getCurrentSubscription(companyId);
 
     const used =
-      await subscriptionRepository.getInvoiceCount(userId);
+      await subscriptionRepository.getInvoiceCount(companyId);
 
     return {
 
@@ -888,13 +930,13 @@ class SubscriptionService {
   // Client Limit
   // =====================================================
 
-  async checkClientLimit(userId) {
+  async checkClientLimit(companyId) {
 
     const subscription =
-      await this.getCurrentSubscription(userId);
+      await this.getCurrentSubscription(companyId);
 
     const used =
-      await subscriptionRepository.getClientCount(userId);
+      await subscriptionRepository.getClientCount(companyId);
 
     return {
 
@@ -916,13 +958,13 @@ class SubscriptionService {
   // Storage Limit
   // =====================================================
 
-  async checkStorageLimit(userId) {
+  async checkStorageLimit(companyId) {
 
     const subscription =
-      await this.getCurrentSubscription(userId);
+      await this.getCurrentSubscription(companyId);
 
     const used =
-      await subscriptionRepository.getStorageUsed(userId);
+      await subscriptionRepository.getStorageUsed(companyId);
 
     return {
 
@@ -944,13 +986,13 @@ class SubscriptionService {
   // OCR Limit
   // =====================================================
 
-  async checkOCRLimit(userId) {
+  async checkOCRLimit(companyId) {
 
     const subscription =
-      await this.getCurrentSubscription(userId);
+      await this.getCurrentSubscription(companyId);
 
     const used =
-      await subscriptionRepository.getOCRUsed(userId);
+      await subscriptionRepository.getOCRUsed(companyId);
 
     return {
 

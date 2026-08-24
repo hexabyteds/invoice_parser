@@ -9,6 +9,7 @@ const { hashPassword } = require("../utils/password");
 const { fromDbStatus } = require("../utils/userStatus");
 const subscriptionService = require("./subscriptionService");
 const subscriptionRepository = require("../repositories/subscriptionRepository");
+const companyRepository = require("../repositories/companyRepository");
 class AdminService {
   async getDashboardStats() {
     const platform = await adminRepository.getPlatformStats();
@@ -148,9 +149,15 @@ class AdminService {
         throw new Error("Customer not found.");
     }
 
+    const company = await companyRepository.findByOwnerUserId(userId);
+
+    if (!company) {
+        throw new Error("This customer does not own a company.");
+    }
+
     const subscription =
         await subscriptionService.changePlan(
-            userId,
+            company.id,
             planId,
             billingCycle
         );

@@ -166,8 +166,8 @@ class AuthService {
                         status: "ACTIVE",
                     });
 
-                    subscription = await subscriptionService.createFreeSubscription(id);
-                    await usageService.ensureUsageRecord(id);
+                    subscription = await subscriptionService.createFreeSubscription(companyId);
+                    await usageService.ensureUsageRecord(companyId);
                 }
             } catch (subscriptionError) {
                 await userRepository.delete(id);

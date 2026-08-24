@@ -50,7 +50,7 @@ class SubscriptionRepository {
   // Current Subscription
   // ===========================
 
-  async getActiveSubscription(userId) {
+  async getActiveSubscription(companyId) {
     const [rows] = await db.execute(
       `
       SELECT
@@ -68,17 +68,17 @@ class SubscriptionRepository {
       INNER JOIN plans p
           ON s.plan_id = p.id
       WHERE
-          s.user_id = ?
+          s.company_id = ?
       AND s.status = 'active'
       LIMIT 1
       `,
-      [userId]
+      [companyId]
     );
 
     return rows[0] || null;
   }
 
-  async getSubscriptionHistory(userId) {
+  async getSubscriptionHistory(companyId) {
     const [rows] = await db.execute(
       `
       SELECT
@@ -88,10 +88,10 @@ class SubscriptionRepository {
       FROM subscriptions s
       INNER JOIN plans p
           ON s.plan_id = p.id
-      WHERE s.user_id = ?
+      WHERE s.company_id = ?
       ORDER BY s.created_at DESC
       `,
-      [userId]
+      [companyId]
     );
 
     return rows;
@@ -103,22 +103,19 @@ class SubscriptionRepository {
 
   // subscriptions.company_id is NOT NULL (migration 0013) — a subscription
   // belongs to the company, not the user, per the architecture's core rule
-  // (spec §17). Every caller here still only has a userId in hand (both
-  // call sites predate the tenancy model), so company_id is resolved via
-  // the same OWNER-membership join the migration itself backfilled from —
-  // no call site needs to change. Only a COMPANY account's own user ever
-  // reaches this method (a Freelancer has no plan of their own), so an
-  // owner-less user here is a real caller bug, not a normal case — surfaced
-  // as a clear error instead of a raw FK/NOT NULL failure.
+  // (spec §17). Callers pass company_id directly; user_id is resolved from
+  // the company's own owner (not from the caller) purely to satisfy the
+  // column's NOT NULL/FK constraint and for attribution — it is never used
+  // to look this row back up.
   async createSubscription(data) {
-    const [[membership]] = await db.execute(
-      `SELECT company_id FROM company_memberships WHERE user_id = ? AND role = 'OWNER' AND status = 'ACTIVE' LIMIT 1`,
-      [data.user_id]
+    const [[company]] = await db.execute(
+      `SELECT owner_user_id FROM companies WHERE id = ? LIMIT 1`,
+      [data.company_id]
     );
 
-    if (!membership) {
+    if (!company) {
       throw new Error(
-        `Cannot create a subscription for user ${data.user_id}: they don't own a company.`
+        `Cannot create a subscription: company ${data.company_id} not found.`
       );
     }
 
@@ -140,8 +137,8 @@ class SubscriptionRepository {
       (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
-        data.user_id,
-        membership.company_id,
+        company.owner_user_id,
+        data.company_id,
         data.plan_id,
         data.status,
         data.billing_cycle,
@@ -236,27 +233,27 @@ class SubscriptionRepository {
   // Usage Statistics
   // ===========================
 
-  async getInvoiceCount(userId) {
+  async getInvoiceCount(companyId) {
     const [[row]] = await db.execute(
       `
       SELECT COUNT(*) total
       FROM invoices
-      WHERE user_id=?
+      WHERE company_id=?
       `,
-      [userId]
+      [companyId]
     );
 
     return Number(row.total);
   }
 
-  async getClientCount(userId) {
+  async getClientCount(companyId) {
     const [[row]] = await db.execute(
       `
       SELECT COUNT(*) total
       FROM clients
-      WHERE user_id=?
+      WHERE company_id=?
       `,
-      [userId]
+      [companyId]
     );
 
     return Number(row.total);
@@ -265,27 +262,27 @@ class SubscriptionRepository {
   // invoices has no file_size/ocr_status columns — storage and OCR usage
   // are tracked in usage_stats (maintained by usageService on every
   // upload), not derivable per-invoice. Read from there instead.
-  async getStorageUsed(userId) {
+  async getStorageUsed(companyId) {
     const [[row]] = await db.execute(
       `
       SELECT storage_used total
       FROM usage_stats
-      WHERE user_id=?
+      WHERE company_id=?
       `,
-      [userId]
+      [companyId]
     );
 
     return Number(row?.total || 0);
   }
 
-  async getOCRUsed(userId) {
+  async getOCRUsed(companyId) {
     const [[row]] = await db.execute(
       `
       SELECT ocr_pages_used total
       FROM usage_stats
-      WHERE user_id=?
+      WHERE company_id=?
       `,
-      [userId]
+      [companyId]
     );
 
     return Number(row?.total || 0);
@@ -422,6 +419,12 @@ class SubscriptionRepository {
   // status changes on the same subscription) rather than expire+insert —
   // that pattern is reserved for genuinely new subscriptions, so we don't
   // spam a fresh history row on every billing-cycle webhook.
+  // data.companyId is required — subscriptions.company_id is NOT NULL, and
+  // the INSERT path below used to omit it entirely, so every genuinely new
+  // Stripe subscription (as opposed to a renewal/update of one already
+  // seen) crashed the webhook. data.userId is kept for the row's own
+  // user_id column (attribution — resolved by the caller from the
+  // company's owner, same as createSubscription above).
   async upsertStripeSubscription(data) {
     const existing =
       await this.findSubscriptionByStripeSubscriptionId(
@@ -464,15 +467,16 @@ class SubscriptionRepository {
       return await this.getSubscriptionById(existing.id);
     }
 
-    // New Stripe subscription for this user — expire any other row still
-    // marked active before inserting, so a user never has two active rows.
+    // New Stripe subscription for this company — expire any other row
+    // still marked active before inserting, so a company never has two
+    // active rows.
     await db.execute(
       `
       UPDATE subscriptions
       SET status = 'expired', updated_at = NOW()
-      WHERE user_id = ? AND status = 'active'
+      WHERE company_id = ? AND status = 'active'
       `,
-      [data.userId]
+      [data.companyId]
     );
 
     const [result] = await db.execute(
@@ -480,6 +484,7 @@ class SubscriptionRepository {
       INSERT INTO subscriptions
       (
         user_id,
+        company_id,
         plan_id,
         status,
         billing_cycle,
@@ -493,10 +498,11 @@ class SubscriptionRepository {
         stripe_status,
         cancel_at_period_end
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.userId,
+        data.companyId,
         data.planId,
         data.status,
         data.billingCycle,
