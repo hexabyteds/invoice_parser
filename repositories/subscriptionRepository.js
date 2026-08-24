@@ -298,6 +298,7 @@ class SubscriptionRepository {
       SELECT
           s.id,
           s.user_id,
+          s.company_id,
           s.plan_id,
           s.status,
           s.billing_cycle,

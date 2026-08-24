@@ -48,8 +48,21 @@ class AdminService {
       throw new Error("Customer not found.");
     }
 
-    const clients = await adminRepository.getCustomerClients(id);
-    const invoiceStats = await adminRepository.getCustomerInvoiceStats(id);
+    // A COMPANY account owns a workspace (its data lives there, shared
+    // with its whole team); a FREELANCER owns none of its own and instead
+    // shows up as a member of other companies. Surfacing both directions
+    // is the whole point of an admin "investigate relationships" view —
+    // see the Tenancy Ledger's Phase 4.
+    const ownedCompany = await companyRepository.findByOwnerUserId(id);
+    const memberOf = await companyRepository.findMembershipsForUser(id);
+
+    const team = ownedCompany
+      ? await companyRepository.findMembersForCompany(ownedCompany.id)
+      : [];
+
+    const companyId = ownedCompany?.id || null;
+    const clients = await adminRepository.getCustomerClients(companyId);
+    const invoiceStats = await adminRepository.getCustomerInvoiceStats(companyId);
 
     return {
       customer: formatCustomer({
@@ -58,6 +71,35 @@ class AdminService {
         invoice_count: invoiceStats.invoice_count,
         invoice_total: invoiceStats.invoice_total,
       }),
+      company: ownedCompany && {
+        id: ownedCompany.id,
+        name: ownedCompany.name,
+        status: ownedCompany.status,
+        team: team
+          .filter((m) => m.role !== "OWNER")
+          .map((m) => ({
+            membership_id: m.id,
+            user_id: m.user_id,
+            name: m.name,
+            email: m.email,
+            role: m.role,
+            status: m.status,
+            permissions: m.permissions,
+            invited_at: m.invited_at,
+            accepted_at: m.accepted_at,
+            removed_at: m.removed_at,
+          })),
+      },
+      memberOf: memberOf.map((m) => ({
+        membership_id: m.id,
+        company_id: m.company_id,
+        company_name: m.company_name,
+        company_status: m.company_status,
+        role: m.role,
+        status: m.status,
+        invited_at: m.invited_at,
+        accepted_at: m.accepted_at,
+      })),
       clients: clients.map((client) => ({
         id: client.id,
         company_name: client.company_name,
@@ -197,6 +239,7 @@ function formatSubscription(row) {
   return {
     id: row.id,
     user_id: row.user_id,
+    company_id: row.company_id,
     plan_id: row.plan_id,
     customer_name: row.customer_name,
     customer_email: row.customer_email,
@@ -227,6 +270,7 @@ function formatCustomer(row) {
     name: row.name,
     email: row.email,
     company_name: row.company_name,
+    account_type: row.account_type,
     phone: row.phone || "",
     country: row.country || "",
     plan: row.plan || "starter",
