@@ -58,20 +58,33 @@ module.exports = async function globalSetup() {
   );
 
   const [adminResult] = await admin.query(
-    `INSERT INTO users (name, email, password, role, plan, status, plan_id)
-     VALUES (?, ?, ?, 'admin', 'FREE', 'ACTIVE', ?)`,
+    `INSERT INTO users (name, email, password, role, plan, status, plan_id, account_type)
+     VALUES (?, ?, ?, 'admin', 'FREE', 'ACTIVE', ?, 'COMPANY')`,
     ["QA Admin", process.env.QA_ADMIN_EMAIL, adminPasswordHash, freePlan.id]
   );
 
-  await admin.query(
-    `INSERT INTO subscriptions (user_id, plan_id, status, billing_cycle, price, starts_at)
-     VALUES (?, ?, 'active', 'monthly', 0, NOW())`,
-    [adminResult.insertId, freePlan.id]
+  // A workspace of its own, same as any real COMPANY signup — subscriptions
+  // and usage_stats are company-scoped (migrations 0013-0014) and require it.
+  const [companyResult] = await admin.query(
+    `INSERT INTO companies (name, owner_user_id, status) VALUES (?, ?, 'ACTIVE')`,
+    ["QA Admin Co", adminResult.insertId]
   );
 
   await admin.query(
-    `INSERT INTO usage_stats (user_id) VALUES (?)`,
-    [adminResult.insertId]
+    `INSERT INTO company_memberships (company_id, user_id, role, status, accepted_at)
+     VALUES (?, ?, 'OWNER', 'ACTIVE', NOW())`,
+    [companyResult.insertId, adminResult.insertId]
+  );
+
+  await admin.query(
+    `INSERT INTO subscriptions (user_id, company_id, plan_id, status, billing_cycle, price, starts_at)
+     VALUES (?, ?, ?, 'active', 'monthly', 0, NOW())`,
+    [adminResult.insertId, companyResult.insertId, freePlan.id]
+  );
+
+  await admin.query(
+    `INSERT INTO usage_stats (user_id, company_id) VALUES (?, ?)`,
+    [adminResult.insertId, companyResult.insertId]
   );
 
   await admin.end();

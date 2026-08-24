@@ -48,7 +48,7 @@ class FreeInvoiceAgent {
         }
 
         try {
-            return await clientService.getForCompany(clientId, companyId);
+            return await clientService.get(clientId, companyId);
         } catch (err) {
             return null;
         }

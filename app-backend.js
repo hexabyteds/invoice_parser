@@ -246,7 +246,7 @@ app.post(
       // ===========================
       // NEW: Reject uploads against a deactivated client
       // ===========================
-      await clientService.assertActiveForCompany(clientId, req.company.id);
+      await clientService.assertActive(clientId, req.company.id);
 
       // Reserves the bytes atomically — under concurrent uploads, the old
       // checkStorageLimit()-then-addStorage() pair let every request read

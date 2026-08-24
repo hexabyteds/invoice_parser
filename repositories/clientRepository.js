@@ -2,14 +2,18 @@ const db = require("../config/database");
 
 class ClientRepository {
 
-    async create(client) {
+    // Every read/write here is scoped by company_id — a client (customer/
+    // supplier contact) belongs to the company, not to whoever created it,
+    // same rule as invoices and bank statements. user_id is still recorded
+    // on the row (create) for attribution only.
 
-        console.log("client", client);
+    async create(client) {
 
         const sql = `
             INSERT INTO clients
 (
     user_id,
+    company_id,
     company_name,
     contact_person,
     email,
@@ -20,11 +24,12 @@ class ClientRepository {
     city,
     notes
 )
-VALUES (?,?,?,?,?,?,?,?,?,?)
+VALUES (?,?,?,?,?,?,?,?,?,?,?)
         `;
 
         const values = [
             client.user_id,
+            client.company_id,
             client.company_name,
             client.contact_person,
             client.email,
@@ -36,50 +41,48 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
             client.notes
         ];
 
-        console.log(JSON.stringify(client, null, 2));
-        console.log(JSON.stringify(values, null, 2));
         const [result] = await db.execute(sql, values);
         return result.insertId;
     }
 
-    async findByUser(userId) {
+    async findByCompany(companyId) {
 
         const sql = `
             SELECT *
             FROM clients
-            WHERE user_id=?
+            WHERE company_id=?
             ORDER BY company_name
         `;
-        const values = [userId];
+        const values = [companyId];
         const [result] = await db.execute(sql, values);
         return result;
     }
 
-    async findByCompanyName(userId, companyName, excludeId = null) {
+    async findByCompanyName(companyId, companyName, excludeId = null) {
 
         const sql = excludeId
-            ? `SELECT id FROM clients WHERE user_id = ? AND LOWER(company_name) = LOWER(?) AND id != ? LIMIT 1`
-            : `SELECT id FROM clients WHERE user_id = ? AND LOWER(company_name) = LOWER(?) LIMIT 1`;
+            ? `SELECT id FROM clients WHERE company_id = ? AND LOWER(company_name) = LOWER(?) AND id != ? LIMIT 1`
+            : `SELECT id FROM clients WHERE company_id = ? AND LOWER(company_name) = LOWER(?) LIMIT 1`;
 
         const values = excludeId
-            ? [userId, companyName, excludeId]
-            : [userId, companyName];
+            ? [companyId, companyName, excludeId]
+            : [companyId, companyName];
 
         const [rows] = await db.execute(sql, values);
         return rows[0];
     }
 
-    async countByUser(userId) {
+    async countByCompany(companyId) {
 
         const [rows] = await db.execute(
-            `SELECT COUNT(*) AS total FROM clients WHERE user_id = ?`,
-            [userId]
+            `SELECT COUNT(*) AS total FROM clients WHERE company_id = ?`,
+            [companyId]
         );
 
         return Number(rows[0]?.total || 0);
     }
 
-    async update(id, userId, client) {
+    async update(id, companyId, client) {
 
         const [result] = await db.execute(`
             UPDATE clients
@@ -94,7 +97,7 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
                 city=?,
                 notes=?
             WHERE id=?
-            AND user_id=?
+            AND company_id=?
         `, [
             client.company_name,
             client.contact_person,
@@ -106,58 +109,34 @@ VALUES (?,?,?,?,?,?,?,?,?,?)
             client.city,
             client.notes,
             id,
-            userId
+            companyId
         ]);
 
         return result.affectedRows;
     }
 
-    async updateStatus(id, userId, status) {
+    async updateStatus(id, companyId, status) {
 
         const [result] = await db.execute(
-            `UPDATE clients SET status=? WHERE id=? AND user_id=?`,
-            [status, id, userId]
+            `UPDATE clients SET status=? WHERE id=? AND company_id=?`,
+            [status, id, companyId]
         );
 
         return result.affectedRows;
     }
 
-    async delete(id, userId) {
+    async delete(id, companyId) {
 
         const [result] = await db.execute(
-            `DELETE FROM clients WHERE id=? AND user_id=?`,
-            [id, userId]
+            `DELETE FROM clients WHERE id=? AND company_id=?`,
+            [id, companyId]
         );
 
         return result.affectedRows;
 
     }
 
-    async findById(id, userId) {
-
-        console.log("id", id);
-        console.log("userId", userId);
-        const [rows] = await db.execute(
-            `
-            SELECT *
-            FROM clients
-            WHERE id = ?
-            AND user_id = ?
-            LIMIT 1
-            `,
-            [id, userId]
-        );
-
-        return rows[0];
-
-    }
-
-    // Company-scoped lookup — used by the invoice flow now that a client
-    // (customer/supplier contact) is company-owned, not user-owned. Added
-    // alongside findById (unchanged) rather than replacing it: the rest of
-    // this repository's user_id scoping still serves the not-yet-migrated
-    // Customers/Suppliers CRUD routes.
-    async findByIdForCompany(id, companyId) {
+    async findById(id, companyId) {
 
         const [rows] = await db.execute(
             `

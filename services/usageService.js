@@ -58,7 +58,11 @@ class UsageService {
 
     const plan = await this.getPlanLimits(userId);
 
-    const actualClients = await clientRepository.countByUser(userId);
+    // Clients are company-scoped (see clientRepository), same reasoning
+    // as the invoice count below.
+    const actualClients = usage.company_id
+      ? await clientRepository.countByCompany(usage.company_id)
+      : usage.clients_used;
 
     // Invoices are company-scoped (see migrations 0012-0013), but this
     // usage_stats row is still one-per-user — company_id on it is only

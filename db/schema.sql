@@ -29,6 +29,7 @@ DROP TABLE IF EXISTS `audit_logs`;
 CREATE TABLE `audit_logs` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int DEFAULT NULL,
+  `company_id` int DEFAULT NULL,
   `action` varchar(255) DEFAULT NULL,
   `description` text,
   `ip_address` varchar(50) DEFAULT NULL,
@@ -37,8 +38,10 @@ CREATE TABLE `audit_logs` (
   PRIMARY KEY (`id`),
   KEY `idx_audit_logs_client_id` (`client_id`),
   KEY `idx_audit_logs_user_created` (`user_id`,`created_at`),
+  KEY `fk_audit_logs_company` (`company_id`),
   CONSTRAINT `audit_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
-  CONSTRAINT `fk_audit_logs_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_audit_logs_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_audit_logs_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `bank_statement_transactions`;
@@ -68,6 +71,7 @@ DROP TABLE IF EXISTS `bank_statements`;
 CREATE TABLE `bank_statements` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
+  `company_id` int NOT NULL,
   `client_id` int DEFAULT NULL,
   `original_filename` varchar(255) DEFAULT NULL,
   `image_path` text,
@@ -88,8 +92,10 @@ CREATE TABLE `bank_statements` (
   KEY `fk_bank_statement_user` (`user_id`),
   KEY `fk_bank_statement_client` (`client_id`),
   KEY `idx_bank_statements_user_created` (`user_id`,`created_at`),
+  KEY `fk_bank_statements_company` (`company_id`),
   CONSTRAINT `fk_bank_statement_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_bank_statement_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_bank_statement_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_bank_statements_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `clients`;
@@ -98,6 +104,7 @@ DROP TABLE IF EXISTS `clients`;
 CREATE TABLE `clients` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
+  `company_id` int NOT NULL,
   `company_name` varchar(255) NOT NULL,
   `contact_person` varchar(150) DEFAULT NULL,
   `email` varchar(255) DEFAULT NULL,
@@ -112,7 +119,51 @@ CREATE TABLE `clients` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `fk_client_user` (`user_id`),
-  CONSTRAINT `fk_client_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  KEY `fk_clients_company` (`company_id`),
+  CONSTRAINT `fk_client_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_clients_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `companies`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `companies` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `legal_name` varchar(255) DEFAULT NULL,
+  `owner_user_id` int NOT NULL,
+  `status` enum('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_company_owner` (`owner_user_id`),
+  CONSTRAINT `fk_company_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `company_memberships`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `company_memberships` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `company_id` int NOT NULL,
+  `user_id` int NOT NULL,
+  `role` enum('OWNER','FREELANCER','STAFF') NOT NULL DEFAULT 'STAFF',
+  `status` enum('INVITED','ACTIVE','SUSPENDED','REMOVED') NOT NULL DEFAULT 'INVITED',
+  `permissions` json DEFAULT NULL,
+  `invited_by` int DEFAULT NULL,
+  `invited_at` datetime DEFAULT NULL,
+  `accepted_at` datetime DEFAULT NULL,
+  `removed_at` datetime DEFAULT NULL,
+  `last_active_at` datetime DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_company_membership` (`company_id`,`user_id`),
+  KEY `fk_membership_user` (`user_id`),
+  KEY `fk_membership_invited_by` (`invited_by`),
+  CONSTRAINT `fk_membership_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_membership_invited_by` FOREIGN KEY (`invited_by`) REFERENCES `users` (`id`),
+  CONSTRAINT `fk_membership_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `invoice_items`;
@@ -137,6 +188,7 @@ DROP TABLE IF EXISTS `invoices`;
 CREATE TABLE `invoices` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
+  `company_id` int NOT NULL,
   `client_id` int DEFAULT NULL,
   `invoice_type` varchar(100) DEFAULT NULL,
   `document_type` enum('supplier_invoice','bill') DEFAULT NULL,
@@ -162,8 +214,10 @@ CREATE TABLE `invoices` (
   PRIMARY KEY (`id`),
   KEY `fk_invoice_client` (`client_id`),
   KEY `idx_invoices_user_document_type` (`user_id`,`document_type`),
+  KEY `fk_invoices_company` (`company_id`),
   CONSTRAINT `fk_invoice_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_invoice_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_invoice_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_invoices_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `login_history`;
@@ -238,6 +292,7 @@ DROP TABLE IF EXISTS `subscriptions`;
 CREATE TABLE `subscriptions` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
+  `company_id` int NOT NULL,
   `plan_id` int NOT NULL,
   `status` enum('trial','active','expired','cancelled','suspended') DEFAULT NULL,
   `billing_cycle` enum('monthly','yearly') DEFAULT NULL,
@@ -257,6 +312,8 @@ CREATE TABLE `subscriptions` (
   UNIQUE KEY `uq_subscriptions_stripe_subscription_id` (`stripe_subscription_id`),
   KEY `user_id` (`user_id`),
   KEY `plan_id` (`plan_id`),
+  KEY `fk_subscriptions_company` (`company_id`),
+  CONSTRAINT `fk_subscriptions_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`),
   CONSTRAINT `subscriptions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `subscriptions_ibfk_2` FOREIGN KEY (`plan_id`) REFERENCES `plans` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -267,6 +324,7 @@ DROP TABLE IF EXISTS `usage_stats`;
 CREATE TABLE `usage_stats` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
+  `company_id` int DEFAULT NULL,
   `invoices_used` int DEFAULT '0',
   `bank_statements_used` int DEFAULT '0',
   `clients_used` int DEFAULT '0',
@@ -277,6 +335,8 @@ CREATE TABLE `usage_stats` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_id` (`user_id`),
+  KEY `fk_usage_stats_company` (`company_id`),
+  CONSTRAINT `fk_usage_stats_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`),
   CONSTRAINT `usage_stats_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -298,6 +358,7 @@ CREATE TABLE `users` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `role` varchar(20) NOT NULL DEFAULT 'customer',
+  `account_type` enum('COMPANY','FREELANCER') DEFAULT NULL,
   `subscription_plan` varchar(50) DEFAULT 'Free',
   `email_verified` tinyint(1) DEFAULT '0',
   `last_login` datetime DEFAULT NULL,

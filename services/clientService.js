@@ -32,7 +32,10 @@ function validateFieldLengths(data) {
 
 class ClientService {
 
-    async create(userId, data) {
+    // A client belongs to the company (companyId) — userId is only kept
+    // for audit attribution and the (still per-user, see usageService)
+    // usage quota.
+    async create(companyId, userId, data) {
         if (!data.company_name || !data.company_name.trim()) {
             throw new Error("Company name is required.");
         }
@@ -40,7 +43,7 @@ class ClientService {
         validateFieldLengths(data);
 
         const duplicate = await clientRepository.findByCompanyName(
-            userId,
+            companyId,
             data.company_name.trim()
         );
 
@@ -59,6 +62,7 @@ class ClientService {
         try {
             id = await clientRepository.create({
                 user_id: userId,
+                company_id: companyId,
                 company_name: data.company_name,
                 contact_person: data.contact_person || "",
                 email: data.email || "",
@@ -87,16 +91,16 @@ class ClientService {
             // ignore
         }
 
-        return await clientRepository.findById(id, userId);
+        return await clientRepository.findById(id, companyId);
     }
 
-    async getAll(userId) {
-        return await clientRepository.findByUser(userId);
+    async getAll(companyId) {
+        return await clientRepository.findByCompany(companyId);
     }
 
-    async update(id, userId, data) {
+    async update(id, companyId, data) {
 
-        const existing = await clientRepository.findById(id, userId);
+        const existing = await clientRepository.findById(id, companyId);
 
         if (!existing) {
             throw new Error("Client not found.");
@@ -108,7 +112,7 @@ class ClientService {
 
         if (nextName && nextName.trim()) {
             const duplicate = await clientRepository.findByCompanyName(
-                userId,
+                companyId,
                 nextName.trim(),
                 id
             );
@@ -130,80 +134,42 @@ class ClientService {
             notes: data.notes ?? existing.notes,
         };
 
-        await clientRepository.update(id, userId, merged);
+        await clientRepository.update(id, companyId, merged);
 
-        return await clientRepository.findById(id, userId);
+        return await clientRepository.findById(id, companyId);
     }
 
-    async get(id, userId) {
+    async get(id, companyId) {
 
-        const client = await clientRepository.findById(id, userId);
-    
+        const client = await clientRepository.findById(id, companyId);
+
         if (!client) {
             throw new Error("Client not found.");
         }
-    
+
         return client;
-    
+
     }
 
-    async updateStatus(id, userId, status) {
+    async updateStatus(id, companyId, status) {
 
-        const existing = await clientRepository.findById(id, userId);
+        const existing = await clientRepository.findById(id, companyId);
 
         if (!existing) {
             throw new Error("Client not found.");
         }
 
-        await clientRepository.updateStatus(id, userId, status);
+        await clientRepository.updateStatus(id, companyId, status);
 
-        return await clientRepository.findById(id, userId);
+        return await clientRepository.findById(id, companyId);
     }
 
     // Guards the invoice/document creation path — throws (with a 403
     // statusCode) if the client has been deactivated, so a stale upload
     // form or a direct API call can't add documents to it.
-    async assertActive(id, userId) {
+    async assertActive(id, companyId) {
 
-        const client = await clientRepository.findById(id, userId);
-
-        if (!client) {
-            throw new Error("Client not found.");
-        }
-
-        if (client.status !== "ACTIVE") {
-            const err = new Error(
-                "This client is inactive. Please activate the client before adding documents."
-            );
-            err.statusCode = 403;
-            throw err;
-        }
-
-        return client;
-    }
-
-    // Company-scoped counterparts of get()/assertActive() — a client
-    // (customer/supplier contact) belongs to a company, not a user, so the
-    // invoice upload/edit path (which now operates in company context) must
-    // check the client is actually IN that company, not owned by whichever
-    // user happens to be making the request (a freelancer never owns any
-    // client directly). Added alongside the originals rather than replacing
-    // them: the not-yet-migrated Customers/Suppliers CRUD routes still call
-    // the user-scoped versions above.
-    async getForCompany(id, companyId) {
-
-        const client = await clientRepository.findByIdForCompany(id, companyId);
-
-        if (!client) {
-            throw new Error("Client not found.");
-        }
-
-        return client;
-    }
-
-    async assertActiveForCompany(id, companyId) {
-
-        const client = await clientRepository.findByIdForCompany(id, companyId);
+        const client = await clientRepository.findById(id, companyId);
 
         if (!client) {
             throw new Error("Client not found.");
@@ -220,18 +186,18 @@ class ClientService {
         return client;
     }
 
-    async delete(id, userId) {
+    async delete(id, companyId, userId) {
 
-        const client = await clientRepository.findById(id, userId);
-    
+        const client = await clientRepository.findById(id, companyId);
+
         if (!client) {
             throw new Error("Client not found.");
         }
-    
-        await clientRepository.delete(id, userId);
-    
+
+        await clientRepository.delete(id, companyId);
+
         await usageService.decrementClients(userId);
-    
+
         return true;
     }
 }
