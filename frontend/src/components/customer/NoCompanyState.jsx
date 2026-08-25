@@ -1,18 +1,36 @@
 import { useState } from "react";
-import { Briefcase, Building2, Check, X } from "lucide-react";
+import { Briefcase, Building2, Check, X, Plus } from "lucide-react";
 import toast from "react-hot-toast";
 import companyApi from "../../services/companyApi";
 import { useAuth } from "../../context/AuthContext";
 
 // Shown in place of the dashboard for a Freelancer with no accepted
 // company yet — either brand new (no invitations at all) or with
-// invitations still pending a response. A Freelancer owns no workspace of
-// their own, so there is nothing else to show here (see the
-// architecture's signup flow: "No company by default -> Wait for company
-// invitations").
+// invitations still pending a response. A Freelancer can either wait to be
+// invited by an existing Company, or start their own workspace outright
+// (createCompany below) — e.g. a bookkeeper setting up a client's company
+// shell before that client ever needs a login of their own.
 export default function NoCompanyState() {
   const { invitations, refreshUser, switchCompany } = useAuth();
   const [busyId, setBusyId] = useState(null);
+  const [companyName, setCompanyName] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  async function createCompany(e) {
+    e.preventDefault();
+    if (!companyName.trim()) return;
+
+    setCreating(true);
+    try {
+      const res = await companyApi.createCompany(companyName.trim());
+      toast.success(`${companyName.trim()} created.`);
+      await refreshUser();
+      switchCompany(res.data.companyId);
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Couldn't create company.");
+      setCreating(false);
+    }
+  }
 
   async function accept(inv) {
     setBusyId(inv.id);
@@ -47,12 +65,12 @@ export default function NoCompanyState() {
       </div>
 
       <h1 className="mt-6 text-2xl font-bold text-slate-900">
-        {invitations.length ? "You have pending invitations" : "Waiting for a company to invite you"}
+        {invitations.length ? "You have pending invitations" : "Start or join a company"}
       </h1>
 
       <p className="mt-2 text-slate-500">
-        As a Freelancer, you manage companies that authorize you — not your
-        own. Once a company invites you, it'll show up here.
+        As a Freelancer, you manage companies — either your own or ones that
+        invite you to work in their workspace.
       </p>
 
       {invitations.length > 0 && (
@@ -94,6 +112,27 @@ export default function NoCompanyState() {
           ))}
         </div>
       )}
+
+      <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm">
+        <p className="mb-3 text-sm font-medium text-slate-700">Create your own company</p>
+        <form onSubmit={createCompany} className="flex flex-col gap-3 sm:flex-row">
+          <input
+            type="text"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="Acme Trading LLC"
+            className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-indigo-500"
+          />
+          <button
+            type="submit"
+            disabled={creating || !companyName.trim()}
+            className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
+          >
+            <Plus size={16} />
+            Create Company
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

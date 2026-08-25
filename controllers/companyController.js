@@ -2,6 +2,15 @@ const companyService = require("../services/companyService");
 
 class CompanyController {
 
+    async create(req, res) {
+        try {
+            const companyId = await companyService.createCompany(req.user.id, req.body.name);
+            res.status(201).json({ success: true, companyId });
+        } catch (err) {
+            res.status(400).json({ success: false, error: err.message });
+        }
+    }
+
     async acceptInvitation(req, res) {
         try {
             await companyService.acceptInvitation(req.params.membershipId, req.user.id);

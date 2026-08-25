@@ -1,5 +1,7 @@
 const companyRepository = require("../repositories/companyRepository");
 const userRepository = require("../repositories/userRepository");
+const subscriptionService = require("./subscriptionService");
+const usageService = require("./usageService");
 
 function toPublicMembership(row) {
     return {
@@ -31,6 +33,46 @@ function toPublicMember(row) {
 }
 
 class CompanyService {
+
+    // A Freelancer's self-service way to start managing a new business,
+    // separate from the invite-only path above (Company invites Freelancer).
+    // Mirrors authService.register's COMPANY-account bootstrap exactly
+    // (company row + OWNER membership + free subscription + usage record)
+    // so a freelancer-created company behaves identically to one created
+    // via direct Company signup — same plan, same limits, same shape.
+    // Restricted to FREELANCER accounts: a COMPANY account already owns
+    // its one workspace from registration and was never meant to also
+    // spin up additional ones through this path.
+    async createCompany(userId, name) {
+        const user = await userRepository.findById(userId);
+
+        if (!user || user.account_type !== "FREELANCER") {
+            throw new Error("Only Freelancer accounts can create additional companies.");
+        }
+
+        const trimmedName = (name || "").trim();
+
+        if (!trimmedName) {
+            throw new Error("Company name is required.");
+        }
+
+        const companyId = await companyRepository.create({
+            name: trimmedName,
+            ownerUserId: userId,
+        });
+
+        await companyRepository.createMembership({
+            companyId,
+            userId,
+            role: "OWNER",
+            status: "ACTIVE",
+        });
+
+        await subscriptionService.createFreeSubscription(companyId);
+        await usageService.ensureUsageRecord(companyId);
+
+        return companyId;
+    }
 
     // Splits one user's memberships into workspaces they can already act in
     // vs. invitations still awaiting their response — used to hydrate

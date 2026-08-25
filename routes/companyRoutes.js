@@ -9,6 +9,11 @@ const companyController = require("../controllers/companyController");
 
 router.use(authMiddleware);
 
+// A Freelancer's self-service "start a new workspace" — no "current
+// company" to resolve yet, since this is how one gets created in the
+// first place. Restricted to FREELANCER accounts inside the service layer.
+router.post("/", (req, res) => companyController.create(req, res));
+
 // Acting on the caller's OWN membership rows — no "current company" to
 // resolve yet, since accepting is how a company becomes selectable at all.
 router.post("/invitations/:membershipId/accept", (req, res) => companyController.acceptInvitation(req, res));

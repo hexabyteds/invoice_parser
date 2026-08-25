@@ -1,6 +1,8 @@
 import api from "./api";
 
 const companyApi = {
+  createCompany: (name) => api.post("/companies", { name }),
+
   acceptInvitation: (membershipId) =>
     api.post(`/companies/invitations/${membershipId}/accept`),
   declineInvitation: (membershipId) =>
