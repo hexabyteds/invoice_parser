@@ -1,7 +1,9 @@
 import api from "./api";
 
 const companyApi = {
-  createCompany: (name) => api.post("/companies", { name }),
+  createCompany: (data) => api.post("/companies", data),
+  getCurrentCompany: () => api.get("/companies/current"),
+  updateCurrentCompany: (data) => api.patch("/companies/current", data),
 
   acceptInvitation: (membershipId) =>
     api.post(`/companies/invitations/${membershipId}/accept`),

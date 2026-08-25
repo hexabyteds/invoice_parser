@@ -13,17 +13,21 @@ import { useAuth } from "../../context/AuthContext";
 export default function NoCompanyState() {
   const { invitations, refreshUser, switchCompany } = useAuth();
   const [busyId, setBusyId] = useState(null);
-  const [companyName, setCompanyName] = useState("");
+  const [form, setForm] = useState({ name: "", address: "", phone: "", email: "", trn: "" });
   const [creating, setCreating] = useState(false);
+
+  function update(field, value) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }
 
   async function createCompany(e) {
     e.preventDefault();
-    if (!companyName.trim()) return;
+    if (!form.name.trim()) return;
 
     setCreating(true);
     try {
-      const res = await companyApi.createCompany(companyName.trim());
-      toast.success(`${companyName.trim()} created.`);
+      const res = await companyApi.createCompany(form);
+      toast.success(`${form.name.trim()} created.`);
       await refreshUser();
       switchCompany(res.data.companyId);
     } catch (err) {
@@ -114,19 +118,50 @@ export default function NoCompanyState() {
       )}
 
       <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm">
-        <p className="mb-3 text-sm font-medium text-slate-700">Create your own company</p>
-        <form onSubmit={createCompany} className="flex flex-col gap-3 sm:flex-row">
+        <p className="mb-1 text-sm font-medium text-slate-700">Create your own company</p>
+        <p className="mb-4 text-xs text-slate-400">Only the company name is required — the rest can be filled in later from Settings.</p>
+        <form onSubmit={createCompany} className="space-y-3">
           <input
             type="text"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            placeholder="Acme Trading LLC"
-            className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-indigo-500"
+            value={form.name}
+            onChange={(e) => update("name", e.target.value)}
+            placeholder="Company name *"
+            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+          />
+          <textarea
+            value={form.address}
+            onChange={(e) => update("address", e.target.value)}
+            placeholder="Address"
+            rows={2}
+            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+          />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <input
+              type="text"
+              value={form.phone}
+              onChange={(e) => update("phone", e.target.value)}
+              placeholder="Phone number"
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+            />
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => update("email", e.target.value)}
+              placeholder="Email"
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
+            />
+          </div>
+          <input
+            type="text"
+            value={form.trn}
+            onChange={(e) => update("trn", e.target.value)}
+            placeholder="VAT / TRN number"
+            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500"
           />
           <button
             type="submit"
-            disabled={creating || !companyName.trim()}
-            className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
+            disabled={creating || !form.name.trim()}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
           >
             <Plus size={16} />
             Create Company

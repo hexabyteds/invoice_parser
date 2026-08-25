@@ -3,6 +3,18 @@ const userRepository = require("../repositories/userRepository");
 const subscriptionService = require("./subscriptionService");
 const usageService = require("./usageService");
 
+function toPublicCompany(row) {
+    return {
+        id: row.id,
+        name: row.name,
+        address: row.address || null,
+        phone: row.phone || null,
+        email: row.email || null,
+        trn: row.trn || null,
+        status: row.status,
+    };
+}
+
 function toPublicMembership(row) {
     return {
         id: row.id,
@@ -43,14 +55,14 @@ class CompanyService {
     // Restricted to FREELANCER accounts: a COMPANY account already owns
     // its one workspace from registration and was never meant to also
     // spin up additional ones through this path.
-    async createCompany(userId, name) {
+    async createCompany(userId, data) {
         const user = await userRepository.findById(userId);
 
         if (!user || user.account_type !== "FREELANCER") {
             throw new Error("Only Freelancer accounts can create additional companies.");
         }
 
-        const trimmedName = (name || "").trim();
+        const trimmedName = (data.name || "").trim();
 
         if (!trimmedName) {
             throw new Error("Company name is required.");
@@ -59,6 +71,10 @@ class CompanyService {
         const companyId = await companyRepository.create({
             name: trimmedName,
             ownerUserId: userId,
+            address: data.address?.trim() || null,
+            phone: data.phone?.trim() || null,
+            email: data.email?.trim() || null,
+            trn: data.trn?.trim() || null,
         });
 
         await companyRepository.createMembership({
@@ -72,6 +88,42 @@ class CompanyService {
         await usageService.ensureUsageRecord(companyId);
 
         return companyId;
+    }
+
+    async getCompanyDetails(companyId) {
+        const company = await companyRepository.findById(companyId);
+
+        if (!company) {
+            throw new Error("Company not found.");
+        }
+
+        return toPublicCompany(company);
+    }
+
+    // Only the OWNER's own company can be edited through this path (same
+    // rule as the rest of Team & Access — see assertMutableMember), and
+    // only via the caller's currently-selected company (req.company.id),
+    // so a Freelancer can never edit a company they're merely a member of.
+    async updateCompanyDetails(companyId, userId, data) {
+        const company = await companyRepository.findById(companyId);
+
+        if (!company || company.owner_user_id !== userId) {
+            throw new Error("Only the company owner can edit its details.");
+        }
+
+        const trimmedName = (data.name || "").trim();
+
+        if (!trimmedName) {
+            throw new Error("Company name is required.");
+        }
+
+        await companyRepository.update(companyId, {
+            name: trimmedName,
+            address: data.address?.trim() || null,
+            phone: data.phone?.trim() || null,
+            email: data.email?.trim() || null,
+            trn: data.trn?.trim() || null,
+        });
     }
 
     // Splits one user's memberships into workspaces they can already act in

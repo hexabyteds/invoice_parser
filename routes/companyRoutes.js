@@ -14,6 +14,11 @@ router.use(authMiddleware);
 // first place. Restricted to FREELANCER accounts inside the service layer.
 router.post("/", (req, res) => companyController.create(req, res));
 
+// The active company's own details (address/phone/email/TRN) — view for
+// any member, edit restricted to the owner inside the service layer.
+router.get("/current", companyContext, (req, res) => companyController.getCurrent(req, res));
+router.patch("/current", companyContext, (req, res) => companyController.updateCurrent(req, res));
+
 // Acting on the caller's OWN membership rows — no "current company" to
 // resolve yet, since accepting is how a company becomes selectable at all.
 router.post("/invitations/:membershipId/accept", (req, res) => companyController.acceptInvitation(req, res));

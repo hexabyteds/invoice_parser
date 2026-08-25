@@ -2,13 +2,21 @@ const db = require("../config/database");
 
 class CompanyRepository {
 
-    async create({ name, ownerUserId }) {
+    async create({ name, ownerUserId, address = null, phone = null, email = null, trn = null }) {
         const [result] = await db.execute(
-            `INSERT INTO companies (name, owner_user_id, status) VALUES (?, ?, 'ACTIVE')`,
-            [name, ownerUserId]
+            `INSERT INTO companies (name, owner_user_id, address, phone, email, trn, status)
+             VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+            [name, ownerUserId, address, phone, email, trn]
         );
 
         return result.insertId;
+    }
+
+    async update(companyId, { name, address, phone, email, trn }) {
+        await db.execute(
+            `UPDATE companies SET name = ?, address = ?, phone = ?, email = ?, trn = ? WHERE id = ?`,
+            [name, address, phone, email, trn, companyId]
+        );
     }
 
     async findById(companyId) {

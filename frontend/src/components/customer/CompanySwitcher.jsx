@@ -42,7 +42,7 @@ export default function CompanySwitcher() {
 
     setCreating(true);
     try {
-      const res = await companyApi.createCompany(name.trim());
+      const res = await companyApi.createCompany({ name: name.trim() });
       toast.success(`${name.trim()} created.`);
       await refreshUser();
       setOpen(false);
@@ -118,7 +118,7 @@ export default function CompanySwitcher() {
                 onChange={(e) => setName(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
                 placeholder="New company name"
-                className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-500"
               />
               <button
                 type="submit"

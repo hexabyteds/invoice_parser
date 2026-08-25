@@ -4,8 +4,26 @@ class CompanyController {
 
     async create(req, res) {
         try {
-            const companyId = await companyService.createCompany(req.user.id, req.body.name);
+            const companyId = await companyService.createCompany(req.user.id, req.body);
             res.status(201).json({ success: true, companyId });
+        } catch (err) {
+            res.status(400).json({ success: false, error: err.message });
+        }
+    }
+
+    async getCurrent(req, res) {
+        try {
+            const company = await companyService.getCompanyDetails(req.company.id);
+            res.json({ success: true, company });
+        } catch (err) {
+            res.status(400).json({ success: false, error: err.message });
+        }
+    }
+
+    async updateCurrent(req, res) {
+        try {
+            await companyService.updateCompanyDetails(req.company.id, req.user.id, req.body);
+            res.json({ success: true, message: "Company details updated." });
         } catch (err) {
             res.status(400).json({ success: false, error: err.message });
         }

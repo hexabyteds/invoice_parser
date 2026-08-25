@@ -4,18 +4,20 @@ import { ShieldCheck } from "lucide-react";
 
 import authApi from "../../services/authApi";
 import TeamAccess from "../../components/customer/TeamAccess";
+import CompanyDetails from "../../components/customer/CompanyDetails";
 import { useAuth } from "../../context/AuthContext";
 
 export default function Settings() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { user, currentCompany } = useAuth();
+  const { currentCompany } = useAuth();
 
   // Team management is OWNER-only server-side (requireCompanyPermission's
-  // OWNER bypass) — a Company account is always the owner of its own
-  // workspace, a Freelancer never owns the company they're currently
-  // acting in, so this section simply doesn't apply to them.
-  const canManageTeam = user?.account_type === "COMPANY" && currentCompany?.role === "OWNER";
+  // OWNER bypass). Gated on role alone, not account_type — a Freelancer
+  // who created their own company (see companyService.createCompany) is
+  // just as much an OWNER of it as a Company account is of its own
+  // workspace, and needs the same ability to invite others in.
+  const canManageTeam = currentCompany?.role === "OWNER";
 
   useEffect(() => {
     load();
@@ -43,6 +45,8 @@ export default function Settings() {
           Manage your account security and activity.
         </p>
       </div>
+
+      {currentCompany && <CompanyDetails />}
 
       {canManageTeam && <TeamAccess />}
 

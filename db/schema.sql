@@ -109,6 +109,10 @@ CREATE TABLE `companies` (
   `status` enum('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `address` text,
+  `phone` varchar(30) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `trn` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `fk_company_owner` (`owner_user_id`),
   CONSTRAINT `fk_company_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`)
@@ -431,8 +435,9 @@ CREATE TABLE `usage_stats` (
   `team_members_used` int DEFAULT '1',
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `user_id` (`user_id`),
+  UNIQUE KEY `uq_usage_stats_company_id` (`company_id`),
   KEY `fk_usage_stats_company` (`company_id`),
+  KEY `idx_usage_stats_user_id` (`user_id`),
   CONSTRAINT `fk_usage_stats_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`),
   CONSTRAINT `usage_stats_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
