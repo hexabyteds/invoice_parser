@@ -18,9 +18,9 @@ export default function UsageDetailsModal({ customer, onClose }) {
       limit: customer.invoice_limit,
     },
     {
-      label: "Clients",
-      used: customer.clients_used,
-      limit: customer.client_limit,
+      label: "Customers",
+      used: customer.customers_used,
+      limit: customer.customer_limit,
     },
     {
       label: "OCR Pages",

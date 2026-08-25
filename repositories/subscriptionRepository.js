@@ -58,7 +58,7 @@ class SubscriptionRepository {
           p.name,
           p.slug,
           p.invoice_limit,
-          p.client_limit,
+          p.customer_limit,
           p.user_limit,
           p.storage_limit,
           p.ocr_limit,
@@ -231,7 +231,7 @@ class SubscriptionRepository {
     const [[row]] = await db.execute(
       `
       SELECT COUNT(*) total
-      FROM clients
+      FROM customers
       WHERE user_id=?
       `,
       [userId]

@@ -50,7 +50,7 @@ class DashboardRepository {
         let clientFilter = "";
 
         if (clientId) {
-            clientFilter += " AND client_id = ?";
+            clientFilter += " AND customer_id = ?";
             invoiceParams.push(clientId);
         }
 
@@ -115,7 +115,7 @@ class DashboardRepository {
                 COUNT(CASE WHEN YEAR(created_at) = YEAR(CURDATE() - INTERVAL 1 MONTH)
                             AND MONTH(created_at) = MONTH(CURDATE() - INTERVAL 1 MONTH)
                            THEN 1 END) AS prevMonthClients
-            FROM clients
+            FROM customers
             WHERE user_id = ?
             `,
             [userId]
@@ -128,7 +128,7 @@ class DashboardRepository {
 
         const months = lastMonths(monthCount);
         const earliest = `${months[0].key}-01`;
-        const clientFilter = clientId ? "AND client_id = ?" : "";
+        const clientFilter = clientId ? "AND customer_id = ?" : "";
         const invoiceParams = clientId
             ? [userId, earliest, clientId]
             : [userId, earliest];
@@ -167,7 +167,7 @@ class DashboardRepository {
             SELECT
                 DATE_FORMAT(created_at, '%Y-%m') AS monthKey,
                 COUNT(*) AS count
-            FROM clients
+            FROM customers
             WHERE user_id = ? AND created_at >= ?
             GROUP BY monthKey
             `,
@@ -209,8 +209,8 @@ class DashboardRepository {
                 c.id,
                 c.company_name AS companyName,
                 COUNT(i.id) AS invoiceCount
-            FROM clients c
-            LEFT JOIN invoices i ON i.client_id = c.id AND i.user_id = c.user_id
+            FROM customers c
+            LEFT JOIN invoices i ON i.customer_id = c.id AND i.user_id = c.user_id
             WHERE c.user_id = ?
             GROUP BY c.id, c.company_name
             HAVING invoiceCount > 0
@@ -228,13 +228,13 @@ class DashboardRepository {
     // so we only ever scan the invoices table once per dashboard load.
     async _getInvoiceQualityRows(userId, clientId = null) {
 
-        const clientFilter = clientId ? "AND client_id = ?" : "";
+        const clientFilter = clientId ? "AND customer_id = ?" : "";
         const params = clientId ? [userId, clientId] : [userId];
 
         const [rows] = await db.execute(
             `
             SELECT
-                id, client_id, created_at,
+                id, customer_id, created_at,
                 client_name, invoice_no, invoice_date, due_date,
                 phone_number, location, subtotal, vat_amount,
                 total_amount, description, trn
@@ -246,7 +246,7 @@ class DashboardRepository {
 
         return rows.map((row) => ({
             id: row.id,
-            clientId: row.client_id,
+            clientId: row.customer_id,
             createdAt: row.created_at,
             confidence: validationService.validate(toValidationShape(row)).confidence,
         }));
@@ -278,7 +278,7 @@ class DashboardRepository {
             ? Math.round(rows.reduce((sum, r) => sum + r.confidence, 0) / rows.length)
             : 0;
 
-        const clientFilter = clientId ? "AND client_id = ?" : "";
+        const clientFilter = clientId ? "AND customer_id = ?" : "";
         const failureParams = clientId ? [userId, clientId] : [userId];
 
         const [[failureRow]] = await db.execute(
@@ -323,15 +323,15 @@ class DashboardRepository {
 
         const [clients, invoiceQualityRows, failureRows] = await Promise.all([
             db.execute(
-                `SELECT id, company_name AS companyName FROM clients WHERE user_id = ?`,
+                `SELECT id, company_name AS companyName FROM customers WHERE user_id = ?`,
                 [userId]
             ).then(([rows]) => rows),
             this._getInvoiceQualityRows(userId),
             db.execute(
                 `
-                SELECT client_id AS clientId, action, created_at AS createdAt
+                SELECT customer_id AS clientId, action, created_at AS createdAt
                 FROM audit_logs
-                WHERE user_id = ? AND client_id IS NOT NULL
+                WHERE user_id = ? AND customer_id IS NOT NULL
                   AND action IN ('invoice_rejected', 'invoice_error')
                 `,
                 [userId]
@@ -395,7 +395,7 @@ class DashboardRepository {
     // rather than folded into the GROUP BY above.
     async getDocumentTypeCounts(userId, clientId = null) {
 
-        const clientFilter = clientId ? "AND client_id = ?" : "";
+        const clientFilter = clientId ? "AND customer_id = ?" : "";
         const params = clientId ? [userId, clientId] : [userId];
 
         const [rows] = await db.execute(
@@ -443,7 +443,7 @@ class DashboardRepository {
                 a.id, a.action, a.description, a.created_at AS createdAt,
                 c.company_name AS clientName
             FROM audit_logs a
-            LEFT JOIN clients c ON c.id = a.client_id
+            LEFT JOIN customers c ON c.id = a.customer_id
             WHERE a.user_id = ?
             ORDER BY a.created_at DESC, a.id DESC
             LIMIT ?

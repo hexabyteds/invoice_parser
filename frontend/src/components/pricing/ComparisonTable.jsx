@@ -41,11 +41,11 @@ const features = [
   },
 
   {
-    category: "Clients",
+    category: "Customers",
 
     items: [
       {
-        name: "Client Management",
+        name: "Customer Management",
         free: true,
         starter: true,
         business: true,
@@ -53,7 +53,7 @@ const features = [
       },
 
       {
-        name: "Unlimited Clients",
+        name: "Unlimited Customers",
         free: false,
         starter: false,
         business: true,

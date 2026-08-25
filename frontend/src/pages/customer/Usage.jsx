@@ -52,8 +52,8 @@ export default function Usage() {
       ...usage.usage.invoices,
     },
     {
-      title: "Clients",
-      ...usage.usage.clients,
+      title: "Customers",
+      ...usage.usage.customers,
     },
     {
       title: "OCR Pages",

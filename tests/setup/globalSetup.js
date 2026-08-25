@@ -41,7 +41,7 @@ module.exports = async function globalSetup() {
   // checkout/webhook tests can resolve a plan without hitting real Stripe.
   await admin.query(
     `INSERT INTO plans
-      (name, slug, monthly_price, yearly_price, invoice_limit, client_limit, user_limit, storage_limit, ocr_limit, api_access, active, stripe_price_id_monthly, stripe_price_id_yearly)
+      (name, slug, monthly_price, yearly_price, invoice_limit, customer_limit, user_limit, storage_limit, ocr_limit, api_access, active, stripe_price_id_monthly, stripe_price_id_yearly)
      VALUES
       ('Free', 'free', 0, 0, 5, 2, 1, 50, 5, 0, 1, NULL, NULL),
       ('Starter', 'starter', 19, 190, 100, 25, 1, 500, 100, 0, 1, 'price_test_starter_monthly', 'price_test_starter_yearly'),

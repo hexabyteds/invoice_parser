@@ -7,10 +7,10 @@ const { samplePngBuffer } = require("../helpers/fixtures");
 
 async function createClient(token) {
   const res = await request(app)
-    .post("/api/clients")
+    .post("/api/customers")
     .set(authed(token))
     .send({ company_name: "Export Client" });
-  return res.body.client.id;
+  return res.body.customer.id;
 }
 
 async function uploadOne(token, clientId, overrides = {}, documentType) {
@@ -173,10 +173,10 @@ describe("Export filtered by document_type", () => {
     const { token } = await registerAndLogin();
     const clientAbc = await createClient(token);
     const clientOther = await request(app)
-      .post("/api/clients")
+      .post("/api/customers")
       .set(authed(token))
       .send({ company_name: "Other Client" });
-    const otherClientId = clientOther.body.client.id;
+    const otherClientId = clientOther.body.customer.id;
 
     await uploadOne(token, clientAbc, { invoiceNo: "ABC-BILL" }, "bill");
     await uploadOne(token, clientAbc, { invoiceNo: "ABC-SUPPLIER" }, "supplier_invoice");

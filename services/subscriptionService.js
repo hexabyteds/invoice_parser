@@ -900,13 +900,13 @@ class SubscriptionService {
 
       used,
 
-      limit: subscription.client_limit,
+      limit: subscription.customer_limit,
 
       remaining:
-        subscription.client_limit - used,
+        subscription.customer_limit - used,
 
       allowed:
-        used < subscription.client_limit
+        used < subscription.customer_limit
 
     };
 

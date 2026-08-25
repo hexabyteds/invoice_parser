@@ -67,7 +67,7 @@ class AdminRepository {
         u.plan,
         u.status,
         u.created_at,
-        (SELECT COUNT(*) FROM clients c WHERE c.user_id = u.id) AS client_count,
+        (SELECT COUNT(*) FROM customers c WHERE c.user_id = u.id) AS client_count,
         (SELECT COUNT(*) FROM invoices i WHERE i.user_id = u.id) AS invoice_count
       FROM users u
       WHERE ${CUSTOMER_FILTER}
@@ -115,7 +115,7 @@ class AdminRepository {
       FROM users u
       LEFT JOIN (
         SELECT user_id, COUNT(*) AS client_count
-        FROM clients
+        FROM customers
         GROUP BY user_id
       ) client_counts ON client_counts.user_id = u.id
       LEFT JOIN (
@@ -188,8 +188,8 @@ class AdminRepository {
       SELECT
         c.*,
         COUNT(i.id) AS invoice_count
-      FROM clients c
-      LEFT JOIN invoices i ON i.client_id = c.id
+      FROM customers c
+      LEFT JOIN invoices i ON i.customer_id = c.id
       WHERE c.user_id = ?
       GROUP BY c.id
       ORDER BY c.company_name

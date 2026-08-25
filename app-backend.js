@@ -14,14 +14,15 @@ require('dotenv').config();
 const authRoutes = require("./routes/authRoutes");
 const FreeInvoiceAgent = require('./free-invoice-agent');
 const authMiddleware = require("./middleware/authMiddleware");
-const clientRoutes = require("./routes/clientRoutes");
+const customerRoutes = require("./routes/customerRoutes");
+const supplierRoutes = require("./routes/supplierRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const planRoutes = require("./routes/planRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const usageRoutes = require("./routes/usageRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const usageService = require("./services/usageService");
-const clientService = require("./services/clientService");
+const customerService = require("./services/customerService");
 const validationService = require("./services/validationService");
 const auditLogRepository = require("./repositories/auditLogRepository");
 const db = require("./config/database");
@@ -61,7 +62,8 @@ app.use((req, res, next) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/clients", clientRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/suppliers", supplierRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
@@ -229,7 +231,7 @@ app.post(
       // ===========================
       // NEW: Reject uploads against a deactivated client
       // ===========================
-      await clientService.assertActive(clientId, req.user.id);
+      await customerService.assertActive(clientId, req.user.id);
 
       // Reserves the bytes atomically — under concurrent uploads, the old
       // checkStorageLimit()-then-addStorage() pair let every request read
@@ -272,7 +274,7 @@ app.post(
           try {
             await auditLogRepository.create({
               userId: req.user.id,
-              clientId,
+              customerId: clientId,
               action: "bank_statement_error",
               description: bsResult.message,
             });
@@ -287,7 +289,7 @@ app.post(
         try {
           await auditLogRepository.create({
             userId: req.user.id,
-            clientId,
+            customerId: clientId,
             action: "bank_statement_uploaded",
             description: `Bank statement (${bsResult.transactionCount} transaction(s))`,
           });
@@ -295,7 +297,7 @@ app.post(
           if (bsResult.meta?.failedPages > 0) {
             await auditLogRepository.create({
               userId: req.user.id,
-              clientId,
+              customerId: clientId,
               action: "bank_statement_error",
               description: `${bsResult.meta.failedPages} page(s) failed during extraction`,
             });
@@ -343,7 +345,7 @@ app.post(
         try {
           await auditLogRepository.create({
             userId: req.user.id,
-            clientId,
+            customerId: clientId,
             // A validation-object means Gemini extracted something but it
             // wasn't a valid invoice; no validation object means a hard
             // extraction/OCR/system failure.
@@ -366,7 +368,7 @@ app.post(
         try {
           await auditLogRepository.create({
             userId: req.user.id,
-            clientId,
+            customerId: clientId,
             action: "invoice_uploaded",
             description: `${result.totalInvoices} invoice(s) processed from PDF`,
           });
@@ -374,7 +376,7 @@ app.post(
           if (result.meta?.failedPages > 0) {
             await auditLogRepository.create({
               userId: req.user.id,
-              clientId,
+              customerId: clientId,
               action: "invoice_error",
               description: `${result.meta.failedPages} page(s) failed during PDF extraction`,
             });
@@ -400,14 +402,14 @@ app.post(
       try {
         await auditLogRepository.create({
           userId: req.user.id,
-          clientId,
+          customerId: clientId,
           action: "invoice_uploaded",
           description: invoice.invoiceNo ? `Invoice ${invoice.invoiceNo}` : "Invoice",
         });
 
         await auditLogRepository.create({
           userId: req.user.id,
-          clientId,
+          customerId: clientId,
           action: "invoice_processed",
           description: `${validation.confidence}% confidence`,
         });

@@ -1,5 +1,5 @@
 const usageRepository = require("../repositories/usageRepository");
-const clientRepository = require("../repositories/clientRepository");
+const customerRepository = require("../repositories/customerRepository");
 const invoiceRepository = require("../repositories/invoiceRepository");
 const subscriptionService = require("./subscriptionService");
 
@@ -15,7 +15,7 @@ function planFromSubscription(subscription) {
     name: subscription.name,
     slug: subscription.slug,
     invoice_limit: subscription.invoice_limit,
-    client_limit: subscription.client_limit,
+    customer_limit: subscription.customer_limit,
     ocr_limit: subscription.ocr_limit,
     storage_limit: subscription.storage_limit,
     user_limit: subscription.user_limit,
@@ -58,12 +58,12 @@ class UsageService {
 
     const plan = await this.getPlanLimits(userId);
 
-    const actualClients = await clientRepository.countByUser(userId);
+    const actualCustomers = await customerRepository.countByUser(userId);
     const actualInvoices = await invoiceRepository.countByUser(userId);
 
-    if (usage.clients_used !== actualClients) {
-      await usageRepository.updateClients(userId, actualClients);
-      usage.clients_used = actualClients;
+    if (usage.customers_used !== actualCustomers) {
+      await usageRepository.updateCustomers(userId, actualCustomers);
+      usage.customers_used = actualCustomers;
     }
 
     if (usage.invoices_used !== actualInvoices) {
@@ -90,12 +90,12 @@ class UsageService {
           )
         },
 
-        clients: {
-          used: usage.clients_used,
-          limit: plan.client_limit,
+        customers: {
+          used: usage.customers_used,
+          limit: plan.customer_limit,
           remaining: Math.max(
             0,
-            plan.client_limit - usage.clients_used
+            plan.customer_limit - usage.customers_used
           )
         },
 
@@ -168,17 +168,17 @@ class UsageService {
 
   }
 
-  async checkClientLimit(userId) {
+  async checkCustomerLimit(userId) {
 
     const data = await this.getUsage(userId);
 
     if (
-      data.usage.clients.used >=
-      data.usage.clients.limit
+      data.usage.customers.used >=
+      data.usage.customers.limit
     ) {
 
       throw new Error(
-        "Client limit reached. Please upgrade your subscription."
+        "Customer limit reached. Please upgrade your subscription."
       );
 
     }
@@ -202,32 +202,32 @@ class UsageService {
 
   }
 
-  // Atomically checks-and-increments in one DB call — checkClientLimit
-  // above (a separate SELECT) followed by a separate incrementClients
-  // UPDATE let concurrent client-creation requests all read the same
+  // Atomically checks-and-increments in one DB call — checkCustomerLimit
+  // above (a separate SELECT) followed by a separate incrementCustomers
+  // UPDATE let concurrent customer-creation requests all read the same
   // pre-increment count and all pass the check before any of them had
   // incremented, so N concurrent requests near the limit could all
-  // succeed and push clients_used arbitrarily past it. This is the same
+  // succeed and push customers_used arbitrarily past it. This is the same
   // race reserveInvoiceSlot/reserveOCRPages were already fixed for; the
   // client and storage paths just hadn't been given the same fix yet.
   // Callers that need to undo a successful reservation on a later failure
-  // call decrementClients to release it.
+  // call decrementCustomers to release it.
   // See reserveInvoiceSlot for why this uses getPlanLimits rather than
   // getUsage — same reconciliation-vs-reservation conflict applies here.
-  async reserveClientSlot(userId) {
+  async reserveCustomerSlot(userId) {
 
     await this.ensureUsageRecord(userId);
 
     const plan = await this.getPlanLimits(userId);
 
-    const reserved = await usageRepository.incrementClientsIfUnderLimit(
+    const reserved = await usageRepository.incrementCustomersIfUnderLimit(
       userId,
-      plan.client_limit
+      plan.customer_limit
     );
 
     if (!reserved) {
       throw new Error(
-        "Client limit reached. Please upgrade your subscription."
+        "Customer limit reached. Please upgrade your subscription."
       );
     }
 
@@ -338,13 +338,13 @@ class UsageService {
         used: Number(row.bank_statements_used || 0)
       },
 
-      clients: {
-        used: Number(row.clients_used || 0),
-        limit: Number(row.client_limit || 0),
+      customers: {
+        used: Number(row.customers_used || 0),
+        limit: Number(row.customer_limit || 0),
         remaining: Math.max(
           0,
-          Number(row.client_limit || 0) -
-          Number(row.clients_used || 0)
+          Number(row.customer_limit || 0) -
+          Number(row.customers_used || 0)
         )
       },
 
@@ -404,16 +404,16 @@ class UsageService {
 
   }
 
-  async incrementClients(userId) {
+  async incrementCustomers(userId) {
 
     await this.ensureUsageRecord(userId);
-    await usageRepository.incrementClients(userId);
+    await usageRepository.incrementCustomers(userId);
 
   }
 
-  async decrementClients(userId) {
+  async decrementCustomers(userId) {
 
-    await usageRepository.decrementClients(userId);
+    await usageRepository.decrementCustomers(userId);
 
   }
 
@@ -447,13 +447,13 @@ class UsageService {
 
     return true;
   }
-  async canCreateClient(userId) {
+  async canCreateCustomer(userId) {
 
     const data = await this.getUsage(userId);
 
-    if (data.usage.clients.used >= data.usage.clients.limit) {
+    if (data.usage.customers.used >= data.usage.customers.limit) {
       throw new Error(
-        "Client limit reached. Please upgrade your subscription."
+        "Customer limit reached. Please upgrade your subscription."
       );
     }
 

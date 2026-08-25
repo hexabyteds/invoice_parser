@@ -2,7 +2,7 @@ const { request, app, registerAndLogin, authed } = require("../helpers/api");
 
 async function createClient(token, overrides = {}) {
   return request(app)
-    .post("/api/clients")
+    .post("/api/customers")
     .set(authed(token))
     .send({
       company_name: "Test Co",
@@ -18,15 +18,15 @@ async function createClient(token, overrides = {}) {
     });
 }
 
-describe("Clients", () => {
+describe("Customers", () => {
   describe("CRUD happy path", () => {
-    it("creates a client and stores every field in its correct column", async () => {
+    it("creates a customer and stores every field in its correct column", async () => {
       const { token } = await registerAndLogin();
 
       const res = await createClient(token);
 
       expect(res.status).toBe(201);
-      const client = res.body.client;
+      const client = res.body.customer;
       expect(client.company_name).toBe("Test Co");
       expect(client.contact_person).toBe("Jane Doe");
       expect(client.email).toBe("jane@testco.test");
@@ -38,35 +38,35 @@ describe("Clients", () => {
       expect(client.notes).toBe("VIP");
     });
 
-    it("lists only the requesting user's clients", async () => {
+    it("lists only the requesting user's customers", async () => {
       const { token } = await registerAndLogin();
       await createClient(token, { company_name: "Alpha" });
       await createClient(token, { company_name: "Beta" });
 
-      const res = await request(app).get("/api/clients").set(authed(token));
+      const res = await request(app).get("/api/customers").set(authed(token));
 
       expect(res.status).toBe(200);
-      expect(res.body.clients).toHaveLength(2);
+      expect(res.body.customers).toHaveLength(2);
     });
 
-    it("gets a single client by id", async () => {
+    it("gets a single customer by id", async () => {
       const { token } = await registerAndLogin();
       const created = await createClient(token);
 
       const res = await request(app)
-        .get(`/api/clients/${created.body.client.id}`)
+        .get(`/api/customers/${created.body.customer.id}`)
         .set(authed(token));
 
       expect(res.status).toBe(200);
-      expect(res.body.client.company_name).toBe("Test Co");
+      expect(res.body.customer.company_name).toBe("Test Co");
     });
 
-    it("updates a client and persists every changed field", async () => {
+    it("updates a customer and persists every changed field", async () => {
       const { token } = await registerAndLogin();
       const created = await createClient(token);
 
       const res = await request(app)
-        .put(`/api/clients/${created.body.client.id}`)
+        .put(`/api/customers/${created.body.customer.id}`)
         .set(authed(token))
         .send({
           company_name: "Updated Co",
@@ -81,25 +81,25 @@ describe("Clients", () => {
         });
 
       expect(res.status).toBe(200);
-      expect(res.body.client.company_name).toBe("Updated Co");
-      expect(res.body.client.trn).toBe("TRN-999");
-      expect(res.body.client.country).toBe("USA");
-      expect(res.body.client.city).toBe("NYC");
-      expect(res.body.client.address).toBe("456 New St");
+      expect(res.body.customer.company_name).toBe("Updated Co");
+      expect(res.body.customer.trn).toBe("TRN-999");
+      expect(res.body.customer.country).toBe("USA");
+      expect(res.body.customer.city).toBe("NYC");
+      expect(res.body.customer.address).toBe("456 New St");
     });
 
-    it("deletes a client", async () => {
+    it("deletes a customer", async () => {
       const { token } = await registerAndLogin();
       const created = await createClient(token);
 
       const del = await request(app)
-        .delete(`/api/clients/${created.body.client.id}`)
+        .delete(`/api/customers/${created.body.customer.id}`)
         .set(authed(token));
 
       expect(del.status).toBe(200);
 
       const get = await request(app)
-        .get(`/api/clients/${created.body.client.id}`)
+        .get(`/api/customers/${created.body.customer.id}`)
         .set(authed(token));
 
       expect(get.status).toBe(404);
@@ -107,7 +107,7 @@ describe("Clients", () => {
   });
 
   describe("Validation", () => {
-    it("rejects creating a client with no company_name", async () => {
+    it("rejects creating a customer with no company_name", async () => {
       const { token } = await registerAndLogin();
 
       const res = await createClient(token, { company_name: undefined });
@@ -117,19 +117,19 @@ describe("Clients", () => {
   });
 
   describe("Cross-user isolation (IDOR regression)", () => {
-    it("blocks user B from reading user A's client", async () => {
+    it("blocks user B from reading user A's customer", async () => {
       const userA = await registerAndLogin();
       const userB = await registerAndLogin();
       const created = await createClient(userA.token);
 
       const res = await request(app)
-        .get(`/api/clients/${created.body.client.id}`)
+        .get(`/api/customers/${created.body.customer.id}`)
         .set(authed(userB.token));
 
       expect(res.status).toBe(404);
     });
 
-    it("blocks user B from updating user A's client", async () => {
+    it("blocks user B from updating user A's customer", async () => {
       const userA = await registerAndLogin();
       const userB = await registerAndLogin();
       const created = await createClient(userA.token, {
@@ -137,44 +137,44 @@ describe("Clients", () => {
       });
 
       const attack = await request(app)
-        .put(`/api/clients/${created.body.client.id}`)
+        .put(`/api/customers/${created.body.customer.id}`)
         .set(authed(userB.token))
         .send({ company_name: "Hijacked By B" });
 
       expect(attack.status).toBe(404);
 
       const stillA = await request(app)
-        .get(`/api/clients/${created.body.client.id}`)
+        .get(`/api/customers/${created.body.customer.id}`)
         .set(authed(userA.token));
 
-      expect(stillA.body.client.company_name).toBe("Owned By A");
+      expect(stillA.body.customer.company_name).toBe("Owned By A");
     });
 
-    it("blocks user B from deleting user A's client", async () => {
+    it("blocks user B from deleting user A's customer", async () => {
       const userA = await registerAndLogin();
       const userB = await registerAndLogin();
       const created = await createClient(userA.token);
 
       const attack = await request(app)
-        .delete(`/api/clients/${created.body.client.id}`)
+        .delete(`/api/customers/${created.body.customer.id}`)
         .set(authed(userB.token));
 
-      // Was 500 (BUG-CLIENT-001) — a not-found/not-owned client is a 404,
-      // same as every other client endpoint (see the PUT test above).
+      // Was 500 (BUG-CLIENT-001) — a not-found/not-owned customer is a 404,
+      // same as every other customer endpoint (see the PUT test above).
       expect(attack.status).toBe(404);
-      expect(attack.body.error).toBe("Client not found.");
+      expect(attack.body.error).toBe("Customer not found.");
 
       const stillThere = await request(app)
-        .get(`/api/clients/${created.body.client.id}`)
+        .get(`/api/customers/${created.body.customer.id}`)
         .set(authed(userA.token));
 
       expect(stillThere.status).toBe(200);
     });
   });
 
-  describe("Client limit enforcement", () => {
-    it("blocks creating a client past the plan's client_limit", async () => {
-      // Seeded Free plan has client_limit: 2 (tests/setup/globalSetup.js)
+  describe("Customer limit enforcement", () => {
+    it("blocks creating a customer past the plan's customer_limit", async () => {
+      // Seeded Free plan has customer_limit: 2 (tests/setup/globalSetup.js)
       const { token } = await registerAndLogin();
 
       const first = await createClient(token, { company_name: "One" });

@@ -33,12 +33,12 @@ CREATE TABLE `audit_logs` (
   `description` text,
   `ip_address` varchar(50) DEFAULT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `client_id` int DEFAULT NULL,
+  `customer_id` int DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_audit_logs_client_id` (`client_id`),
+  KEY `idx_audit_logs_customer_id` (`customer_id`),
   KEY `idx_audit_logs_user_created` (`user_id`,`created_at`),
   CONSTRAINT `audit_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
-  CONSTRAINT `fk_audit_logs_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_audit_logs_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `bank_statement_transactions`;
@@ -68,7 +68,7 @@ DROP TABLE IF EXISTS `bank_statements`;
 CREATE TABLE `bank_statements` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
-  `client_id` int DEFAULT NULL,
+  `customer_id` int DEFAULT NULL,
   `original_filename` varchar(255) DEFAULT NULL,
   `image_path` text,
   `status` enum('PENDING','PROCESSED','FAILED') DEFAULT 'PROCESSED',
@@ -86,16 +86,16 @@ CREATE TABLE `bank_statements` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `fk_bank_statement_user` (`user_id`),
-  KEY `fk_bank_statement_client` (`client_id`),
+  KEY `fk_bank_statement_client` (`customer_id`),
   KEY `idx_bank_statements_user_created` (`user_id`,`created_at`),
-  CONSTRAINT `fk_bank_statement_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_bank_statement_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_bank_statement_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `clients`;
+DROP TABLE IF EXISTS `customers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `clients` (
+CREATE TABLE `customers` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
   `company_name` varchar(255) NOT NULL,
@@ -110,9 +110,49 @@ CREATE TABLE `clients` (
   `status` enum('ACTIVE','INACTIVE') DEFAULT 'ACTIVE',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `salutation` varchar(20) DEFAULT NULL,
+  `primary_contact_first_name` varchar(150) DEFAULT NULL,
+  `primary_contact_last_name` varchar(150) DEFAULT NULL,
+  `display_name` varchar(255) DEFAULT NULL,
+  `customer_type` varchar(50) DEFAULT NULL,
+  `mobile` varchar(30) DEFAULT NULL,
+  `website` varchar(255) DEFAULT NULL,
+  `department` varchar(150) DEFAULT NULL,
+  `designation` varchar(150) DEFAULT NULL,
+  `tax_treatment` varchar(50) DEFAULT NULL,
+  `place_of_supply` varchar(100) DEFAULT NULL,
+  `currency` varchar(20) DEFAULT NULL,
+  `payment_terms` varchar(50) DEFAULT NULL,
+  `opening_balance` decimal(14,2) DEFAULT NULL,
+  `opening_balance_date` date DEFAULT NULL,
+  `billing_attention` varchar(150) DEFAULT NULL,
+  `billing_country` varchar(100) DEFAULT NULL,
+  `billing_address_line1` varchar(255) DEFAULT NULL,
+  `billing_address_line2` varchar(255) DEFAULT NULL,
+  `billing_city` varchar(100) DEFAULT NULL,
+  `billing_state` varchar(100) DEFAULT NULL,
+  `billing_postal_code` varchar(20) DEFAULT NULL,
+  `billing_phone` varchar(30) DEFAULT NULL,
+  `shipping_attention` varchar(150) DEFAULT NULL,
+  `shipping_country` varchar(100) DEFAULT NULL,
+  `shipping_address_line1` varchar(255) DEFAULT NULL,
+  `shipping_address_line2` varchar(255) DEFAULT NULL,
+  `shipping_city` varchar(100) DEFAULT NULL,
+  `shipping_state` varchar(100) DEFAULT NULL,
+  `shipping_postal_code` varchar(20) DEFAULT NULL,
+  `shipping_phone` varchar(30) DEFAULT NULL,
+  `customer_category` varchar(100) DEFAULT NULL,
+  `customer_segment` varchar(100) DEFAULT NULL,
+  `risk` varchar(50) DEFAULT NULL,
+  `approval_status` varchar(50) DEFAULT NULL,
+  `portal_access` tinyint(1) DEFAULT NULL,
+  `portal_language` varchar(50) DEFAULT NULL,
+  `salesperson` varchar(150) DEFAULT NULL,
+  `account_manager` varchar(150) DEFAULT NULL,
+  `cost_centre` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `fk_client_user` (`user_id`),
-  CONSTRAINT `fk_client_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  KEY `fk_customer_user` (`user_id`),
+  CONSTRAINT `fk_customer_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `invoice_items`;
@@ -137,7 +177,7 @@ DROP TABLE IF EXISTS `invoices`;
 CREATE TABLE `invoices` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
-  `client_id` int DEFAULT NULL,
+  `customer_id` int DEFAULT NULL,
   `invoice_type` varchar(100) DEFAULT NULL,
   `document_type` enum('supplier_invoice','bill') DEFAULT NULL,
   `invoice_no` varchar(100) DEFAULT NULL,
@@ -160,9 +200,9 @@ CREATE TABLE `invoices` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `fk_invoice_client` (`client_id`),
   KEY `idx_invoices_user_document_type` (`user_id`,`document_type`),
-  CONSTRAINT `fk_invoice_client` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE,
+  KEY `fk_invoice_customer` (`customer_id`),
+  CONSTRAINT `fk_invoice_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_invoice_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -192,7 +232,7 @@ CREATE TABLE `plans` (
   `monthly_price` decimal(10,2) DEFAULT '0.00',
   `yearly_price` decimal(10,2) DEFAULT '0.00',
   `invoice_limit` int DEFAULT '0',
-  `client_limit` int DEFAULT '0',
+  `customer_limit` int DEFAULT '0',
   `user_limit` int DEFAULT '1',
   `storage_limit` int DEFAULT '1024',
   `ocr_limit` int DEFAULT '0',
@@ -261,6 +301,60 @@ CREATE TABLE `subscriptions` (
   CONSTRAINT `subscriptions_ibfk_2` FOREIGN KEY (`plan_id`) REFERENCES `plans` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `suppliers`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `suppliers` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `vendor_type` varchar(50) DEFAULT NULL,
+  `salutation` varchar(20) DEFAULT NULL,
+  `primary_contact_first_name` varchar(150) DEFAULT NULL,
+  `primary_contact_last_name` varchar(150) DEFAULT NULL,
+  `company_name` varchar(255) NOT NULL,
+  `display_name` varchar(255) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `phone` varchar(30) DEFAULT NULL,
+  `mobile` varchar(30) DEFAULT NULL,
+  `website` varchar(255) DEFAULT NULL,
+  `department` varchar(150) DEFAULT NULL,
+  `designation` varchar(150) DEFAULT NULL,
+  `tax_treatment` varchar(50) DEFAULT NULL,
+  `trn` varchar(100) DEFAULT NULL,
+  `place_of_supply` varchar(100) DEFAULT NULL,
+  `currency` varchar(20) DEFAULT NULL,
+  `payment_terms` varchar(50) DEFAULT NULL,
+  `opening_balance` decimal(14,2) DEFAULT NULL,
+  `opening_balance_date` date DEFAULT NULL,
+  `billing_attention` varchar(150) DEFAULT NULL,
+  `billing_country` varchar(100) DEFAULT NULL,
+  `billing_address_line1` varchar(255) DEFAULT NULL,
+  `billing_address_line2` varchar(255) DEFAULT NULL,
+  `billing_city` varchar(100) DEFAULT NULL,
+  `billing_state` varchar(100) DEFAULT NULL,
+  `billing_postal_code` varchar(20) DEFAULT NULL,
+  `billing_phone` varchar(30) DEFAULT NULL,
+  `shipping_attention` varchar(150) DEFAULT NULL,
+  `shipping_country` varchar(100) DEFAULT NULL,
+  `shipping_address_line1` varchar(255) DEFAULT NULL,
+  `shipping_address_line2` varchar(255) DEFAULT NULL,
+  `shipping_city` varchar(100) DEFAULT NULL,
+  `shipping_state` varchar(100) DEFAULT NULL,
+  `shipping_postal_code` varchar(20) DEFAULT NULL,
+  `shipping_phone` varchar(30) DEFAULT NULL,
+  `vendor_category` varchar(100) DEFAULT NULL,
+  `vendor_classification` varchar(100) DEFAULT NULL,
+  `procurement_category` varchar(100) DEFAULT NULL,
+  `default_expense_account` varchar(150) DEFAULT NULL,
+  `notes` text,
+  `status` enum('ACTIVE','INACTIVE') DEFAULT 'ACTIVE',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_supplier_user` (`user_id`),
+  CONSTRAINT `fk_supplier_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `usage_stats`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -269,7 +363,7 @@ CREATE TABLE `usage_stats` (
   `user_id` int NOT NULL,
   `invoices_used` int DEFAULT '0',
   `bank_statements_used` int DEFAULT '0',
-  `clients_used` int DEFAULT '0',
+  `customers_used` int DEFAULT '0',
   `ocr_pages_used` int DEFAULT '0',
   `storage_used` bigint DEFAULT '0',
   `api_calls_used` int DEFAULT '0',
