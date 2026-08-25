@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Users, AlertCircle, Pencil, Trash2, Power, PowerOff } from "lucide-react";
 import toast from "react-hot-toast";
-import clientApi from "../../services/clientApi";
+import customerApi from "../../services/customerApi";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
-import { isClientActive, clientStatusLabel, clientStatusBadgeClass } from "../../utils/clientStatus";
+import { isPartyActive, partyStatusLabel, partyStatusBadgeClass } from "../../utils/clientStatus";
 
-export default function Clients() {
+export default function Customers() {
 
     const navigate = useNavigate();
-    const [clients, setClients] = useState([]);
+    const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [search, setSearch] = useState("");
@@ -18,25 +18,25 @@ export default function Clients() {
     const [togglingId, setTogglingId] = useState(null);
 
     useEffect(() => {
-        loadClients();
+        loadCustomers();
     }, []);
 
-    async function loadClients() {
+    async function loadCustomers() {
 
         setLoading(true);
         setError(null);
 
         try {
 
-            const res = await clientApi.getAll();
+            const res = await customerApi.getAll();
 
-            setClients(res.clients || []);
+            setCustomers(res.customers || []);
 
         } catch (err) {
 
             setError(
                 err.response?.data?.error ||
-                    "Could not load clients. Please try again."
+                    "Could not load customers. Please try again."
             );
 
         } finally {
@@ -47,10 +47,10 @@ export default function Clients() {
 
     }
 
-    function handleDeleteClick(client, e) {
+    function handleDeleteClick(customer, e) {
         e.preventDefault();
         e.stopPropagation();
-        setDeleteTarget(client);
+        setDeleteTarget(customer);
     }
 
     async function confirmDelete() {
@@ -58,13 +58,13 @@ export default function Clients() {
 
         try {
             setDeleting(true);
-            await clientApi.delete(deleteTarget.id);
-            await loadClients();
-            toast.success("Client deleted.");
+            await customerApi.delete(deleteTarget.id);
+            await loadCustomers();
+            toast.success("Customer deleted.");
         } catch (err) {
             toast.error(
                 err.response?.data?.error ||
-                    "Could not delete client. Please try again."
+                    "Could not delete customer. Please try again."
             );
         } finally {
             setDeleting(false);
@@ -72,39 +72,39 @@ export default function Clients() {
         }
     }
 
-    function handleEdit(client, e) {
+    function handleEdit(customer, e) {
         e.preventDefault();
         e.stopPropagation();
-        navigate(`/dashboard/clients/${client.id}/edit`);
+        navigate(`/dashboard/customers/${customer.id}/edit`);
     }
 
-    async function handleToggleStatus(client, e) {
+    async function handleToggleStatus(customer, e) {
         e.preventDefault();
         e.stopPropagation();
 
-        const nextStatus = isClientActive(client.status) ? "INACTIVE" : "ACTIVE";
+        const nextStatus = isPartyActive(customer.status) ? "INACTIVE" : "ACTIVE";
 
         try {
-            setTogglingId(client.id);
-            await clientApi.updateStatus(client.id, nextStatus);
-            await loadClients();
+            setTogglingId(customer.id);
+            await customerApi.updateStatus(customer.id, nextStatus);
+            await loadCustomers();
             toast.success(
                 nextStatus === "ACTIVE"
-                    ? `${client.company_name} reactivated.`
-                    : `${client.company_name} deactivated.`
+                    ? `${customer.company_name} reactivated.`
+                    : `${customer.company_name} deactivated.`
             );
         } catch (err) {
             toast.error(
                 err.response?.data?.error ||
-                    "Could not update client status. Please try again."
+                    "Could not update customer status. Please try again."
             );
         } finally {
             setTogglingId(null);
         }
     }
 
-    const filtered = clients.filter(client =>
-        client.company_name
+    const filtered = customers.filter(customer =>
+        customer.company_name
             .toLowerCase()
             .includes(search.toLowerCase())
     );
@@ -118,26 +118,26 @@ export default function Clients() {
                 <div>
 
                     <h1 className="text-3xl font-bold text-slate-900">
-                        Clients
+                        Customers
                     </h1>
 
                     <p className="text-slate-500 mt-1">
-                        Manage all your business clients.
+                        Manage all your business customers.
                     </p>
 
                 </div>
 
                 <Link
-                    to="/dashboard/clients/new"
+                    to="/dashboard/customers/new"
                     className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-lg shadow-indigo-950/40 transition-all"
                 >
-                    + Add Client
+                    + Add Customer
                 </Link>
 
             </div>
 
             <input
-                placeholder="Search client..."
+                placeholder="Search customer..."
                 value={search}
                 onChange={(e) =>
                     setSearch(e.target.value)
@@ -155,7 +155,7 @@ export default function Clients() {
                             className="animate-spin text-indigo-500"
                         />
                         <p className="mt-4 text-slate-500">
-                            Loading clients...
+                            Loading customers...
                         </p>
                     </div>
 
@@ -164,35 +164,35 @@ export default function Clients() {
                     <div className="py-20 flex flex-col items-center justify-center text-center">
                         <AlertCircle size={48} className="text-red-500" />
                         <h3 className="mt-4 text-xl font-semibold text-slate-900">
-                            Couldn't load clients
+                            Couldn't load customers
                         </h3>
                         <p className="mt-2 text-slate-500 max-w-sm">
                             {error}
                         </p>
                         <button
-                            onClick={loadClients}
+                            onClick={loadCustomers}
                             className="mt-5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition-all"
                         >
                             Retry
                         </button>
                     </div>
 
-                ) : clients.length === 0 ? (
+                ) : customers.length === 0 ? (
 
                     <div className="py-20 flex flex-col items-center justify-center text-center">
                         <Users size={48} className="text-slate-500" />
                         <h3 className="mt-4 text-xl font-semibold text-slate-900">
-                            No clients yet
+                            No customers yet
                         </h3>
                         <p className="mt-2 text-slate-500 max-w-sm">
-                            Add your first client to start uploading and
+                            Add your first customer to start uploading and
                             tracking their invoices.
                         </p>
                         <Link
-                            to="/dashboard/clients/new"
+                            to="/dashboard/customers/new"
                             className="mt-5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition-all"
                         >
-                            + Add Client
+                            + Add Customer
                         </Link>
                     </div>
 
@@ -201,7 +201,7 @@ export default function Clients() {
                     <div className="py-20 flex flex-col items-center justify-center text-center">
                         <Users size={48} className="text-slate-500" />
                         <h3 className="mt-4 text-xl font-semibold text-slate-900">
-                            No clients match "{search}"
+                            No customers match "{search}"
                         </h3>
                         <p className="mt-2 text-slate-500 max-w-sm">
                             Try a different search term.
@@ -214,12 +214,12 @@ export default function Clients() {
 
                         {
 
-                            filtered.map(client => (
+                            filtered.map(customer => (
 
-                                <div key={client.id} className="relative">
+                                <div key={customer.id} className="relative">
 
                                     <Link
-                                        to={`/dashboard/clients/${client.id}`}
+                                        to={`/dashboard/customers/${customer.id}`}
                                         className="block bg-white border border-slate-200 rounded-2xl p-6 hover:border-indigo-500/50 hover:bg-slate-50 hover:-translate-y-0.5 transition-all duration-300"
                                     >
 
@@ -227,13 +227,13 @@ export default function Clients() {
 
                                             <h2 className="font-bold text-xl text-slate-900">
 
-                                                {client.company_name}
+                                                {customer.company_name}
 
                                             </h2>
 
-                                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${clientStatusBadgeClass(client.status)}`}>
+                                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${partyStatusBadgeClass(customer.status)}`}>
 
-                                                {clientStatusLabel(client.status)}
+                                                {partyStatusLabel(customer.status)}
 
                                             </span>
 
@@ -241,19 +241,19 @@ export default function Clients() {
 
                                         <p className="text-slate-500 mt-3">
 
-                                            {client.contact_person}
+                                            {customer.contact_person}
 
                                         </p>
 
                                         <p className="text-slate-500 mt-1">
 
-                                            {client.email}
+                                            {customer.email}
 
                                         </p>
 
                                         <p className="text-slate-500">
 
-                                            {client.phone}
+                                            {customer.phone}
 
                                         </p>
 
@@ -261,7 +261,7 @@ export default function Clients() {
 
                                             <span className="text-slate-500">
 
-                                                {client.country}
+                                                {customer.country}
 
                                             </span>
 
@@ -278,17 +278,17 @@ export default function Clients() {
                                     <div className="absolute top-6 right-6 flex items-center gap-3">
 
                                         <button
-                                            onClick={(e) => handleToggleStatus(client, e)}
-                                            disabled={togglingId === client.id}
-                                            aria-label={isClientActive(client.status) ? "Deactivate client" : "Activate client"}
+                                            onClick={(e) => handleToggleStatus(customer, e)}
+                                            disabled={togglingId === customer.id}
+                                            aria-label={isPartyActive(customer.status) ? "Deactivate customer" : "Activate customer"}
                                             className={`transition disabled:opacity-50 ${
-                                                isClientActive(client.status)
+                                                isPartyActive(customer.status)
                                                     ? "text-slate-400 hover:text-amber-500"
                                                     : "text-slate-400 hover:text-emerald-500"
                                             }`}
-                                            title={isClientActive(client.status) ? "Deactivate client" : "Activate client"}
+                                            title={isPartyActive(customer.status) ? "Deactivate customer" : "Activate customer"}
                                         >
-                                            {isClientActive(client.status) ? (
+                                            {isPartyActive(customer.status) ? (
                                                 <PowerOff size={16} />
                                             ) : (
                                                 <Power size={16} />
@@ -296,19 +296,19 @@ export default function Clients() {
                                         </button>
 
                                         <button
-                                            onClick={(e) => handleEdit(client, e)}
-                                            aria-label="Edit client"
+                                            onClick={(e) => handleEdit(customer, e)}
+                                            aria-label="Edit customer"
                                             className="text-slate-400 hover:text-indigo-400 transition"
-                                            title="Edit client"
+                                            title="Edit customer"
                                         >
                                             <Pencil size={16} />
                                         </button>
 
                                         <button
-                                            onClick={(e) => handleDeleteClick(client, e)}
-                                            aria-label="Delete client"
+                                            onClick={(e) => handleDeleteClick(customer, e)}
+                                            aria-label="Delete customer"
                                             className="text-slate-400 hover:text-rose-400 transition"
-                                            title="Delete client"
+                                            title="Delete customer"
                                         >
                                             <Trash2 size={16} />
                                         </button>
@@ -329,7 +329,7 @@ export default function Clients() {
 
             <ConfirmDialog
                 open={Boolean(deleteTarget)}
-                title="Delete this client?"
+                title="Delete this customer?"
                 message={
                     deleteTarget
                         ? `"${deleteTarget.company_name}" will be permanently deleted. This cannot be undone.`

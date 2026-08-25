@@ -15,19 +15,19 @@ describe("Security — SQL injection", () => {
 
   it("stores an SQL-injection payload as an inert string, not a live query", async () => {
     const { token } = await registerAndLogin();
-    const payload = "Robert'); DROP TABLE clients; --";
+    const payload = "Robert'); DROP TABLE customers; --";
 
     const created = await request(app)
-      .post("/api/clients")
+      .post("/api/customers")
       .set(authed(token))
       .send({ company_name: payload });
 
     expect(created.status).toBe(201);
-    expect(created.body.client.company_name).toBe(payload);
+    expect(created.body.customer.company_name).toBe(payload);
 
     // Table must still exist and be queryable.
     const [rows] = await pool.execute(
-      `SELECT COUNT(*) AS total FROM clients`
+      `SELECT COUNT(*) AS total FROM customers`
     );
     expect(rows[0].total).toBeGreaterThan(0);
   });
@@ -39,20 +39,20 @@ describe("Security — XSS payload handling", () => {
     const payload = "<script>alert('xss')</script>";
 
     const created = await request(app)
-      .post("/api/clients")
+      .post("/api/customers")
       .set(authed(token))
       .send({ company_name: payload, notes: payload });
 
     expect(created.status).toBe(201);
-    expect(created.body.client.company_name).toBe(payload);
-    expect(created.body.client.notes).toBe(payload);
+    expect(created.body.customer.company_name).toBe(payload);
+    expect(created.body.customer.notes).toBe(payload);
   });
 });
 
 describe("Security — JWT validation across protected routes", () => {
   const protectedRequests = () => [
     request(app).get("/api/auth/me"),
-    request(app).get("/api/clients"),
+    request(app).get("/api/customers"),
     request(app).get("/api/invoices"),
     request(app).get("/api/admin/customers"),
   ];
@@ -71,7 +71,7 @@ describe("Security — JWT validation across protected routes", () => {
     );
 
     const res = await request(app)
-      .get("/api/clients")
+      .get("/api/customers")
       .set(authed(forged));
 
     expect(res.status).toBe(401);
@@ -79,7 +79,7 @@ describe("Security — JWT validation across protected routes", () => {
 
   it("rejects a syntactically invalid token", async () => {
     const res = await request(app)
-      .get("/api/clients")
+      .get("/api/customers")
       .set(authed("this-is-not-a-jwt"));
 
     expect(res.status).toBe(401);
@@ -93,7 +93,7 @@ describe("Security — JWT validation across protected routes", () => {
     );
 
     const res = await request(app)
-      .get("/api/clients")
+      .get("/api/customers")
       .set(authed(expired));
 
     expect(res.status).toBe(401);

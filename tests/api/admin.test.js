@@ -56,7 +56,7 @@ describe("Admin — cross-user visibility (the flip side of client/invoice isola
     const { token: userToken } = await registerAndLogin();
 
     const created = await request(app)
-      .post("/api/clients")
+      .post("/api/customers")
       .set(authed(userToken))
       .send({ company_name: "Visible To Admin Co" });
 
@@ -67,7 +67,7 @@ describe("Admin — cross-user visibility (the flip side of client/invoice isola
       .set(authed(adminToken));
 
     expect(list.status).toBe(200);
-    const customerId = created.body.client.user_id;
+    const customerId = created.body.customer.user_id;
 
     const details = await request(app)
       .get(`/api/admin/customers/${customerId}`)

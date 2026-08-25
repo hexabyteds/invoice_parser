@@ -5,7 +5,7 @@ const exportFormatsService = require("./services/exportFormatsService");
 const invoiceNormalizer = require("./services/invoiceNormalizer");
 const usageService = require("./services/usageService");
 const pdfService = require("./services/pdfService");
-const clientService = require("./services/clientService");
+const customerService = require("./services/customerService");
 const partyNameService = require("./services/partyNameService");
 
 const invoiceRepository = require("./repositories/invoiceRepository");
@@ -48,7 +48,7 @@ class FreeInvoiceAgent {
         }
 
         try {
-            return await clientService.get(clientId, companyId);
+            return await customerService.get(clientId, companyId);
         } catch (err) {
             return null;
         }
@@ -704,7 +704,7 @@ class FreeInvoiceAgent {
         ) {
             const selectedClient = await this.loadClientForPartyName(
                 companyId,
-                existing.client_id
+                existing.customer_id
             );
 
             clientName = partyNameService.resolvePartyName({

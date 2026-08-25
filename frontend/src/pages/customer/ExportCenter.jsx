@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import clientApi from "../../services/clientApi";
+import customerApi from "../../services/customerApi";
 import { exportInvoices } from "../../services/reportApi";
 import { DOCUMENT_TYPES, documentTypeLabel } from "../../utils/documentTypes";
 
@@ -84,10 +84,10 @@ export default function ExportCenter() {
   useEffect(() => {
     async function loadClients() {
       try {
-        const res = await clientApi.getAll();
-        setClients(res.clients || []);
+        const res = await customerApi.getAll();
+        setClients(res.customers || []);
       } catch (err) {
-      
+
       } finally {
         setLoadingClients(false);
       }
@@ -155,7 +155,7 @@ export default function ExportCenter() {
       const link = document.createElement("a");
       const clientPart = selectedClient
         ? selectedClient.company_name.replace(/\s+/g, "_")
-        : "all_clients";
+        : "all_customers";
 
       const documentTypePart = form.documentType
         ? `_${form.documentType}`
@@ -200,7 +200,7 @@ export default function ExportCenter() {
           Export Center
         </h1>
         <p className="text-slate-500 mt-2">
-          Choose a client, format, and date range — then download your invoices.
+          Choose a customer, format, and date range — then download your invoices.
         </p>
       </div>
 
@@ -226,7 +226,7 @@ export default function ExportCenter() {
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
                 <Users size={16} className="text-indigo-600" />
-                Client
+                Customer
               </label>
               <select
                 value={form.clientId}
@@ -234,7 +234,7 @@ export default function ExportCenter() {
                 disabled={loadingClients}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               >
-                <option value="">All Clients</option>
+                <option value="">All Customers</option>
                 {clients.map((client) => (
                   <option key={client.id} value={client.id}>
                     {client.company_name}
@@ -365,8 +365,8 @@ export default function ExportCenter() {
 
           <div className="space-y-4">
             <SummaryRow
-              label="Client"
-              value={selectedClient?.company_name || "All Clients"}
+              label="Customer"
+              value={selectedClient?.company_name || "All Customers"}
             />
             <SummaryRow
               label="Document Type"
@@ -405,7 +405,7 @@ export default function ExportCenter() {
 
           <p className="text-xs text-slate-400 leading-relaxed">
             Leave document type as "All Types" and dates empty to export
-            every invoice for the selected client. Date filtering uses
+            every invoice for the selected customer. Date filtering uses
             each invoice&apos;s invoice date.
           </p>
 

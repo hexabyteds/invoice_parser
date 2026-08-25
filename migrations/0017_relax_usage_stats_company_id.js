@@ -1,8 +1,8 @@
 /**
- * Corrects a mistake from migration 0013: usage_stats.company_id was made
+ * Corrects a mistake from migration 0016: usage_stats.company_id was made
  * NOT NULL under the assumption every usage_stats row's owner has a
  * company. That's false for a Freelancer account (introduced in migration
- * 0012/authService's Milestone 5 signup flow) — a freelancer owns no
+ * 0015/authService's Milestone 5 signup flow) — a freelancer owns no
  * company, so a usage_stats row created for them (today: only via the
  * legacy per-user lazy-creation path in usageService.ensureUsageRecord)
  * has no company to attach to.

@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 import { uploadInvoice } from "../../services/invoiceApi";
-import clientApi from "../../services/clientApi";
+import customerApi from "../../services/customerApi";
 import dashboardApi from "../../services/dashboardApi";
 
 import KpiCard from "../../components/dashboard/KpiCard";
@@ -18,7 +18,7 @@ import NeedsAttentionCard from "../../components/dashboard/NeedsAttentionCard";
 import MonthlyProcessingChart from "../../components/dashboard/MonthlyProcessingChart";
 import RecentActivityFeed from "../../components/dashboard/RecentActivityFeed";
 import DashboardSkeleton from "../../components/dashboard/DashboardSkeleton";
-import { isClientActive } from "../../utils/clientStatus";
+import { isPartyActive } from "../../utils/clientStatus";
 
 function formatCurrency(value) {
   return `AED ${Number(value || 0).toLocaleString(undefined, {
@@ -53,14 +53,14 @@ export default function Dashboard() {
 
       const [clientRes, summaryRes, monthlyRes, qualityRes, activityRes] =
         await Promise.all([
-          clientApi.getAll(),
+          customerApi.getAll(),
           dashboardApi.getSummary(),
           dashboardApi.getMonthly(),
           dashboardApi.getQuality(),
           dashboardApi.getActivity(),
         ]);
 
-      setClients(clientRes.clients || []);
+      setClients(clientRes.customers || []);
       setSummary(summaryRes.data.summary);
       setMonthly(monthlyRes.data.monthly);
       setNeedsAttention(qualityRes.data.needsAttention);
@@ -81,14 +81,14 @@ export default function Dashboard() {
     }
 
     if (!clientId) {
-      setUploadError("Please select a client.");
+      setUploadError("Please select a customer.");
       return;
     }
 
     const selectedClient = clients.find((c) => String(c.id) === String(clientId));
-    if (selectedClient && !isClientActive(selectedClient.status)) {
+    if (selectedClient && !isPartyActive(selectedClient.status)) {
       setUploadError(
-        "This client is inactive. Please activate the client before adding documents."
+        "This customer is inactive. Please activate the customer before adding documents."
       );
       return;
     }
@@ -131,7 +131,7 @@ export default function Dashboard() {
 
   const selectedQuickUploadClient = clients.find((c) => String(c.id) === String(clientId));
   const quickUploadClientInactive =
-    Boolean(selectedQuickUploadClient) && !isClientActive(selectedQuickUploadClient.status);
+    Boolean(selectedQuickUploadClient) && !isPartyActive(selectedQuickUploadClient.status);
 
   const last6 = (arr, key) => (arr || []).slice(-6).map((row) => Number(row?.[key] || 0));
   const invoiceSeries = monthly.invoices || [];
@@ -237,29 +237,29 @@ export default function Dashboard() {
 
             <div className="mb-4">
               <label className="block text-sm font-semibold text-slate-900 mb-2">
-                Select Client
+                Select Customer
               </label>
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                <option value="">Select Client</option>
+                <option value="">Select Customer</option>
                 {clients.map((client) => (
                   <option
                     key={client.id}
                     value={client.id}
-                    disabled={!isClientActive(client.status)}
+                    disabled={!isPartyActive(client.status)}
                   >
                     {client.company_name}
-                    {!isClientActive(client.status) ? " (Inactive)" : ""}
+                    {!isPartyActive(client.status) ? " (Inactive)" : ""}
                   </option>
                 ))}
               </select>
 
               {quickUploadClientInactive && (
                 <div className="mt-3 rounded-xl bg-red-50 text-red-600 p-3 text-sm">
-                  This client is inactive. Please activate the client before adding documents.
+                  This customer is inactive. Please activate the customer before adding documents.
                 </div>
               )}
             </div>

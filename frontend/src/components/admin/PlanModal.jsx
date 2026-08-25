@@ -9,7 +9,7 @@ const EMPTY_FORM = {
   monthly_price: "",
   yearly_price: "",
   invoice_limit: "",
-  client_limit: "",
+  customer_limit: "",
   user_limit: "",
   storage_limit: "",
   ocr_limit: "",
@@ -40,7 +40,7 @@ function toFormValues(plan) {
     monthly_price: plan.monthly_price ?? "",
     yearly_price: plan.yearly_price ?? "",
     invoice_limit: plan.invoice_limit ?? "",
-    client_limit: plan.client_limit ?? "",
+    customer_limit: plan.customer_limit ?? "",
     user_limit: plan.user_limit ?? "",
     storage_limit: plan.storage_limit ?? "",
     ocr_limit: plan.ocr_limit ?? "",
@@ -61,7 +61,7 @@ function toPayload(form) {
     monthly_price: Number(form.monthly_price) || 0,
     yearly_price: Number(form.yearly_price) || 0,
     invoice_limit: Number(form.invoice_limit) || 0,
-    client_limit: Number(form.client_limit) || 0,
+    customer_limit: Number(form.customer_limit) || 0,
     user_limit: Number(form.user_limit) || 0,
     storage_limit: Number(form.storage_limit) || 0,
     ocr_limit: Number(form.ocr_limit) || 0,
@@ -251,12 +251,12 @@ export default function PlanModal({ open, plan, onClose, onSaved }) {
               />
             </Field>
 
-            <Field label="Client limit">
+            <Field label="Customer limit">
               <input
                 type="number"
                 min="0"
-                value={form.client_limit}
-                onChange={(e) => update("client_limit", e.target.value)}
+                value={form.customer_limit}
+                onChange={(e) => update("customer_limit", e.target.value)}
                 className={inputClass}
               />
             </Field>

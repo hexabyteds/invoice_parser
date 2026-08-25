@@ -75,8 +75,8 @@ export default function UsageRow({ customer, onView }) {
 
       <td className="px-4 py-4">
         <UsageProgress
-          used={customer.clients_used}
-          limit={customer.client_limit}
+          used={customer.customers_used}
+          limit={customer.customer_limit}
         />
       </td>
 

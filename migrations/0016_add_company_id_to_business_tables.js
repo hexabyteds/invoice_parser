@@ -1,8 +1,8 @@
 /**
  * Milestone 2: company-scopes the business tables that currently only know
- * `user_id`. Adds `company_id` to `invoices`, `clients`, `bank_statements`,
- * `subscriptions`, and `usage_stats`, plus `audit_logs` (nullable, matching
- * its existing nullable `user_id`).
+ * `user_id`. Adds `company_id` to `invoices`, `customers`, `suppliers`,
+ * `bank_statements`, `subscriptions`, and `usage_stats`, plus `audit_logs`
+ * (nullable, matching its existing nullable `user_id`).
  *
  * `invoice_items` and `bank_statement_transactions` are deliberately left
  * alone — they're scoped through their parent (`invoice_id` /
@@ -10,7 +10,7 @@
  * unenforced duplicate state. `login_history` is left alone too: it's a
  * per-user login/device record, not company-owned business data.
  *
- * Every `user_id` in these tables backfills safely because migration 0012
+ * Every `user_id` in these tables backfills safely because migration 0015
  * already gave every existing user an OWNER company_membership — so the
  * join below always finds a match, and the NOT NULL + FK can be applied
  * unconditionally right after backfill (verified below, not assumed).
@@ -87,7 +87,8 @@ async function addCompanyId(db, table, { required }) {
 module.exports = {
   async up(db) {
     await addCompanyId(db, "invoices", { required: true });
-    await addCompanyId(db, "clients", { required: true });
+    await addCompanyId(db, "customers", { required: true });   // was "clients"
+    await addCompanyId(db, "suppliers", { required: true });   // NEW
     await addCompanyId(db, "bank_statements", { required: true });
     await addCompanyId(db, "subscriptions", { required: true });
     await addCompanyId(db, "usage_stats", { required: true });

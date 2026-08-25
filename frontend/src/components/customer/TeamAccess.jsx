@@ -3,13 +3,19 @@ import toast from "react-hot-toast";
 import { Users, UserPlus, Trash2, Pause, Play } from "lucide-react";
 import companyApi from "../../services/companyApi";
 
-// The only module with live server-side permission checks today is
-// "invoices" (see middleware/requireCompanyPermission.js usage in
-// app-backend.js) — everything else (Customers, Suppliers, Bank
-// Statements, Reports) is still Milestone 4's remaining scope. Offering
-// checkboxes for modules that don't affect anything yet would be
-// dishonest UI, so this only exposes what's actually enforced.
-const INVOICE_ACTIONS = ["view", "create", "edit", "delete", "export"];
+// Every module listed here has live server-side enforcement via
+// requireCompanyPermission (see routes/customerRoutes.js, supplierRoutes.js,
+// app-backend.js's inline invoice routes) — offering a checkbox for a
+// module that doesn't affect anything yet would be dishonest UI, so this
+// only exposes what's actually enforced. Bank statements/reports are still
+// unexposed here for the same reason.
+const MODULES = [
+  { key: "invoices", label: "Invoices", actions: ["view", "create", "edit", "delete", "export"] },
+  { key: "customers", label: "Customers", actions: ["view", "create", "edit", "delete"] },
+  { key: "suppliers", label: "Suppliers", actions: ["view", "create", "edit", "delete"] },
+];
+
+const EMPTY_PERMISSIONS = MODULES.reduce((acc, m) => ({ ...acc, [m.key]: [] }), {});
 
 function StatusBadge({ status }) {
   const styles = {
@@ -29,8 +35,18 @@ export default function TeamAccess() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteActions, setInviteActions] = useState([]);
+  const [invitePermissions, setInvitePermissions] = useState(EMPTY_PERMISSIONS);
   const [inviting, setInviting] = useState(false);
+
+  function toggleInviteAction(moduleKey, action) {
+    setInvitePermissions((prev) => {
+      const current = prev[moduleKey] || [];
+      const next = current.includes(action)
+        ? current.filter((a) => a !== action)
+        : [...current, action];
+      return { ...prev, [moduleKey]: next };
+    });
+  }
 
   useEffect(() => {
     load();
@@ -54,10 +70,10 @@ export default function TeamAccess() {
 
     setInviting(true);
     try {
-      await companyApi.inviteFreelancer(inviteEmail.trim(), { invoices: inviteActions });
+      await companyApi.inviteFreelancer(inviteEmail.trim(), invitePermissions);
       toast.success("Invitation sent.");
       setInviteEmail("");
-      setInviteActions([]);
+      setInvitePermissions(EMPTY_PERMISSIONS);
       load();
     } catch (err) {
       toast.error(err.response?.data?.error || "Couldn't send invitation.");
@@ -66,17 +82,18 @@ export default function TeamAccess() {
     }
   }
 
-  async function togglePermission(member, action) {
-    const current = member.permissions?.invoices || [];
+  async function togglePermission(member, moduleKey, action) {
+    const current = member.permissions?.[moduleKey] || [];
     const next = current.includes(action)
       ? current.filter((a) => a !== action)
       : [...current, action];
+    const nextPermissions = { ...member.permissions, [moduleKey]: next };
 
     try {
-      await companyApi.updateMember(member.membershipId, { permissions: { invoices: next } });
+      await companyApi.updateMember(member.membershipId, { permissions: nextPermissions });
       setMembers((prev) =>
         prev.map((m) =>
-          m.membershipId === member.membershipId ? { ...m, permissions: { invoices: next } } : m
+          m.membershipId === member.membershipId ? { ...m, permissions: nextPermissions } : m
         )
       );
     } catch (err) {
@@ -117,44 +134,49 @@ export default function TeamAccess() {
       {/* Invite form */}
       <form onSubmit={invite} className="border-b border-slate-200 px-8 py-6">
         <p className="mb-3 text-sm font-medium text-slate-700">Invite a freelancer</p>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          <input
-            type="email"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="freelancer@example.com"
-            className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-indigo-500"
-          />
-          <div className="flex flex-wrap gap-2">
-            {INVOICE_ACTIONS.map((action) => (
-              <label
-                key={action}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600"
-              >
-                <input
-                  type="checkbox"
-                  checked={inviteActions.includes(action)}
-                  onChange={() =>
-                    setInviteActions((prev) =>
-                      prev.includes(action) ? prev.filter((a) => a !== action) : [...prev, action]
-                    )
-                  }
-                />
-                {action}
-              </label>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="freelancer@example.com"
+              className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-indigo-500"
+            />
+            <button
+              type="submit"
+              disabled={inviting}
+              className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
+            >
+              <UserPlus size={16} />
+              Invite
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-x-8 gap-y-3">
+            {MODULES.map((module) => (
+              <div key={module.key}>
+                <p className="mb-1.5 text-xs font-medium text-slate-500">{module.label}</p>
+                <div className="flex flex-wrap gap-2">
+                  {module.actions.map((action) => (
+                    <label
+                      key={action}
+                      className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={(invitePermissions[module.key] || []).includes(action)}
+                        onChange={() => toggleInviteAction(module.key, action)}
+                      />
+                      {action}
+                    </label>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
-          <button
-            type="submit"
-            disabled={inviting}
-            className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
-          >
-            <UserPlus size={16} />
-            Invite
-          </button>
         </div>
-        <p className="mt-2 text-xs text-slate-400">
-          They must already have a Freelancer account (checkboxes grant Invoices access — more modules coming soon).
+        <p className="mt-3 text-xs text-slate-400">
+          They must already have a Freelancer account.
         </p>
       </form>
 
@@ -165,18 +187,20 @@ export default function TeamAccess() {
             <tr>
               <th className="px-8 py-4 font-medium">Freelancer</th>
               <th className="px-8 py-4 font-medium">Status</th>
-              <th className="px-8 py-4 font-medium">Invoices access</th>
+              {MODULES.map((module) => (
+                <th key={module.key} className="px-8 py-4 font-medium">{module.label}</th>
+              ))}
               <th className="px-8 py-4 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={4} className="px-8 py-10 text-center text-slate-500">Loading team...</td>
+                <td colSpan={3 + MODULES.length} className="px-8 py-10 text-center text-slate-500">Loading team...</td>
               </tr>
             ) : members.filter((m) => m.role !== "OWNER").length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-8 py-10 text-center text-slate-500">
+                <td colSpan={3 + MODULES.length} className="px-8 py-10 text-center text-slate-500">
                   No freelancers invited yet.
                 </td>
               </tr>
@@ -192,30 +216,32 @@ export default function TeamAccess() {
                     <td className="px-8 py-4">
                       <StatusBadge status={m.status} />
                     </td>
-                    <td className="px-8 py-4">
-                      {m.status === "INVITED" ? (
-                        <span className="text-xs text-slate-400">Pending acceptance</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1.5">
-                          {INVOICE_ACTIONS.map((action) => {
-                            const active = (m.permissions?.invoices || []).includes(action);
-                            return (
-                              <button
-                                key={action}
-                                onClick={() => togglePermission(m, action)}
-                                className={`rounded-lg border px-2.5 py-1 text-xs transition ${
-                                  active
-                                    ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                                    : "border-slate-200 text-slate-400 hover:border-slate-300"
-                                }`}
-                              >
-                                {action}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </td>
+                    {MODULES.map((module) => (
+                      <td key={module.key} className="px-8 py-4">
+                        {m.status === "INVITED" ? (
+                          <span className="text-xs text-slate-400">Pending acceptance</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {module.actions.map((action) => {
+                              const active = (m.permissions?.[module.key] || []).includes(action);
+                              return (
+                                <button
+                                  key={action}
+                                  onClick={() => togglePermission(m, module.key, action)}
+                                  className={`rounded-lg border px-2.5 py-1 text-xs transition ${
+                                    active
+                                      ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                                      : "border-slate-200 text-slate-400 hover:border-slate-300"
+                                  }`}
+                                >
+                                  {action}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </td>
+                    ))}
                     <td className="px-8 py-4">
                       <div className="flex items-center gap-2">
                         {m.status !== "INVITED" && (

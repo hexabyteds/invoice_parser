@@ -407,7 +407,7 @@ export default function Profile() {
 
                 <ul className="mt-4 space-y-1 text-sm text-slate-600 flex-1">
                   <li>{plan.invoice_limit} invoices/mo</li>
-                  <li>{plan.client_limit} clients</li>
+                  <li>{plan.customer_limit} customers</li>
                   <li>{plan.ocr_limit} OCR pages</li>
                 </ul>
 

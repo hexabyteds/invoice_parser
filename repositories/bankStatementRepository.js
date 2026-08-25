@@ -6,7 +6,7 @@ function mapBankStatement(row) {
         id: row.id,
         userId: row.user_id,
         companyId: row.company_id,
-        clientId: row.client_id,
+        clientId: row.customer_id,
 
         originalFilename: row.original_filename,
         imagePath: row.image_path,
@@ -45,7 +45,7 @@ class BankStatementRepository {
             INSERT INTO bank_statements (
                 user_id,
                 company_id,
-                client_id,
+                customer_id,
                 original_filename,
                 image_path,
                 status,
@@ -156,7 +156,7 @@ class BankStatementRepository {
 
     async findByClient(companyId, clientId, { limit = 20, offset = 0, from = null, to = null } = {}) {
 
-        let sql = `SELECT * FROM bank_statements WHERE company_id = ? AND client_id = ?`;
+        let sql = `SELECT * FROM bank_statements WHERE company_id = ? AND customer_id = ?`;
         const params = [companyId, clientId];
 
         if (from) {
@@ -179,7 +179,7 @@ class BankStatementRepository {
 
     async countByClient(companyId, clientId, { from = null, to = null } = {}) {
 
-        let sql = `SELECT COUNT(*) AS total FROM bank_statements WHERE company_id = ? AND client_id = ?`;
+        let sql = `SELECT COUNT(*) AS total FROM bank_statements WHERE company_id = ? AND customer_id = ?`;
         const params = [companyId, clientId];
 
         if (from) {

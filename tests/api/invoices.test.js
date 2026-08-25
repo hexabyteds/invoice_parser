@@ -14,10 +14,10 @@ const { samplePngBuffer, samplePdfBuffer } = require("../helpers/fixtures");
 
 async function createClient(token, name = "Upload Client") {
   const res = await request(app)
-    .post("/api/clients")
+    .post("/api/customers")
     .set(authed(token))
     .send({ company_name: name });
-  return res.body.client.id;
+  return res.body.customer.id;
 }
 
 // registerAndLogin() registers a COMPANY account (see tests/helpers/api.js)
@@ -717,7 +717,7 @@ describe("Concurrency — usage limits cannot be exceeded by parallel requests (
     // specifically). Give this user a generous OCR budget so the invoice
     // limit is unambiguously the constraint under test here.
     const [planResult] = await pool.execute(
-      `INSERT INTO plans (name, slug, invoice_limit, client_limit, ocr_limit, storage_limit, user_limit, active)
+      `INSERT INTO plans (name, slug, invoice_limit, customer_limit, ocr_limit, storage_limit, user_limit, active)
        VALUES (?, ?, 5, 100, 1000, 5000, 1, 1)`,
       [`Concurrency Test ${user.id}`, `concurrency-test-${user.id}`]
     );

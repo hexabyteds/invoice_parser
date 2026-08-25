@@ -12,7 +12,7 @@ class InvoiceRepository {
             INSERT INTO invoices (
                 user_id,
                 company_id,
-                client_id,
+                customer_id,
                 invoice_type,
                 document_type,
                 invoice_no,
@@ -149,8 +149,8 @@ class InvoiceRepository {
     // (auto-increment), so every lookup must also prove company membership
     // via this filter. Never trust an id from the URL on its own.
     //
-    // Joins clients to also return the actual selected-client entity's own
-    // name (client_company_name) alongside invoices.client_name (which
+    // Joins customers to also return the actual selected-customer entity's
+    // own name (client_company_name) alongside invoices.client_name (which
     // holds the resolved Party Name — see services/partyNameService.js).
     // The two are conceptually different: client_company_name is "whose
     // books this document belongs to", client_name/Party Name is "the
@@ -159,9 +159,9 @@ class InvoiceRepository {
     async findById(id, companyId) {
 
         const sql = `
-            SELECT invoices.*, clients.company_name AS client_company_name
+            SELECT invoices.*, customers.company_name AS client_company_name
             FROM invoices
-            LEFT JOIN clients ON clients.id = invoices.client_id
+            LEFT JOIN customers ON customers.id = invoices.customer_id
             WHERE invoices.id = ?
             AND invoices.company_id = ?
             LIMIT 1
@@ -302,7 +302,7 @@ class InvoiceRepository {
         const values = [companyId];
 
         if (clientId) {
-            sql += ` AND client_id = ?`;
+            sql += ` AND customer_id = ?`;
             values.push(clientId);
         }
 
@@ -312,7 +312,7 @@ class InvoiceRepository {
     }
     async findByClient(companyId, clientId, { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}) {
 
-        let sql = `SELECT * FROM invoices WHERE company_id = ? AND client_id = ?`;
+        let sql = `SELECT * FROM invoices WHERE company_id = ? AND customer_id = ?`;
         const params = [companyId, clientId];
 
         if (documentType) {
@@ -340,7 +340,7 @@ class InvoiceRepository {
 
     async countByClient(companyId, clientId, { documentType = null, from = null, to = null } = {}) {
 
-        let sql = `SELECT COUNT(*) AS total FROM invoices WHERE company_id = ? AND client_id = ?`;
+        let sql = `SELECT COUNT(*) AS total FROM invoices WHERE company_id = ? AND customer_id = ?`;
         const params = [companyId, clientId];
 
         if (documentType) {
@@ -375,7 +375,7 @@ class InvoiceRepository {
         const values = [companyId];
 
         if (clientId) {
-            sql += ` AND client_id = ?`;
+            sql += ` AND customer_id = ?`;
             values.push(Number(clientId));
         }
 
@@ -412,7 +412,7 @@ class InvoiceRepository {
                 COUNT(DISTINCT invoice_no) AS uniqueInvoices
             FROM invoices
             WHERE company_id = ?
-            AND client_id = ?
+            AND customer_id = ?
         `,[companyId, clientId]);
 
         return rows[0];
@@ -447,7 +447,7 @@ class InvoiceRepository {
                 id: row.id,
                 userId: row.user_id,
                 companyId: row.company_id,
-                clientId: row.client_id,
+                clientId: row.customer_id,
 
                 invoiceType: row.invoice_type,
                 documentType: row.document_type,

@@ -32,7 +32,6 @@ class UsageController {
 
             const usage = await usageService.getAllCustomersUsage();
 
-            console.log(JSON.stringify(usage, null, 2));
             res.json({
                 success: true,
                 usage

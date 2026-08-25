@@ -12,10 +12,10 @@ const { samplePngBuffer, samplePdfBuffer, sampleTransaction } = require("../help
 
 async function createClient(token, name = "Bank Statement Client") {
   const res = await request(app)
-    .post("/api/clients")
+    .post("/api/customers")
     .set(authed(token))
     .send({ company_name: name });
-  return res.body.client.id;
+  return res.body.customer.id;
 }
 
 function uploadBankStatement(token, clientId, filename = "statement.png") {
@@ -570,7 +570,7 @@ describe("Bank statement plan limits", () => {
     const clientId = await createClient(token);
 
     const [planResult] = await pool.execute(
-      `INSERT INTO plans (name, slug, invoice_limit, client_limit, ocr_limit, storage_limit, user_limit, active)
+      `INSERT INTO plans (name, slug, invoice_limit, customer_limit, ocr_limit, storage_limit, user_limit, active)
        VALUES (?, ?, 5, 100, 1000, 5000, 1, 1)`,
       [`BS Limit Test ${user.id}`, `bs-limit-test-${user.id}`]
     );

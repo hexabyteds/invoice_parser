@@ -13,13 +13,13 @@ import {
 import { getDocuments } from "../../services/documentsApi";
 import { deleteInvoices } from "../../services/invoiceApi";
 import { deleteBankStatement } from "../../services/bankStatementApi";
-import clientApi from "../../services/clientApi";
+import customerApi from "../../services/customerApi";
 import { useNavigate } from "react-router-dom";
 import { formatDateDisplay } from "../../utils/formatDate";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import toast from "react-hot-toast";
 import { DOCUMENT_TYPES, documentTypeLabel, documentTypeBadgeClass } from "../../utils/documentTypes";
-import { isClientActive } from "../../utils/clientStatus";
+import { isPartyActive } from "../../utils/clientStatus";
 
 const ROWS_PER_PAGE = 10;
 const BANK_STATEMENT = "bank_statement";
@@ -45,8 +45,8 @@ export default function Invoices() {
 
     async function loadClients() {
         try {
-            const res = await clientApi.getAll();
-            setClients(res.clients || []);
+            const res = await customerApi.getAll();
+            setClients(res.customers || []);
         } catch (err) {
         }
     }
@@ -111,7 +111,7 @@ export default function Invoices() {
     }, [search]);
 
     const activeClients = useMemo(
-        () => clients.filter((c) => isClientActive(c.status)),
+        () => clients.filter((c) => isPartyActive(c.status)),
         [clients]
     );
 
@@ -119,7 +119,7 @@ export default function Invoices() {
         () =>
             new Set(
                 clients
-                    .filter((c) => !isClientActive(c.status))
+                    .filter((c) => !isPartyActive(c.status))
                     .map((c) => c.id)
             ),
         [clients]
@@ -226,7 +226,7 @@ export default function Invoices() {
                         />
                         <input
                             type="text"
-                            placeholder="Search document, client, bank..."
+                            placeholder="Search document, customer, bank..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-slate-900"
@@ -239,7 +239,7 @@ export default function Invoices() {
                             onChange={(e) => setClientId(e.target.value)}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-slate-900"
                         >
-                            <option value="">All Clients</option>
+                            <option value="">All Customers</option>
                             {activeClients.map((client) => (
                                 <option key={client.id} value={client.id}>
                                     {client.company_name}
@@ -329,7 +329,7 @@ export default function Invoices() {
                         </h3>
                         <p className="mt-2 text-slate-500">
                             {clientId
-                                ? "No documents for this client yet."
+                                ? "No documents for this customer yet."
                                 : "Upload your first document to get started."}
                         </p>
                     </div>

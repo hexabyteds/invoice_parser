@@ -7,10 +7,10 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { uploadInvoice } from "../../services/invoiceApi";
-import clientApi from "../../services/clientApi";
+import customerApi from "../../services/customerApi";
 import { useParams, useNavigate } from "react-router-dom";
 import { DOCUMENT_TYPES, documentTypeLabel } from "../../utils/documentTypes";
-import { isClientActive } from "../../utils/clientStatus";
+import { isPartyActive } from "../../utils/clientStatus";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
 const MAX_FILE_SIZE_MB = 15;
@@ -55,7 +55,7 @@ export default function Upload() {
   const selectedClient = clients.find(
     (c) => String(c.id) === String(clientId)
   );
-  const selectedClientInactive = Boolean(selectedClient) && !isClientActive(selectedClient.status);
+  const selectedClientInactive = Boolean(selectedClient) && !isPartyActive(selectedClient.status);
 
   const acceptFile = (candidate) => {
     const validationError = validateFile(candidate);
@@ -100,8 +100,8 @@ export default function Upload() {
 
   const loadClients = async () => {
     try {
-      const res = await clientApi.getAll();
-      setClients(res.clients || []);
+      const res = await customerApi.getAll();
+      setClients(res.customers || []);
     } catch (err) {
      }
   };
@@ -113,13 +113,13 @@ export default function Upload() {
     }
 
     if (!clientId) {
-      setError("Please select a client.");
+      setError("Please select a customer.");
       return;
     }
 
     if (selectedClientInactive) {
       setError(
-        "This client is inactive. Please activate the client before adding documents."
+        "This customer is inactive. Please activate the customer before adding documents."
       );
       return;
     }
@@ -145,7 +145,7 @@ export default function Upload() {
         toast.success(`Successfully uploaded ${response.data.totalInvoices} invoices.`);
 
         if (isClientLocked) {
-          navigate(`/dashboard/clients/${clientId}`);
+          navigate(`/dashboard/customers/${clientId}`);
         }
       } else if (response.data.bankStatement) {
         setResult(response.data);
@@ -154,7 +154,7 @@ export default function Upload() {
         );
 
         if (isClientLocked) {
-          navigate(`/dashboard/clients/${clientId}`);
+          navigate(`/dashboard/customers/${clientId}`);
         }
       } else {
         setResult(response.data);
@@ -187,7 +187,7 @@ export default function Upload() {
 
         <div className="mb-8">
           <label className="block mb-2 text-sm font-semibold text-slate-900">
-            {isClientLocked ? "Client" : "Select Client"}
+            {isClientLocked ? "Customer" : "Select Customer"}
           </label>
 
           <select
@@ -196,29 +196,29 @@ export default function Upload() {
             disabled={isClientLocked}
             className="w-full rounded-xl border p-3 bg-white text-slate-900 disabled:bg-slate-100"
           >
-            <option value="">Select Client</option>
+            <option value="">Select Customer</option>
 
             {clients.map((client) => (
               <option
                 key={client.id}
                 value={client.id}
-                disabled={!isClientActive(client.status)}
+                disabled={!isPartyActive(client.status)}
               >
                 {client.company_name}
-                {!isClientActive(client.status) ? " (Inactive)" : ""}
+                {!isPartyActive(client.status) ? " (Inactive)" : ""}
               </option>
             ))}
           </select>
 
           {isClientLocked && !selectedClientInactive && (
             <p className="text-sm text-slate-500 mt-2">
-              Client is already selected from Client Details.
+              Customer is already selected from Customer Details.
             </p>
           )}
 
           {selectedClientInactive && (
             <div className="mt-3 rounded-xl bg-red-50 text-red-600 p-3 text-sm">
-              This client is inactive. Please activate the client before adding documents.
+              This customer is inactive. Please activate the customer before adding documents.
             </div>
           )}
         </div>
@@ -415,7 +415,7 @@ export default function Upload() {
           </div>
 
           <div>
-            <label className="text-slate-500">Client</label>
+            <label className="text-slate-500">Customer</label>
             <p className="font-semibold text-slate-900">
               {result.invoice?.clientName || selectedClient?.company_name}
             </p>

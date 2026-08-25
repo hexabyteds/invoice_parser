@@ -1,16 +1,16 @@
-const clientService = require("../services/clientService");
+const supplierService = require("../services/supplierService");
 
-class ClientController {
+class SupplierController {
 
     async create(req, res) {
 
         try {
 
-            const client = await clientService.create(req.company.id, req.user.id, req.body);
+            const supplier = await supplierService.create(req.company.id, req.user.id, req.body);
 
             res.status(201).json({
                 success: true,
-                client
+                supplier
             });
 
         } catch (err) {
@@ -28,11 +28,11 @@ class ClientController {
 
         try {
 
-            const clients = await clientService.getAll(req.company.id);
+            const suppliers = await supplierService.getAll(req.company.id);
 
             res.json({
                 success: true,
-                clients
+                suppliers
             });
 
         } catch (err) {
@@ -50,7 +50,7 @@ class ClientController {
 
         try {
 
-            const client = await clientService.update(
+            const supplier = await supplierService.update(
                 req.params.id,
                 req.company.id,
                 req.body
@@ -58,13 +58,13 @@ class ClientController {
 
             res.json({
                 success: true,
-                client
+                supplier
             });
 
         } catch (err) {
 
             let status = 500;
-            if (err.message === "Client not found.") status = 404;
+            if (err.message === "Supplier not found.") status = 404;
             else if (err.message.includes("already exists")) status = 400;
 
             res.status(status).json({
@@ -80,14 +80,14 @@ class ClientController {
 
         try {
 
-            const client = await clientService.get(
+            const supplier = await supplierService.get(
                 req.params.id,
                 req.company.id
             );
 
             res.json({
                 success: true,
-                client
+                supplier
             });
 
         } catch (err) {
@@ -114,7 +114,7 @@ class ClientController {
                 });
             }
 
-            const client = await clientService.updateStatus(
+            const supplier = await supplierService.updateStatus(
                 req.params.id,
                 req.company.id,
                 status
@@ -122,12 +122,12 @@ class ClientController {
 
             res.json({
                 success: true,
-                client
+                supplier
             });
 
         } catch (err) {
 
-            const status = err.message === "Client not found." ? 404 : 400;
+            const status = err.message === "Supplier not found." ? 404 : 400;
 
             res.status(status).json({
                 success: false,
@@ -142,18 +142,16 @@ class ClientController {
 
         try {
 
-            await clientService.delete(req.params.id, req.company.id);
+            await supplierService.delete(req.params.id, req.company.id);
 
             res.json({
                 success: true,
-                message: "Client deleted."
+                message: "Supplier deleted."
             });
 
         } catch (err) {
 
-            // Mirrors update()/updateStatus() above — a not-found/not-owned
-            // client is a 404, not a genuine server failure.
-            const status = err.message === "Client not found." ? 404 : 500;
+            const status = err.message === "Supplier not found." ? 404 : 500;
 
             res.status(status).json({
                 success: false,
@@ -166,4 +164,4 @@ class ClientController {
 
 }
 
-module.exports = new ClientController();
+module.exports = new SupplierController();

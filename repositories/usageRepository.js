@@ -26,7 +26,7 @@ class UsageRepository {
         company_id,
         invoices_used,
         bank_statements_used,
-        clients_used,
+        customers_used,
         ocr_pages_used,
         storage_used,
         api_calls_used,
@@ -70,12 +70,12 @@ class UsageRepository {
 
   }
 
-  async updateClients(companyId, count) {
+  async updateCustomers(companyId, count) {
 
     await db.execute(
       `
       UPDATE usage_stats
-      SET clients_used = ?
+      SET customers_used = ?
       WHERE company_id = ?
       `,
       [count, companyId]
@@ -126,14 +126,14 @@ class UsageRepository {
 
             p.name AS plan_name,
             p.invoice_limit,
-            p.client_limit,
+            p.customer_limit,
             p.ocr_limit,
             p.storage_limit,
             p.user_limit,
 
             us.invoices_used,
             us.bank_statements_used,
-            us.clients_used,
+            us.customers_used,
             us.ocr_pages_used,
             us.storage_used,
             us.team_members_used
@@ -209,11 +209,11 @@ async decrementBankStatements(companyId) {
   `,[companyId]);
 
 }
-async incrementClients(companyId) {
+async incrementCustomers(companyId) {
 
     await db.execute(`
         UPDATE usage_stats
-        SET clients_used = clients_used + 1
+        SET customers_used = customers_used + 1
         WHERE company_id = ?
     `,[companyId]);
 
@@ -223,22 +223,22 @@ async incrementClients(companyId) {
 // — the WHERE clause is evaluated against the row's live value under its
 // write lock, so two concurrent client-creation requests for the same
 // company can never both succeed past `limit`.
-async incrementClientsIfUnderLimit(companyId, limit) {
+async incrementCustomersIfUnderLimit(companyId, limit) {
 
     const [result] = await db.execute(`
         UPDATE usage_stats
-        SET clients_used = clients_used + 1
-        WHERE company_id = ? AND clients_used < ?
+        SET customers_used = customers_used + 1
+        WHERE company_id = ? AND customers_used < ?
     `,[companyId, limit]);
 
     return result.affectedRows > 0;
 
 }
-async decrementClients(companyId) {
+async decrementCustomers(companyId) {
 
     await db.execute(`
         UPDATE usage_stats
-        SET clients_used = GREATEST(clients_used-1,0)
+        SET customers_used = GREATEST(customers_used-1,0)
         WHERE company_id = ?
     `,[companyId]);
 
@@ -326,7 +326,7 @@ async getDashboardSummary() {
 
           COALESCE(SUM(us.bank_statements_used), 0) AS totalBankStatements,
 
-          COALESCE(SUM(us.clients_used), 0) AS totalClients,
+          COALESCE(SUM(us.customers_used), 0) AS totalClients,
 
           COALESCE(SUM(us.ocr_pages_used), 0) AS totalOCR,
 

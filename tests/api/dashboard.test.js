@@ -13,10 +13,10 @@ const { samplePngBuffer } = require("../helpers/fixtures");
 
 async function createClient(token, name) {
   const res = await request(app)
-    .post("/api/clients")
+    .post("/api/customers")
     .set(authed(token))
     .send({ company_name: name });
-  return res.body.client.id;
+  return res.body.customer.id;
 }
 
 function uploadImage(token, clientId, documentType) {
