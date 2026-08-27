@@ -5,7 +5,8 @@ function mapBankStatement(row) {
     return {
         id: row.id,
         userId: row.user_id,
-        clientId: row.client_id,
+        companyId: row.company_id,
+        clientId: row.customer_id,
 
         originalFilename: row.original_filename,
         imagePath: row.image_path,
@@ -33,16 +34,18 @@ function mapBankStatement(row) {
 
 class BankStatementRepository {
 
-    // Every method here takes userId explicitly and bakes
-    // "WHERE user_id = ?" into the SQL itself — same ownership pattern as
-    // repositories/invoiceRepository.js, to avoid IDOR.
+    // Every read/write below is scoped by companyId — bank statements
+    // belong to the company, not to whoever uploaded them, same rule as
+    // repositories/invoiceRepository.js. userId is still recorded on the
+    // row (create) for attribution only.
 
     async create(statement) {
 
         const sql = `
             INSERT INTO bank_statements (
                 user_id,
-                client_id,
+                company_id,
+                customer_id,
                 original_filename,
                 image_path,
                 status,
@@ -57,11 +60,12 @@ class BankStatementRepository {
                 opening_balance,
                 closing_balance
             )
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `;
 
         const values = [
             statement.userId,
+            statement.companyId,
             statement.clientId ?? null,
             statement.originalFilename ?? null,
             statement.imagePath ?? null,
@@ -83,14 +87,14 @@ class BankStatementRepository {
         return result.insertId;
     }
 
-    async updateImagePath(id, userId, imagePath) {
+    async updateImagePath(id, companyId, imagePath) {
         await db.execute(
-            `UPDATE bank_statements SET image_path = ? WHERE id = ? AND user_id = ?`,
-            [imagePath, id, userId]
+            `UPDATE bank_statements SET image_path = ? WHERE id = ? AND company_id = ?`,
+            [imagePath, id, companyId]
         );
     }
 
-    async findById(id, userId) {
+    async findById(id, companyId) {
 
         const sql = `
             SELECT bs.*,
@@ -98,19 +102,19 @@ class BankStatementRepository {
                  WHERE t.bank_statement_id = bs.id) AS transaction_count
             FROM bank_statements bs
             WHERE bs.id = ?
-            AND bs.user_id = ?
+            AND bs.company_id = ?
             LIMIT 1
         `;
 
-        const [rows] = await db.execute(sql, [id, userId]);
+        const [rows] = await db.execute(sql, [id, companyId]);
 
         return rows.length ? mapBankStatement(rows[0]) : null;
     }
 
-    async findByUser(userId, { limit = 20, offset = 0, from = null, to = null } = {}) {
+    async findByCompany(companyId, { limit = 20, offset = 0, from = null, to = null } = {}) {
 
-        let sql = `SELECT * FROM bank_statements WHERE user_id = ?`;
-        const params = [userId];
+        let sql = `SELECT * FROM bank_statements WHERE company_id = ?`;
+        const params = [companyId];
 
         if (from) {
             sql += ` AND created_at >= ?`;
@@ -130,10 +134,10 @@ class BankStatementRepository {
         return rows.map(mapBankStatement);
     }
 
-    async countByUser(userId, { from = null, to = null } = {}) {
+    async countByCompany(companyId, { from = null, to = null } = {}) {
 
-        let sql = `SELECT COUNT(*) AS total FROM bank_statements WHERE user_id = ?`;
-        const params = [userId];
+        let sql = `SELECT COUNT(*) AS total FROM bank_statements WHERE company_id = ?`;
+        const params = [companyId];
 
         if (from) {
             sql += ` AND created_at >= ?`;
@@ -150,10 +154,10 @@ class BankStatementRepository {
         return Number(rows[0]?.total || 0);
     }
 
-    async findByClient(userId, clientId, { limit = 20, offset = 0, from = null, to = null } = {}) {
+    async findByClient(companyId, clientId, { limit = 20, offset = 0, from = null, to = null } = {}) {
 
-        let sql = `SELECT * FROM bank_statements WHERE user_id = ? AND client_id = ?`;
-        const params = [userId, clientId];
+        let sql = `SELECT * FROM bank_statements WHERE company_id = ? AND customer_id = ?`;
+        const params = [companyId, clientId];
 
         if (from) {
             sql += ` AND created_at >= ?`;
@@ -173,10 +177,10 @@ class BankStatementRepository {
         return rows.map(mapBankStatement);
     }
 
-    async countByClient(userId, clientId, { from = null, to = null } = {}) {
+    async countByClient(companyId, clientId, { from = null, to = null } = {}) {
 
-        let sql = `SELECT COUNT(*) AS total FROM bank_statements WHERE user_id = ? AND client_id = ?`;
-        const params = [userId, clientId];
+        let sql = `SELECT COUNT(*) AS total FROM bank_statements WHERE company_id = ? AND customer_id = ?`;
+        const params = [companyId, clientId];
 
         if (from) {
             sql += ` AND created_at >= ?`;
@@ -195,7 +199,7 @@ class BankStatementRepository {
 
     // Statement-level field edits only — transactions are edited/managed
     // separately via bankStatementTransactionRepository.
-    async update(id, userId, statement) {
+    async update(id, companyId, statement) {
 
         const sql = `
             UPDATE bank_statements SET
@@ -209,7 +213,7 @@ class BankStatementRepository {
                 opening_balance = ?,
                 closing_balance = ?
             WHERE id = ?
-            AND user_id = ?
+            AND company_id = ?
         `;
 
         const values = [
@@ -223,7 +227,7 @@ class BankStatementRepository {
             statement.openingBalance ?? null,
             statement.closingBalance ?? null,
             id,
-            userId,
+            companyId,
         ];
 
         const [result] = await db.execute(sql, values);
@@ -232,21 +236,21 @@ class BankStatementRepository {
     }
 
     // Cascades to bank_statement_transactions via ON DELETE CASCADE.
-    async deleteById(id, userId) {
+    async deleteById(id, companyId) {
 
         const [result] = await db.execute(
-            `DELETE FROM bank_statements WHERE id = ? AND user_id = ?`,
-            [id, userId]
+            `DELETE FROM bank_statements WHERE id = ? AND company_id = ?`,
+            [id, companyId]
         );
 
         return result.affectedRows;
     }
 
-    async getStatistics(userId) {
+    async getStatistics(companyId) {
 
         const [rows] = await db.execute(
-            `SELECT COUNT(*) AS totalBankStatements FROM bank_statements WHERE user_id = ?`,
-            [userId]
+            `SELECT COUNT(*) AS totalBankStatements FROM bank_statements WHERE company_id = ?`,
+            [companyId]
         );
 
         return {

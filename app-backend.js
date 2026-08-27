@@ -14,14 +14,18 @@ require('dotenv').config();
 const authRoutes = require("./routes/authRoutes");
 const FreeInvoiceAgent = require('./free-invoice-agent');
 const authMiddleware = require("./middleware/authMiddleware");
-const clientRoutes = require("./routes/clientRoutes");
+const companyContext = require("./middleware/companyContext");
+const requireCompanyPermission = require("./middleware/requireCompanyPermission");
+const customerRoutes = require("./routes/customerRoutes");
+const supplierRoutes = require("./routes/supplierRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const planRoutes = require("./routes/planRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const usageRoutes = require("./routes/usageRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const usageService = require("./services/usageService");
-const clientService = require("./services/clientService");
+const customerService = require("./services/customerService");
+const supplierService = require("./services/supplierService");
 const validationService = require("./services/validationService");
 const auditLogRepository = require("./repositories/auditLogRepository");
 const db = require("./config/database");
@@ -61,12 +65,14 @@ app.use((req, res, next) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/clients", clientRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/suppliers", supplierRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/usage", require("./routes/usageRoutes"));
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/companies", require("./routes/companyRoutes"));
 app.use("/api/bank-statements", require("./routes/bankStatementRoutes"));
 app.use("/api/documents", require("./routes/documentsRoutes"));
 app.use("/api/contact", require("./routes/contactRoutes"));
@@ -170,9 +176,9 @@ app.get('/api/health', async (req, res) => {
 // processing failed — every failed upload permanently leaked quota (and
 // left the file orphaned on disk). Called from every failure branch below,
 // and from the outer catch, once a reservation has actually been made.
-async function releaseFailedUploadStorage(userId, file) {
+async function releaseFailedUploadStorage(companyId, file) {
   try {
-    await usageService.removeStorage(userId, file.size);
+    await usageService.removeStorage(companyId, file.size);
   } catch (err) {
     console.error("Failed to release storage quota after failed upload:", err.message);
   }
@@ -189,6 +195,7 @@ async function releaseFailedUploadStorage(userId, file) {
 app.post(
   "/api/upload",
   authMiddleware,
+  companyContext,
   uploadRateLimiter,
   upload.single("image"),
   async (req, res) => {
@@ -226,16 +233,36 @@ app.post(
         });
       }
 
+      // Which module this upload needs permission for isn't known until
+      // now (it depends on document_type, parsed from the body) — can't be
+      // a static route-level requireCompanyPermission like every other
+      // route. See middleware/requireCompanyPermission.js's hasPermission.
+      const uploadModule = isBankStatementType(documentType) ? "bank_statements" : "invoices";
+
+      if (!requireCompanyPermission.hasPermission(req.membership, uploadModule, "create")) {
+        return res.status(403).json({
+          success: false,
+          error: `You don't have create access to ${uploadModule} in this company.`,
+        });
+      }
+
       // ===========================
       // NEW: Reject uploads against a deactivated client
       // ===========================
-      await clientService.assertActive(clientId, req.user.id);
+      // A Bill's party is a vendor (suppliers table), everything else
+      // (Invoice, Bank Statement) uses the customers table — matches how
+      // invoiceRepository.create() decides which FK to populate.
+      if (documentType === DOCUMENT_TYPES.BILL) {
+        await supplierService.assertActive(clientId, req.company.id);
+      } else {
+        await customerService.assertActive(clientId, req.company.id);
+      }
 
       // Reserves the bytes atomically — under concurrent uploads, the old
       // checkStorageLimit()-then-addStorage() pair let every request read
       // the same pre-upload storage_used and all pass, so N concurrent
       // uploads near the limit could all add their bytes past it.
-      await usageService.reserveStorage(req.user.id, req.file.size);
+      await usageService.reserveStorage(req.company.id, req.file.size);
       storageReserved = true;
 
       console.log(`📸 Processing: ${req.file.filename}`);
@@ -256,25 +283,31 @@ app.post(
           ? await bankStatementService.processPDF(
               req.file.path,
               req.user.id,
+              req.company.id,
               clientId,
               req.file.path
             )
           : await bankStatementService.processImage(
               req.file.path,
               req.user.id,
+              req.company.id,
               clientId,
               req.file.path
             );
 
         if (bsResult.status !== "success") {
-          await releaseFailedUploadStorage(req.user.id, req.file);
+          await releaseFailedUploadStorage(req.company.id, req.file);
 
           try {
             await auditLogRepository.create({
               userId: req.user.id,
-              clientId,
+              companyId: req.company.id,
+              customerId: clientId,
               action: "bank_statement_error",
+              module: "Bank Statement",
+              status: "FAILED",
               description: bsResult.message,
+              ipAddress: req.ip,
             });
           } catch (logErr) {}
 
@@ -287,17 +320,25 @@ app.post(
         try {
           await auditLogRepository.create({
             userId: req.user.id,
-            clientId,
+            companyId: req.company.id,
+            customerId: clientId,
             action: "bank_statement_uploaded",
+            module: "Bank Statement",
+            status: "SUCCESS",
             description: `Bank statement (${bsResult.transactionCount} transaction(s))`,
+            ipAddress: req.ip,
           });
 
           if (bsResult.meta?.failedPages > 0) {
             await auditLogRepository.create({
               userId: req.user.id,
-              clientId,
+              companyId: req.company.id,
+              customerId: clientId,
               action: "bank_statement_error",
+              module: "Bank Statement",
+              status: "FAILED",
               description: `${bsResult.meta.failedPages} page(s) failed during extraction`,
+              ipAddress: req.ip,
             });
           }
         } catch (logErr) {}
@@ -317,6 +358,7 @@ app.post(
         result = await agent.processPDF(
           req.file.path,
           req.user.id,
+          req.company.id,
           clientId,
           req.file.path,
           documentType
@@ -327,6 +369,7 @@ app.post(
         result = await agent.processImage(
           req.file.path,
           req.user.id,
+          req.company.id,
           clientId,
           req.file.path,
           documentType
@@ -335,7 +378,7 @@ app.post(
       }
 
       if (result.status !== "success") {
-        await releaseFailedUploadStorage(req.user.id, req.file);
+        await releaseFailedUploadStorage(req.company.id, req.file);
 
         // Activity feed is a nice-to-have — a logging failure must never
         // break the response, but the write itself is awaited so the
@@ -343,12 +386,16 @@ app.post(
         try {
           await auditLogRepository.create({
             userId: req.user.id,
-            clientId,
+            companyId: req.company.id,
+            customerId: clientId,
             // A validation-object means Gemini extracted something but it
             // wasn't a valid invoice; no validation object means a hard
             // extraction/OCR/system failure.
             action: result.validation ? "invoice_rejected" : "invoice_error",
+            module: "Invoice",
+            status: "FAILED",
             description: result.message,
+            ipAddress: req.ip,
           });
         } catch (logErr) {}
 
@@ -366,17 +413,25 @@ app.post(
         try {
           await auditLogRepository.create({
             userId: req.user.id,
-            clientId,
+            companyId: req.company.id,
+            customerId: clientId,
             action: "invoice_uploaded",
+            module: "Invoice",
+            status: "SUCCESS",
             description: `${result.totalInvoices} invoice(s) processed from PDF`,
+            ipAddress: req.ip,
           });
 
           if (result.meta?.failedPages > 0) {
             await auditLogRepository.create({
               userId: req.user.id,
-              clientId,
+              companyId: req.company.id,
+              customerId: clientId,
               action: "invoice_error",
+              module: "Invoice",
+              status: "FAILED",
               description: `${result.meta.failedPages} page(s) failed during PDF extraction`,
+              ipAddress: req.ip,
             });
           }
         } catch (logErr) {}
@@ -400,16 +455,24 @@ app.post(
       try {
         await auditLogRepository.create({
           userId: req.user.id,
-          clientId,
+          companyId: req.company.id,
+          customerId: clientId,
           action: "invoice_uploaded",
+          module: "Invoice",
+          status: "SUCCESS",
           description: invoice.invoiceNo ? `Invoice ${invoice.invoiceNo}` : "Invoice",
+          ipAddress: req.ip,
         });
 
         await auditLogRepository.create({
           userId: req.user.id,
-          clientId,
+          companyId: req.company.id,
+          customerId: clientId,
           action: "invoice_processed",
+          module: "Invoice",
+          status: "SUCCESS",
           description: `${validation.confidence}% confidence`,
+          ipAddress: req.ip,
         });
       } catch (logErr) {}
 
@@ -451,7 +514,7 @@ app.post(
       console.error("Upload error:", error);
 
       if (storageReserved) {
-        await releaseFailedUploadStorage(req.user.id, req.file);
+        await releaseFailedUploadStorage(req.company.id, req.file);
       }
 
       const statusCode =
@@ -520,7 +583,12 @@ app.post(
 const DEFAULT_INVOICE_LIMIT = 20;
 const MAX_INVOICE_LIMIT = 100;
 
-app.get("/api/invoices", authMiddleware, async (req, res) => {
+app.get(
+  "/api/invoices",
+  authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "view"),
+  async (req, res) => {
   try {
     const clientId = req.query.client_id;
     const limit = req.query.limit === undefined
@@ -594,12 +662,12 @@ app.get("/api/invoices", authMiddleware, async (req, res) => {
       }
 
       result = await agent.getInvoicesByClient(
-        req.user.id,
+        req.company.id,
         parsedClientId,
         { limit, offset, documentType, from, to }
       );
     } else {
-      result = await agent.getInvoices(req.user.id, { limit, offset, documentType, from, to });
+      result = await agent.getInvoices(req.company.id, { limit, offset, documentType, from, to });
     }
 
     res.json({
@@ -646,13 +714,15 @@ function validateStoredInvoice(invoiceRow, lineItems) {
 app.get(
   "/api/invoices/:id",
   authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "view"),
   async (req, res) => {
 
     try {
 
       const data = await agent.getInvoiceById(
         req.params.id,
-        req.user.id
+        req.company.id
       );
 
       if (!data) {
@@ -689,11 +759,13 @@ app.get(
 app.get(
   "/api/invoices/:id/source",
   authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "view"),
   async (req, res) => {
     try {
       const source = await agent.getInvoiceSourcePath(
         req.params.id,
-        req.user.id
+        req.company.id
       );
 
       if (!source) {
@@ -728,6 +800,8 @@ app.get(
 app.put(
   "/api/invoices/:id",
   authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "edit"),
   async (req, res) => {
 
     try {
@@ -744,7 +818,7 @@ app.put(
 
       const updated = await agent.updateInvoice(
         req.params.id,
-        req.user.id,
+        req.company.id,
         req.body
       );
 
@@ -781,13 +855,15 @@ app.put(
 app.delete(
   "/api/invoices/:id",
   authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "delete"),
   async (req, res) => {
     try {
       console.log("DELETE INVOICE", req.params.id);
       console.log("USER ID", req.user.id);
       const deleted = await agent.deleteInvoice(
         req.params.id,
-        req.user.id
+        req.company.id
       );
 
       if (!deleted) {
@@ -814,6 +890,8 @@ app.delete(
 app.get(
   "/api/analytics",
   authMiddleware,
+  companyContext,
+  requireCompanyPermission("invoices", "view"),
   async (req, res) => {
 
     try {
@@ -824,11 +902,12 @@ app.get(
 
       console.log("ANALYTICS QUERY", {
         userId: req.user.id,
+        companyId: req.company.id,
         clientId,
       });
 
       const analytics = await agent.getAnalytics(
-        req.user.id,
+        req.company.id,
         clientId
       );
 
@@ -852,19 +931,23 @@ app.get(
 );
 
 // Get statistics
-app.get('/api/stats', authMiddleware, async (req, res) => {
+app.get('/api/stats', authMiddleware, companyContext, requireCompanyPermission("invoices", "view"), async (req, res) => {
 
   const clientId = req.query.client_id;
 
   let stats;
 
   if (clientId) {
+    // Pre-existing bug, unrelated to this migration: FreeInvoiceAgent has
+    // no getStatsByClient method (only getStats(companyId, clientId)) — a
+    // stats request scoped to a specific client already 500s today. Left
+    // as-is rather than silently fixed alongside the tenancy change.
     stats = await agent.getStatsByClient(
-      req.user.id,
+      req.company.id,
       Number(clientId)
     );
   } else {
-    stats = await agent.getStats(req.user.id);
+    stats = await agent.getStats(req.company.id);
   }
 
   res.json({
@@ -901,7 +984,7 @@ function rejectInvalidExportDocumentType(req, res) {
 
 // Download Excel (regenerate from DB — one row per line item)
 // Supports: ?client_id=&from=YYYY-MM-DD&to=YYYY-MM-DD
-app.get("/api/download-excel", authMiddleware, async (req, res) => {
+app.get("/api/download-excel", authMiddleware, companyContext, requireCompanyPermission("invoices", "export"), async (req, res) => {
   try {
     if (rejectInvalidExportDocumentType(req, res)) return;
 
@@ -909,11 +992,12 @@ app.get("/api/download-excel", authMiddleware, async (req, res) => {
 
     console.log("DOWNLOAD EXCEL", {
       userId: req.user.id,
+      companyId: req.company.id,
       ...filters,
     });
 
     const file = await agent.saveToExcel(
-      req.user.id,
+      req.company.id,
       filters.clientId,
       undefined,
       filters
@@ -936,7 +1020,7 @@ app.get("/api/download-excel", authMiddleware, async (req, res) => {
 // Unified export:
 // format = excel | csv | zoho | quickbooks | pdf | html
 // Supports: ?format=&client_id=&from=YYYY-MM-DD&to=YYYY-MM-DD
-app.get("/api/export", authMiddleware, async (req, res) => {
+app.get("/api/export", authMiddleware, companyContext, requireCompanyPermission("invoices", "export"), async (req, res) => {
   try {
     if (rejectInvalidExportDocumentType(req, res)) return;
 
@@ -948,12 +1032,26 @@ app.get("/api/export", authMiddleware, async (req, res) => {
 
     console.log("EXPORT", {
       userId: req.user.id,
+      companyId: req.company.id,
       format,
       ...filters,
     });
 
+    try {
+      await auditLogRepository.create({
+        userId: req.user.id,
+        companyId: req.company.id,
+        customerId: filters.clientId || null,
+        action: "export_generated",
+        module: "Export",
+        status: "SUCCESS",
+        description: `Exported as ${format}${filters.documentType ? ` (${filters.documentType})` : ""}`,
+        ipAddress: req.ip,
+      });
+    } catch (logErr) {}
+
     if (format === "csv") {
-      const { csv } = await agent.exportCSV(req.user.id, filters);
+      const { csv } = await agent.exportCSV(req.company.id, filters);
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader(
         "Content-Disposition",
@@ -963,7 +1061,7 @@ app.get("/api/export", authMiddleware, async (req, res) => {
     }
 
     if (format === "zoho") {
-      const { filePath } = await agent.exportZoho(req.user.id, filters);
+      const { filePath } = await agent.exportZoho(req.company.id, filters);
       return res.download(filePath, `${prefix}_zoho_bills.xlsx`, (err) => {
         if (err) console.error("Zoho download error", err);
         fs.unlink(filePath, () => {});
@@ -971,7 +1069,7 @@ app.get("/api/export", authMiddleware, async (req, res) => {
     }
 
     if (format === "quickbooks" || format === "qb") {
-      const { csv } = await agent.exportQuickBooks(req.user.id, filters);
+      const { csv } = await agent.exportQuickBooks(req.company.id, filters);
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader(
         "Content-Disposition",
@@ -981,7 +1079,7 @@ app.get("/api/export", authMiddleware, async (req, res) => {
     }
 
     if (format === "pdf") {
-      const { filePath } = await agent.exportPDF(req.user.id, filters);
+      const { filePath } = await agent.exportPDF(req.company.id, filters);
       return res.download(filePath, `${prefix}.pdf`, (err) => {
         if (err) console.error("PDF download error", err);
         fs.unlink(filePath, () => {});
@@ -990,7 +1088,7 @@ app.get("/api/export", authMiddleware, async (req, res) => {
 
     if (format === "html" || format === "report") {
       const reportFile = await agent.generateHTMLReport(
-        req.user.id,
+        req.company.id,
         filters.clientId,
         undefined,
         filters
@@ -1007,7 +1105,7 @@ app.get("/api/export", authMiddleware, async (req, res) => {
 
     // Default: excel
     const file = await agent.saveToExcel(
-      req.user.id,
+      req.company.id,
       filters.clientId,
       undefined,
       filters
@@ -1024,7 +1122,7 @@ app.get("/api/export", authMiddleware, async (req, res) => {
 });
 
 // Generate HTML report
-app.get("/api/report", authMiddleware, async (req, res) => {
+app.get("/api/report", authMiddleware, companyContext, requireCompanyPermission("invoices", "export"), async (req, res) => {
 
   try {
     if (rejectInvalidExportDocumentType(req, res)) return;
@@ -1032,7 +1130,7 @@ app.get("/api/report", authMiddleware, async (req, res) => {
     const filters = getExportFilters(req.query);
 
     const reportFile = await agent.generateHTMLReport(
-      req.user.id,
+      req.company.id,
       filters.clientId,
       undefined,
       filters
@@ -1056,11 +1154,11 @@ app.get("/api/report", authMiddleware, async (req, res) => {
 });
 
 // Clear all data
-app.post('/api/clear', authMiddleware, async (req, res) => {
+app.post('/api/clear', authMiddleware, companyContext, requireCompanyPermission("invoices", "delete"), async (req, res) => {
 
   try {
 
-    await agent.clear(req.user.id);
+    await agent.clear(req.company.id);
 
     res.json({
       success: true,

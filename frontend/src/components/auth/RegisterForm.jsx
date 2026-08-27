@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   User,
   Building2,
+  Briefcase,
   Mail,
   Lock,
   Eye,
@@ -22,6 +23,10 @@ import { COUNTRIES, getCountryByName } from "../../constants/countries";
 
 const registerSchema = z
   .object({
+    accountType: z.enum(["COMPANY", "FREELANCER"], {
+      required_error: "Please choose an account type",
+    }),
+
     fullName: z.string().min(3, "Full name is required"),
 
     company: z.string().optional(),
@@ -62,7 +67,18 @@ const registerSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
-  });
+  })
+  // A Company account owns a workspace and needs a name for it. A
+  // Freelancer owns no workspace of their own (they manage companies
+  // that invite them in), so the field doesn't apply — see
+  // services/authService.js's register() for the matching backend rule.
+  .refine(
+    (data) => data.accountType !== "COMPANY" || !!data.company?.trim(),
+    {
+      message: "Company name is required for a Company account.",
+      path: ["company"],
+    }
+  );
 
 export default function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -72,14 +88,18 @@ export default function RegisterForm() {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(registerSchema),
+    defaultValues: { accountType: "COMPANY" },
   });
 
   const password = watch("password") || "";
   const selectedCountryName = watch("country") || "";
   const selectedCountry = getCountryByName(selectedCountryName);
+  const accountType = watch("accountType");
+  const isCompany = accountType === "COMPANY";
 
   const strength = () => {
     let score = 0;
@@ -101,8 +121,9 @@ export default function RegisterForm() {
       const country = getCountryByName(data.country);
 
       const response = await api.post("/auth/register", {
+        account_type: data.accountType,
         name: data.fullName,
-        company_name: data.company,
+        company_name: data.accountType === "COMPANY" ? data.company : null,
         email: data.email,
         password: data.password,
         country: data.country,
@@ -127,6 +148,60 @@ export default function RegisterForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+
+      {/* Account Type */}
+
+      <div>
+
+        <label className="mb-2 block text-sm font-medium">
+          Account Type
+        </label>
+
+        <div className="grid grid-cols-2 gap-3">
+
+          <button
+            type="button"
+            onClick={() => setValue("accountType", "COMPANY", { shouldValidate: true })}
+            aria-pressed={isCompany}
+            className={`flex flex-col items-start gap-1 rounded-xl border px-4 py-3 text-left transition-colors ${
+              isCompany
+                ? "border-indigo-500 bg-indigo-500/10"
+                : "border-slate-700 bg-slate-900 hover:border-slate-600"
+            }`}
+          >
+            <Building2 size={20} className={isCompany ? "text-indigo-400" : "text-slate-500"} />
+            <span className="font-medium">Company</span>
+            <span className="text-xs text-slate-400">
+              Owns and manages its own data
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setValue("accountType", "FREELANCER", { shouldValidate: true })}
+            aria-pressed={!isCompany}
+            className={`flex flex-col items-start gap-1 rounded-xl border px-4 py-3 text-left transition-colors ${
+              !isCompany
+                ? "border-indigo-500 bg-indigo-500/10"
+                : "border-slate-700 bg-slate-900 hover:border-slate-600"
+            }`}
+          >
+            <Briefcase size={20} className={!isCompany ? "text-indigo-400" : "text-slate-500"} />
+            <span className="font-medium">Freelancer</span>
+            <span className="text-xs text-slate-400">
+              Manages other companies' books
+            </span>
+          </button>
+
+        </div>
+
+        {errors.accountType && (
+          <p className="mt-2 text-sm text-red-400">
+            {errors.accountType.message}
+          </p>
+        )}
+
+      </div>
 
       {/* Full Name */}
 
@@ -156,27 +231,36 @@ export default function RegisterForm() {
 
       </div>
 
-      {/* Company */}
+      {/* Company — only meaningful for a Company account; a Freelancer
+          owns no workspace of their own, so this doesn't apply to them. */}
 
-      <div>
+      {isCompany && (
+        <div>
 
-        <label className="mb-2 block text-sm font-medium">
-          Company (Optional)
-        </label>
+          <label className="mb-2 block text-sm font-medium">
+            Company Name
+          </label>
 
-        <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4 transition-colors focus-within:border-indigo-500">
+          <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-4 transition-colors focus-within:border-indigo-500">
 
-          <Building2 size={20} className="text-slate-500" />
+            <Building2 size={20} className="text-slate-500" />
 
-          <input
-            {...register("company")}
-            placeholder="Acme Trading LLC"
-            className="w-full bg-transparent px-4 py-4 outline-none"
-          />
+            <input
+              {...register("company")}
+              placeholder="Acme Trading LLC"
+              className="w-full bg-transparent px-4 py-4 outline-none"
+            />
+
+          </div>
+
+          {errors.company && (
+            <p className="mt-2 text-sm text-red-400">
+              {errors.company.message}
+            </p>
+          )}
 
         </div>
-
-      </div>
+      )}
 
       {/* Country */}
 

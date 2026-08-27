@@ -14,6 +14,7 @@ function formatUser(row) {
     role: row.role || "customer",
     plan: row.plan || "starter",
     status: row.status || "ACTIVE",
+    account_type: row.account_type || null,
     created_at: row.created_at,
     deleted_at: row.deleted_at || null,
   };
@@ -32,9 +33,10 @@ class UserRepository {
         password,
         role,
         plan,
-        status
+        status,
+        account_type
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const [result] = await db.execute(sql, [
@@ -48,6 +50,7 @@ class UserRepository {
       user.role || "customer",
       user.plan || "FREE",
       user.status || "ACTIVE",
+      user.account_type,
     ]);
 
     return result.insertId;
@@ -67,6 +70,7 @@ class UserRepository {
         role,
         plan,
         status,
+        account_type,
         created_at,
         deleted_at
       FROM users

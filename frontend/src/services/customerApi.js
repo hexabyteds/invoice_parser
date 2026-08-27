@@ -1,71 +1,74 @@
 import api from "./api";
 
-const clientApi = {
-  // Get all clients
+const customerApi = {
+  // Get all customers
   getAll: async () => {
-    const { data } = await api.get("/clients");
+    const { data } = await api.get("/customers");
     return data;
   },
 
-  // Get single client
+  // Get single customer
   get: async (id) => {
-  
-    const { data } = await api.get(`/clients/${id}`);
- 
+
+    const { data } = await api.get(`/customers/${id}`);
+
     return data;
   },
 
-  // Create client
-  create: async (client) => {
+  // Create customer
+  create: async (customer) => {
     try {
- 
-  
-      
-      const response = await api.post("/clients", client);
-  
-      
-  
+
+
+
+      const response = await api.post("/customers", customer);
+
+
+
       return response.data;
-  
+
     } catch (error) {
-  
-  
-  
+
+
+
       throw error;
     }
   },
 
-  // Update client
-  update: async (id, client) => {
-    const { data } = await api.put(`/clients/${id}`, client);
+  // Update customer
+  update: async (id, customer) => {
+    const { data } = await api.put(`/customers/${id}`, customer);
     return data;
   },
 
-  // Activate / deactivate client
+  // Activate / deactivate customer
   updateStatus: async (id, status) => {
-    const { data } = await api.patch(`/clients/${id}/status`, { status });
+    const { data } = await api.patch(`/customers/${id}/status`, { status });
     return data;
   },
 
-  // Delete client
+  // Delete customer
   delete: async (id) => {
-    const { data } = await api.delete(`/clients/${id}`);
+    const { data } = await api.delete(`/customers/${id}`);
     return data;
   },
 
-  // Get client invoices
+  // Get customer invoices
+  // NOTE: the ?client_id= query param name is a frozen external wire
+  // contract with the invoice/upload/export/analytics endpoints — do not
+  // rename it even though the underlying DB column is now customer_id.
   getInvoices: async (clientId) => {
     const { data } = await api.get(`/invoices?client_id=${clientId}`);
     return data;
   },
 
-  // Get client statistics
+  // Get customer statistics
   getStats: async (clientId) => {
     const { data } = await api.get(`/stats?client_id=${clientId}`);
     return data;
   },
 
-// Download client excel
+// Download customer excel
 downloadExcel: async (clientId) => {
 
   const response = await api.get(
@@ -85,4 +88,4 @@ downloadExcel: async (clientId) => {
   },
 };
 
-export default clientApi;
+export default customerApi;

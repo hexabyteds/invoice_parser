@@ -76,7 +76,7 @@ export default function PricingCard({ plan, yearly = false }) {
 
   const features = [
     `${formatLimit(plan.invoice_limit)} invoices`,
-    `${formatLimit(plan.client_limit)} clients`,
+    `${formatLimit(plan.customer_limit)} customers`,
     // `${formatLimit(plan.user_limit)} user${
     //   plan.user_limit === 1 ? "" : "s"
     // }`,

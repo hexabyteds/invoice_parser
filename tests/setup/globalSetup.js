@@ -41,7 +41,7 @@ module.exports = async function globalSetup() {
   // checkout/webhook tests can resolve a plan without hitting real Stripe.
   await admin.query(
     `INSERT INTO plans
-      (name, slug, monthly_price, yearly_price, invoice_limit, client_limit, user_limit, storage_limit, ocr_limit, api_access, active, stripe_price_id_monthly, stripe_price_id_yearly)
+      (name, slug, monthly_price, yearly_price, invoice_limit, customer_limit, user_limit, storage_limit, ocr_limit, api_access, active, stripe_price_id_monthly, stripe_price_id_yearly)
      VALUES
       ('Free', 'free', 0, 0, 5, 2, 1, 50, 5, 0, 1, NULL, NULL),
       ('Starter', 'starter', 19, 190, 100, 25, 1, 500, 100, 0, 1, 'price_test_starter_monthly', 'price_test_starter_yearly'),
@@ -52,26 +52,52 @@ module.exports = async function globalSetup() {
     `SELECT id FROM plans WHERE slug = 'free' LIMIT 1`
   );
 
+  // Account-type-aware limits (migrations 0021/0024) — mirrors the seeded
+  // Free plan's own customer_limit(2)/invoice_limit(5) above exactly for
+  // COMPANY (existing tests assert those two numbers directly), adding
+  // suppliers (never capped before this feature) and, for FREELANCER, the
+  // companies-per-account cap this feature introduces.
+  await admin.query(
+    `INSERT INTO plan_limits (plan_id, account_type, companies_limit, customers_limit, suppliers_limit, invoices_limit)
+     VALUES
+      (?, 'COMPANY', NULL, 2, 3, 5),
+      (?, 'FREELANCER', 2, 2, 3, 5)`,
+    [freePlan.id, freePlan.id]
+  );
+
   const adminPasswordHash = await bcrypt.hash(
     process.env.QA_ADMIN_PASSWORD,
     10
   );
 
   const [adminResult] = await admin.query(
-    `INSERT INTO users (name, email, password, role, plan, status, plan_id)
-     VALUES (?, ?, ?, 'admin', 'FREE', 'ACTIVE', ?)`,
+    `INSERT INTO users (name, email, password, role, plan, status, plan_id, account_type)
+     VALUES (?, ?, ?, 'admin', 'FREE', 'ACTIVE', ?, 'COMPANY')`,
     ["QA Admin", process.env.QA_ADMIN_EMAIL, adminPasswordHash, freePlan.id]
   );
 
-  await admin.query(
-    `INSERT INTO subscriptions (user_id, plan_id, status, billing_cycle, price, starts_at)
-     VALUES (?, ?, 'active', 'monthly', 0, NOW())`,
-    [adminResult.insertId, freePlan.id]
+  // A workspace of its own, same as any real COMPANY signup — subscriptions
+  // and usage_stats are company-scoped (migrations 0016-0017) and require it.
+  const [companyResult] = await admin.query(
+    `INSERT INTO companies (name, owner_user_id, status) VALUES (?, ?, 'ACTIVE')`,
+    ["QA Admin Co", adminResult.insertId]
   );
 
   await admin.query(
-    `INSERT INTO usage_stats (user_id) VALUES (?)`,
-    [adminResult.insertId]
+    `INSERT INTO company_memberships (company_id, user_id, role, status, accepted_at)
+     VALUES (?, ?, 'OWNER', 'ACTIVE', NOW())`,
+    [companyResult.insertId, adminResult.insertId]
+  );
+
+  await admin.query(
+    `INSERT INTO subscriptions (user_id, company_id, plan_id, status, billing_cycle, price, starts_at)
+     VALUES (?, ?, ?, 'active', 'monthly', 0, NOW())`,
+    [adminResult.insertId, companyResult.insertId, freePlan.id]
+  );
+
+  await admin.query(
+    `INSERT INTO usage_stats (user_id, company_id) VALUES (?, ?)`,
+    [adminResult.insertId, companyResult.insertId]
   );
 
   await admin.end();

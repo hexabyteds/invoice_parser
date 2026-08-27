@@ -15,6 +15,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../hooks/useTheme";
 import { useAuth } from "../../context/AuthContext";
+import CompanySwitcher from "./CompanySwitcher";
 
 export default function Topbar({
     toggleSidebar,
@@ -219,6 +220,8 @@ export default function Topbar({
         ============================ */}
 
             <div className="flex items-center gap-3">
+
+                <CompanySwitcher />
 
                 {/* Dark Mode */}
 

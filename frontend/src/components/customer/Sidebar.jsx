@@ -15,6 +15,7 @@ import {
   FileSpreadsheet,
   Gauge,
   CreditCard,
+  Truck,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -25,9 +26,14 @@ const menuItems = [
     path: "/dashboard",
   },
   {
-    title: "Clients",
+    title: "Customers",
     icon: FolderOpen,
-    path: "/dashboard/clients",
+    path: "/dashboard/customers",
+  },
+  {
+    title: "Suppliers",
+    icon: Truck,
+    path: "/dashboard/suppliers",
   },
   {
     title: "Quick Upload Documents",

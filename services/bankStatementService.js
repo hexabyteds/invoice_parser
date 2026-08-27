@@ -21,16 +21,16 @@ class BankStatementService {
     // IMAGE
     // =========================
 
-    async processImage(imagePath, userId, clientId, sourceFilePath = imagePath) {
+    async processImage(imagePath, userId, companyId, clientId, sourceFilePath = imagePath) {
 
         // Reserve OCR quota atomically before Gemini — same pool/limit as
         // invoices (real Gemini page cost), refunded on failure below.
-        await usageService.reserveOCRPages(userId, 1);
+        await usageService.reserveOCRPages(companyId, 1);
 
         const result = await bankStatementExtractionService.extractImage(imagePath);
 
         if (!result.success) {
-            await usageService.decrementOCR(userId, 1);
+            await usageService.decrementOCR(companyId, 1);
 
             return {
                 status: "error",
@@ -42,6 +42,7 @@ class BankStatementService {
 
         const statementId = await bankStatementRepository.create({
             userId,
+            companyId,
             clientId,
             originalFilename: sourceFilePath ? sourceFilePath.split("/").pop() : null,
             imagePath: storedPath,
@@ -54,9 +55,9 @@ class BankStatementService {
 
         // No plan limit gates bank statements yet — a simple increment on
         // successful creation, no reservation/refund dance needed.
-        await usageService.incrementBankStatements(userId);
+        await usageService.incrementBankStatements(companyId);
 
-        const bankStatement = await bankStatementRepository.findById(statementId, userId);
+        const bankStatement = await bankStatementRepository.findById(statementId, companyId);
 
         return {
             status: "success",
@@ -69,25 +70,25 @@ class BankStatementService {
     // PDF
     // =========================
 
-    async processPDF(pdfPath, userId, clientId, sourceFilePath = pdfPath) {
+    async processPDF(pdfPath, userId, companyId, clientId, sourceFilePath = pdfPath) {
 
         const pageCount = await pdfService.getPageCount(pdfPath);
 
         // Reserve the maximum possible OCR usage before Gemini processing;
         // failed chunks are refunded below, mirroring free-invoice-agent.js.
-        await usageService.reserveOCRPages(userId, pageCount);
+        await usageService.reserveOCRPages(companyId, pageCount);
 
         let result;
 
         try {
             result = await bankStatementExtractionService.extractPDF(pdfPath);
         } catch (err) {
-            await usageService.decrementOCR(userId, pageCount);
+            await usageService.decrementOCR(companyId, pageCount);
             throw err;
         }
 
         if (!result.success) {
-            await usageService.decrementOCR(userId, pageCount);
+            await usageService.decrementOCR(companyId, pageCount);
 
             return {
                 status: "error",
@@ -116,7 +117,7 @@ class BankStatementService {
         failedPages = Math.min(failedPages, pageCount);
 
         if (failedPages > 0) {
-            await usageService.decrementOCR(userId, failedPages);
+            await usageService.decrementOCR(companyId, failedPages);
         }
 
         const storedPath = toStoredSourcePath(sourceFilePath);
@@ -126,6 +127,7 @@ class BankStatementService {
         try {
             statementId = await bankStatementRepository.create({
                 userId,
+                companyId,
                 clientId,
                 originalFilename: sourceFilePath ? sourceFilePath.split("/").pop() : null,
                 imagePath: storedPath,
@@ -136,7 +138,7 @@ class BankStatementService {
 
             await bankStatementTransactionRepository.createMany(statementId, result.transactions);
 
-            await usageService.incrementBankStatements(userId);
+            await usageService.incrementBankStatements(companyId);
 
         } catch (err) {
             // Extraction succeeded but persistence failed — OCR stays
@@ -145,7 +147,7 @@ class BankStatementService {
             throw err;
         }
 
-        const bankStatement = await bankStatementRepository.findById(statementId, userId);
+        const bankStatement = await bankStatementRepository.findById(statementId, companyId);
 
         return {
             status: "success",
@@ -166,13 +168,13 @@ class BankStatementService {
     // READ
     // =========================
 
-    async getById(id, userId) {
-        return await bankStatementRepository.findById(id, userId);
+    async getById(id, companyId) {
+        return await bankStatementRepository.findById(id, companyId);
     }
 
-    async getSourcePath(id, userId) {
+    async getSourcePath(id, companyId) {
 
-        const statement = await bankStatementRepository.findById(id, userId);
+        const statement = await bankStatementRepository.findById(id, companyId);
 
         if (!statement?.imagePath) {
             return null;
@@ -190,9 +192,9 @@ class BankStatementService {
         };
     }
 
-    async getTransactions(statementId, userId, filters = {}) {
+    async getTransactions(statementId, companyId, filters = {}) {
 
-        const statement = await bankStatementRepository.findById(statementId, userId);
+        const statement = await bankStatementRepository.findById(statementId, companyId);
 
         if (!statement) {
             return null;
@@ -202,13 +204,13 @@ class BankStatementService {
         const pageSize = Math.min(200, Math.max(1, Number(filters.pageSize) || 50));
 
         const [transactions, total] = await Promise.all([
-            bankStatementTransactionRepository.findByStatement(statementId, userId, {
+            bankStatementTransactionRepository.findByStatement(statementId, companyId, {
                 ...filters,
                 page,
                 pageSize
             }),
 
-            bankStatementTransactionRepository.countByStatement(statementId, userId, filters)
+            bankStatementTransactionRepository.countByStatement(statementId, companyId, filters)
         ]);
 
         return {
@@ -226,9 +228,9 @@ class BankStatementService {
     // UPDATE / DELETE
     // =========================
 
-    async update(id, userId, data) {
+    async update(id, companyId, data) {
 
-        const existing = await bankStatementRepository.findById(id, userId);
+        const existing = await bankStatementRepository.findById(id, companyId);
 
         if (!existing) {
             return null;
@@ -266,24 +268,24 @@ class BankStatementService {
             closingBalance: data.closingBalance ?? existing.closingBalance
         };
 
-        await bankStatementRepository.update(id, userId, merged);
+        await bankStatementRepository.update(id, companyId, merged);
 
-        return await bankStatementRepository.findById(id, userId);
+        return await bankStatementRepository.findById(id, companyId);
     }
 
-    async deleteById(id, userId) {
+    async deleteById(id, companyId) {
 
-        const existing = await bankStatementRepository.findById(id, userId);
+        const existing = await bankStatementRepository.findById(id, companyId);
 
         if (!existing) {
             return false;
         }
 
         // Transactions cascade via ON DELETE CASCADE.
-        const removed = await bankStatementRepository.deleteById(id, userId);
+        const removed = await bankStatementRepository.deleteById(id, companyId);
 
         if (removed > 0) {
-            await usageService.decrementBankStatements(userId);
+            await usageService.decrementBankStatements(companyId);
 
             // Same storage-quota-never-released gap as invoice deletion —
             // reclaim the file and its bytes now (see deleteStoredFileAndGetSize
@@ -293,7 +295,7 @@ class BankStatementService {
                     await deleteStoredFileAndGetSize(existing.imagePath);
 
                 if (freedBytes > 0) {
-                    await usageService.removeStorage(userId, freedBytes);
+                    await usageService.removeStorage(companyId, freedBytes);
                 }
             }
         }

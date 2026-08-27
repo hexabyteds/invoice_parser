@@ -14,9 +14,9 @@ function calcDelta(current, previous) {
 
 class DashboardService {
 
-    async getSummary(userId, clientId = null, documentType = null) {
+    async getSummary(companyId, clientId = null, documentType = null) {
 
-        const s = await dashboardRepository.getSummary(userId, clientId, documentType);
+        const s = await dashboardRepository.getSummary(companyId, clientId, documentType);
 
         const summary = {
             totalInvoices: {
@@ -53,32 +53,32 @@ class DashboardService {
         return summary;
     }
 
-    async getMonthly(userId, clientId = null) {
-        return await dashboardRepository.getMonthly(userId, 12, clientId);
+    async getMonthly(companyId, clientId = null) {
+        return await dashboardRepository.getMonthly(companyId, 12, clientId);
     }
 
-    async getTopClients(userId) {
-        return await dashboardRepository.getTopClients(userId, 10);
+    async getTopClients(companyId) {
+        return await dashboardRepository.getTopClients(companyId, 10);
     }
 
-    async getConfidenceDistribution(userId, clientId = null) {
-        return await dashboardRepository.getConfidenceDistribution(userId, clientId);
+    async getConfidenceDistribution(companyId, clientId = null) {
+        return await dashboardRepository.getConfidenceDistribution(companyId, clientId);
     }
 
-    async getQuality(userId, clientId = null) {
-        return await dashboardRepository.getQuality(userId, clientId);
+    async getQuality(companyId, clientId = null) {
+        return await dashboardRepository.getQuality(companyId, clientId);
     }
 
-    async getClientAnalytics(userId) {
-        return await dashboardRepository.getClientAnalytics(userId);
+    async getClientAnalytics(companyId) {
+        return await dashboardRepository.getClientAnalytics(companyId);
     }
 
-    async getActivity(userId) {
-        return await dashboardRepository.getActivity(userId, 15);
+    async getActivity(companyId) {
+        return await dashboardRepository.getActivity(companyId, 15);
     }
 
-    async getDocumentTypeCounts(userId, clientId = null) {
-        return await dashboardRepository.getDocumentTypeCounts(userId, clientId);
+    async getDocumentTypeCounts(companyId, clientId = null) {
+        return await dashboardRepository.getDocumentTypeCounts(companyId, clientId);
     }
 }
 

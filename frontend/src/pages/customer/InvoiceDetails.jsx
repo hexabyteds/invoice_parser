@@ -224,8 +224,12 @@ export default function InvoiceDetails() {
 
                 <tr className="border-b">
                   <StaticCell
-                    label="Client"
-                    value={invoice.client_company_name || invoice.client_name}
+                    label={invoice.document_type === "bill" ? "Supplier" : "Client"}
+                    value={
+                      invoice.client_company_name ||
+                      invoice.supplier_company_name ||
+                      invoice.client_name
+                    }
                   />
                   <StaticCell label="TRN Number" value={invoice.trn || "-"} isLast />
                 </tr>

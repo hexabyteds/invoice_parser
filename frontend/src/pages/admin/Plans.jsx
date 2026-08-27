@@ -112,7 +112,7 @@ export default function Plans() {
                 <th className="px-4 py-4 text-left font-medium">Monthly</th>
                 <th className="px-4 py-4 text-left font-medium">Yearly</th>
                 <th className="px-4 py-4 text-left font-medium">Invoices</th>
-                <th className="px-4 py-4 text-left font-medium">Clients</th>
+                <th className="px-4 py-4 text-left font-medium">Customers</th>
                 <th className="px-4 py-4 text-left font-medium">Users</th>
                 <th className="px-4 py-4 text-left font-medium">Status</th>
                 <th className="px-4 py-4 text-left font-medium">Featured</th>
@@ -159,7 +159,7 @@ export default function Plans() {
                     </td>
 
                     <td className="px-4 py-5 text-slate-700">
-                      {plan.client_limit}
+                      {plan.customer_limit}
                     </td>
 
                     <td className="px-4 py-5 text-slate-700">

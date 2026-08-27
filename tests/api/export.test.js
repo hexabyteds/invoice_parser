@@ -7,10 +7,27 @@ const { samplePngBuffer } = require("../helpers/fixtures");
 
 async function createClient(token) {
   const res = await request(app)
-    .post("/api/clients")
+    .post("/api/customers")
     .set(authed(token))
     .send({ company_name: "Export Client" });
-  return res.body.client.id;
+  return res.body.customer.id;
+}
+
+// A Bill's party is a supplier (invoices.supplier_id), not a customer —
+// see invoiceRepository.create().
+async function createSupplier(token) {
+  const res = await request(app)
+    .post("/api/suppliers")
+    .set(authed(token))
+    .send({
+      company_name: "Export Supplier",
+      email: "vendor@example.test",
+      phone: "1234567890",
+      billing_country: "AE",
+      billing_city: "Dubai",
+      trn: "100000000000000",
+    });
+  return res.body.supplier.id;
 }
 
 async function uploadOne(token, clientId, overrides = {}, documentType) {
@@ -149,8 +166,9 @@ describe("Export filtered by document_type", () => {
   it("only exports invoices matching the requested document type", async () => {
     const { token } = await registerAndLogin();
     const clientId = await createClient(token);
+    const supplierId = await createSupplier(token);
     await uploadOne(token, clientId, { invoiceNo: "SUP-1" }, "supplier_invoice");
-    await uploadOne(token, clientId, { invoiceNo: "BILL-1" }, "bill");
+    await uploadOne(token, supplierId, { invoiceNo: "BILL-1" }, "bill");
 
     const supplierRes = await request(app)
       .get("/api/export?format=csv&document_type=supplier_invoice")
@@ -169,27 +187,31 @@ describe("Export filtered by document_type", () => {
     expect(billRes.text).not.toContain("SUP-1");
   });
 
-  it("combines client and document_type filters (ABC + Bill only)", async () => {
+  it("combines client and document_type filters (ABC + Invoice only)", async () => {
     const { token } = await registerAndLogin();
     const clientAbc = await createClient(token);
     const clientOther = await request(app)
-      .post("/api/clients")
+      .post("/api/customers")
       .set(authed(token))
       .send({ company_name: "Other Client" });
-    const otherClientId = clientOther.body.client.id;
+    const otherClientId = clientOther.body.customer.id;
+    // A Bill's party is a supplier, so it's never matched by a customer
+    // client_id filter — included here to prove the document_type half of
+    // the AND still excludes it even though nothing else would.
+    const supplierId = await createSupplier(token);
 
-    await uploadOne(token, clientAbc, { invoiceNo: "ABC-BILL" }, "bill");
+    await uploadOne(token, supplierId, { invoiceNo: "ABC-BILL" }, "bill");
     await uploadOne(token, clientAbc, { invoiceNo: "ABC-SUPPLIER" }, "supplier_invoice");
-    await uploadOne(token, otherClientId, { invoiceNo: "OTHER-BILL" }, "bill");
+    await uploadOne(token, otherClientId, { invoiceNo: "OTHER-SUPPLIER" }, "supplier_invoice");
 
     const res = await request(app)
-      .get(`/api/export?format=csv&client_id=${clientAbc}&document_type=bill`)
+      .get(`/api/export?format=csv&client_id=${clientAbc}&document_type=supplier_invoice`)
       .set(authed(token));
 
     expect(res.status).toBe(200);
-    expect(res.text).toContain("ABC-BILL");
-    expect(res.text).not.toContain("ABC-SUPPLIER");
-    expect(res.text).not.toContain("OTHER-BILL");
+    expect(res.text).toContain("ABC-SUPPLIER");
+    expect(res.text).not.toContain("ABC-BILL");
+    expect(res.text).not.toContain("OTHER-SUPPLIER");
   });
 
   it("rejects an invalid document_type on export", async () => {

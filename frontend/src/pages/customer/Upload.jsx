@@ -7,10 +7,11 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { uploadInvoice } from "../../services/invoiceApi";
-import clientApi from "../../services/clientApi";
+import customerApi from "../../services/customerApi";
+import supplierApi from "../../services/supplierApi";
 import { useParams, useNavigate } from "react-router-dom";
 import { DOCUMENT_TYPES, documentTypeLabel } from "../../utils/documentTypes";
-import { isClientActive } from "../../utils/clientStatus";
+import { isPartyActive } from "../../utils/clientStatus";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
 const MAX_FILE_SIZE_MB = 15;
@@ -46,16 +47,22 @@ export default function Upload() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [clients, setClients] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [clientId, setClientId] = useState(routeClientId || "");
   const [documentType, setDocumentType] = useState("");
 
   // When opened from Client Details, client is locked
   const isClientLocked = Boolean(routeClientId);
+  const isBill = documentType === "bill";
+  // A Bill's counterparty is a vendor, not a customer — matches how the
+  // backend picks customer_id vs supplier_id (see invoiceRepository.create).
+  const parties = isBill ? suppliers : clients;
+  const partyNoun = isBill ? "supplier" : "customer";
 
-  const selectedClient = clients.find(
+  const selectedClient = parties.find(
     (c) => String(c.id) === String(clientId)
   );
-  const selectedClientInactive = Boolean(selectedClient) && !isClientActive(selectedClient.status);
+  const selectedClientInactive = Boolean(selectedClient) && !isPartyActive(selectedClient.status);
 
   const acceptFile = (candidate) => {
     const validationError = validateFile(candidate);
@@ -89,6 +96,7 @@ export default function Upload() {
 
   useEffect(() => {
     loadClients();
+    loadSuppliers();
   }, []);
 
   // Keep clientId in sync if route changes
@@ -98,10 +106,28 @@ export default function Upload() {
     }
   }, [routeClientId]);
 
+  // Switching Document Type between Bill and everything else swaps which
+  // list the id belongs to (supplier vs customer) — a leftover id from the
+  // other list would be silently wrong, so clear it. A locked route
+  // (isClientLocked) always refers to a customer, so it never offers Bill.
+  useEffect(() => {
+    if (!isClientLocked) {
+      setClientId("");
+    }
+  }, [isBill]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadClients = async () => {
     try {
-      const res = await clientApi.getAll();
-      setClients(res.clients || []);
+      const res = await customerApi.getAll();
+      setClients(res.customers || []);
+    } catch (err) {
+     }
+  };
+
+  const loadSuppliers = async () => {
+    try {
+      const res = await supplierApi.getAll();
+      setSuppliers(res.suppliers || []);
     } catch (err) {
      }
   };
@@ -113,13 +139,13 @@ export default function Upload() {
     }
 
     if (!clientId) {
-      setError("Please select a client.");
+      setError(`Please select a ${partyNoun}.`);
       return;
     }
 
     if (selectedClientInactive) {
       setError(
-        "This client is inactive. Please activate the client before adding documents."
+        `This ${partyNoun} is inactive. Please activate the ${partyNoun} before adding documents.`
       );
       return;
     }
@@ -145,7 +171,7 @@ export default function Upload() {
         toast.success(`Successfully uploaded ${response.data.totalInvoices} invoices.`);
 
         if (isClientLocked) {
-          navigate(`/dashboard/clients/${clientId}`);
+          navigate(`/dashboard/customers/${clientId}`);
         }
       } else if (response.data.bankStatement) {
         setResult(response.data);
@@ -154,7 +180,7 @@ export default function Upload() {
         );
 
         if (isClientLocked) {
-          navigate(`/dashboard/clients/${clientId}`);
+          navigate(`/dashboard/customers/${clientId}`);
         }
       } else {
         setResult(response.data);
@@ -187,44 +213,6 @@ export default function Upload() {
 
         <div className="mb-8">
           <label className="block mb-2 text-sm font-semibold text-slate-900">
-            {isClientLocked ? "Client" : "Select Client"}
-          </label>
-
-          <select
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            disabled={isClientLocked}
-            className="w-full rounded-xl border p-3 bg-white text-slate-900 disabled:bg-slate-100"
-          >
-            <option value="">Select Client</option>
-
-            {clients.map((client) => (
-              <option
-                key={client.id}
-                value={client.id}
-                disabled={!isClientActive(client.status)}
-              >
-                {client.company_name}
-                {!isClientActive(client.status) ? " (Inactive)" : ""}
-              </option>
-            ))}
-          </select>
-
-          {isClientLocked && !selectedClientInactive && (
-            <p className="text-sm text-slate-500 mt-2">
-              Client is already selected from Client Details.
-            </p>
-          )}
-
-          {selectedClientInactive && (
-            <div className="mt-3 rounded-xl bg-red-50 text-red-600 p-3 text-sm">
-              This client is inactive. Please activate the client before adding documents.
-            </div>
-          )}
-        </div>
-
-        <div className="mb-8">
-          <label className="block mb-2 text-sm font-semibold text-slate-900">
             Document Type
           </label>
 
@@ -235,7 +223,9 @@ export default function Upload() {
           >
             <option value="">Select Document Type</option>
 
-            {DOCUMENT_TYPES.map((type) => (
+            {DOCUMENT_TYPES.filter(
+              (type) => !isClientLocked || type.value !== "bill"
+            ).map((type) => (
               <option key={type.value} value={type.value}>
                 {type.label}
               </option>
@@ -245,6 +235,44 @@ export default function Upload() {
           <p className="text-sm text-slate-500 mt-2">
             Select whether this document is a supplier invoice, a bill, or a bank statement.
           </p>
+        </div>
+
+        <div className="mb-8">
+          <label className="block mb-2 text-sm font-semibold text-slate-900">
+            {isClientLocked ? "Customer" : isBill ? "Select Supplier" : "Select Customer"}
+          </label>
+
+          <select
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            disabled={isClientLocked}
+            className="w-full rounded-xl border p-3 bg-white text-slate-900 disabled:bg-slate-100"
+          >
+            <option value="">{isBill ? "Select Supplier" : "Select Customer"}</option>
+
+            {parties.map((party) => (
+              <option
+                key={party.id}
+                value={party.id}
+                disabled={!isPartyActive(party.status)}
+              >
+                {party.company_name}
+                {!isPartyActive(party.status) ? " (Inactive)" : ""}
+              </option>
+            ))}
+          </select>
+
+          {isClientLocked && !selectedClientInactive && (
+            <p className="text-sm text-slate-500 mt-2">
+              Customer is already selected from Customer Details.
+            </p>
+          )}
+
+          {selectedClientInactive && (
+            <div className="mt-3 rounded-xl bg-red-50 text-red-600 p-3 text-sm">
+              This {partyNoun} is inactive. Please activate the {partyNoun} before adding documents.
+            </div>
+          )}
         </div>
 
         <div
@@ -415,7 +443,7 @@ export default function Upload() {
           </div>
 
           <div>
-            <label className="text-slate-500">Client</label>
+            <label className="text-slate-500">{isBill ? "Supplier" : "Customer"}</label>
             <p className="font-semibold text-slate-900">
               {result.invoice?.clientName || selectedClient?.company_name}
             </p>

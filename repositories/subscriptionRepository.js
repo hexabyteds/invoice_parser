@@ -50,7 +50,7 @@ class SubscriptionRepository {
   // Current Subscription
   // ===========================
 
-  async getActiveSubscription(userId) {
+  async getActiveSubscription(companyId) {
     const [rows] = await db.execute(
       `
       SELECT
@@ -58,7 +58,38 @@ class SubscriptionRepository {
           p.name,
           p.slug,
           p.invoice_limit,
-          p.client_limit,
+          p.customer_limit,
+          p.user_limit,
+          p.storage_limit,
+          p.ocr_limit,
+          p.api_access,
+          p.priority_support
+      FROM subscriptions s
+      INNER JOIN plans p
+          ON s.plan_id = p.id
+      WHERE
+          s.company_id = ?
+      AND s.status = 'active'
+      LIMIT 1
+      `,
+      [companyId]
+    );
+
+    return rows[0] || null;
+  }
+
+  // A Freelancer's own account-level plan — company_id IS NULL identifies
+  // it (vs a Company's own per-company row). Same shape as
+  // getActiveSubscription so callers can treat both interchangeably.
+  async getActiveSubscriptionForUser(userId) {
+    const [rows] = await db.execute(
+      `
+      SELECT
+          s.*,
+          p.name,
+          p.slug,
+          p.invoice_limit,
+          p.customer_limit,
           p.user_limit,
           p.storage_limit,
           p.ocr_limit,
@@ -69,6 +100,7 @@ class SubscriptionRepository {
           ON s.plan_id = p.id
       WHERE
           s.user_id = ?
+      AND s.company_id IS NULL
       AND s.status = 'active'
       LIMIT 1
       `,
@@ -78,7 +110,7 @@ class SubscriptionRepository {
     return rows[0] || null;
   }
 
-  async getSubscriptionHistory(userId) {
+  async getSubscriptionHistory(companyId) {
     const [rows] = await db.execute(
       `
       SELECT
@@ -88,7 +120,26 @@ class SubscriptionRepository {
       FROM subscriptions s
       INNER JOIN plans p
           ON s.plan_id = p.id
-      WHERE s.user_id = ?
+      WHERE s.company_id = ?
+      ORDER BY s.created_at DESC
+      `,
+      [companyId]
+    );
+
+    return rows;
+  }
+
+  async getSubscriptionHistoryForUser(userId) {
+    const [rows] = await db.execute(
+      `
+      SELECT
+          s.*,
+          p.name,
+          p.slug
+      FROM subscriptions s
+      INNER JOIN plans p
+          ON s.plan_id = p.id
+      WHERE s.user_id = ? AND s.company_id IS NULL
       ORDER BY s.created_at DESC
       `,
       [userId]
@@ -101,12 +152,42 @@ class SubscriptionRepository {
   // Create Subscription
   // ===========================
 
+  // A subscription belongs to EITHER a company (company_id set — a
+  // Company account's own plan) OR a Freelancer's account level
+  // (company_id NULL, data.user_id required — see migration 0023). For the
+  // company case, user_id is resolved from the company's own owner (not
+  // from the caller) purely to satisfy the column's NOT NULL-in-spirit
+  // attribution; it is never used to look the row back up. For the
+  // freelancer case, the caller must pass user_id directly since there's
+  // no company row to derive it from.
   async createSubscription(data) {
+    let userId = data.user_id || null;
+
+    if (data.company_id) {
+      const [[company]] = await db.execute(
+        `SELECT owner_user_id FROM companies WHERE id = ? LIMIT 1`,
+        [data.company_id]
+      );
+
+      if (!company) {
+        throw new Error(
+          `Cannot create a subscription: company ${data.company_id} not found.`
+        );
+      }
+
+      userId = company.owner_user_id;
+    } else if (!userId) {
+      throw new Error(
+        "Cannot create a subscription: either company_id or user_id is required."
+      );
+    }
+
     const [result] = await db.execute(
       `
       INSERT INTO subscriptions
       (
         user_id,
+        company_id,
         plan_id,
         status,
         billing_cycle,
@@ -116,10 +197,11 @@ class SubscriptionRepository {
         next_billing
       )
       VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?)
+      (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
-        data.user_id,
+        userId,
+        data.company_id || null,
         data.plan_id,
         data.status,
         data.billing_cycle,
@@ -214,27 +296,27 @@ class SubscriptionRepository {
   // Usage Statistics
   // ===========================
 
-  async getInvoiceCount(userId) {
+  async getInvoiceCount(companyId) {
     const [[row]] = await db.execute(
       `
       SELECT COUNT(*) total
       FROM invoices
-      WHERE user_id=?
+      WHERE company_id=?
       `,
-      [userId]
+      [companyId]
     );
 
     return Number(row.total);
   }
 
-  async getClientCount(userId) {
+  async getClientCount(companyId) {
     const [[row]] = await db.execute(
       `
       SELECT COUNT(*) total
-      FROM clients
-      WHERE user_id=?
+      FROM customers
+      WHERE company_id=?
       `,
-      [userId]
+      [companyId]
     );
 
     return Number(row.total);
@@ -243,27 +325,27 @@ class SubscriptionRepository {
   // invoices has no file_size/ocr_status columns — storage and OCR usage
   // are tracked in usage_stats (maintained by usageService on every
   // upload), not derivable per-invoice. Read from there instead.
-  async getStorageUsed(userId) {
+  async getStorageUsed(companyId) {
     const [[row]] = await db.execute(
       `
       SELECT storage_used total
       FROM usage_stats
-      WHERE user_id=?
+      WHERE company_id=?
       `,
-      [userId]
+      [companyId]
     );
 
     return Number(row?.total || 0);
   }
 
-  async getOCRUsed(userId) {
+  async getOCRUsed(companyId) {
     const [[row]] = await db.execute(
       `
       SELECT ocr_pages_used total
       FROM usage_stats
-      WHERE user_id=?
+      WHERE company_id=?
       `,
-      [userId]
+      [companyId]
     );
 
     return Number(row?.total || 0);
@@ -279,6 +361,7 @@ class SubscriptionRepository {
       SELECT
           s.id,
           s.user_id,
+          s.company_id,
           s.plan_id,
           s.status,
           s.billing_cycle,
@@ -400,6 +483,12 @@ class SubscriptionRepository {
   // status changes on the same subscription) rather than expire+insert —
   // that pattern is reserved for genuinely new subscriptions, so we don't
   // spam a fresh history row on every billing-cycle webhook.
+  // data.companyId is required — subscriptions.company_id is NOT NULL, and
+  // the INSERT path below used to omit it entirely, so every genuinely new
+  // Stripe subscription (as opposed to a renewal/update of one already
+  // seen) crashed the webhook. data.userId is kept for the row's own
+  // user_id column (attribution — resolved by the caller from the
+  // company's owner, same as createSubscription above).
   async upsertStripeSubscription(data) {
     const existing =
       await this.findSubscriptionByStripeSubscriptionId(
@@ -442,22 +531,35 @@ class SubscriptionRepository {
       return await this.getSubscriptionById(existing.id);
     }
 
-    // New Stripe subscription for this user — expire any other row still
-    // marked active before inserting, so a user never has two active rows.
-    await db.execute(
-      `
-      UPDATE subscriptions
-      SET status = 'expired', updated_at = NOW()
-      WHERE user_id = ? AND status = 'active'
-      `,
-      [data.userId]
-    );
+    // New Stripe subscription — expire any other row still marked active
+    // before inserting, so the target (a company, or a Freelancer's own
+    // account-level row) never has two active rows.
+    if (data.companyId) {
+      await db.execute(
+        `
+        UPDATE subscriptions
+        SET status = 'expired', updated_at = NOW()
+        WHERE company_id = ? AND status = 'active'
+        `,
+        [data.companyId]
+      );
+    } else {
+      await db.execute(
+        `
+        UPDATE subscriptions
+        SET status = 'expired', updated_at = NOW()
+        WHERE user_id = ? AND company_id IS NULL AND status = 'active'
+        `,
+        [data.userId]
+      );
+    }
 
     const [result] = await db.execute(
       `
       INSERT INTO subscriptions
       (
         user_id,
+        company_id,
         plan_id,
         status,
         billing_cycle,
@@ -471,10 +573,11 @@ class SubscriptionRepository {
         stripe_status,
         cancel_at_period_end
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.userId,
+        data.companyId,
         data.planId,
         data.status,
         data.billingCycle,

@@ -3,9 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Sparkles, ArrowUpRight, CreditCard } from "lucide-react";
 import { getUsage } from "../../services/usageApi";
 import UsageCard from "../../components/usage/UsageCard";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Usage() {
   const navigate = useNavigate();
+  const { currentCompany } = useAuth();
   const [loading, setLoading] = useState(true);
   const [usage, setUsage] = useState(null);
   const [error, setError] = useState("");
@@ -46,14 +48,20 @@ export default function Usage() {
     );
   }
 
+  const isFreelancer = usage.plan.accountType === "FREELANCER";
+
   const metrics = [
     {
       title: "Invoices",
       ...usage.usage.invoices,
     },
     {
-      title: "Clients",
-      ...usage.usage.clients,
+      title: "Customers",
+      ...usage.usage.customers,
+    },
+    {
+      title: "Suppliers",
+      ...usage.usage.suppliers,
     },
     {
       title: "OCR Pages",
@@ -68,7 +76,7 @@ export default function Usage() {
       ...usage.usage.team,
     },
   ];
-  
+
 
   return (
     <div className="space-y-8">
@@ -115,6 +123,34 @@ export default function Usage() {
           </div>
         </div>
       </div>
+
+      {isFreelancer && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">
+                Current Company
+              </p>
+              <p className="mt-1 text-xl font-bold text-slate-900">
+                {currentCompany?.companyName || "—"}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Customer/Supplier/Invoice usage below is scoped to this
+                company only — switch companies to see another's usage.
+              </p>
+            </div>
+
+            <div className="w-full sm:w-64">
+              <UsageCard
+                title="Companies"
+                used={usage.companies.used}
+                limit={usage.companies.limit}
+                remaining={usage.companies.remaining}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
         {metrics.map((metric) => (

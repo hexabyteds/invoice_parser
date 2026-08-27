@@ -166,7 +166,8 @@ class AdminController {
       await adminService.updateCustomerPlan(
           req.params.id,
           req.body.planId,
-          req.body.billingCycle || "monthly"
+          req.body.billingCycle || "monthly",
+          req.user.id
       );
   
   res.json({

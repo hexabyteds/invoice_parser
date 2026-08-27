@@ -9,6 +9,8 @@ const { hashPassword } = require("../utils/password");
 const { fromDbStatus } = require("../utils/userStatus");
 const subscriptionService = require("./subscriptionService");
 const subscriptionRepository = require("../repositories/subscriptionRepository");
+const companyRepository = require("../repositories/companyRepository");
+const auditLogRepository = require("../repositories/auditLogRepository");
 class AdminService {
   async getDashboardStats() {
     const platform = await adminRepository.getPlatformStats();
@@ -47,8 +49,21 @@ class AdminService {
       throw new Error("Customer not found.");
     }
 
-    const clients = await adminRepository.getCustomerClients(id);
-    const invoiceStats = await adminRepository.getCustomerInvoiceStats(id);
+    // A COMPANY account owns a workspace (its data lives there, shared
+    // with its whole team); a FREELANCER owns none of its own and instead
+    // shows up as a member of other companies. Surfacing both directions
+    // is the whole point of an admin "investigate relationships" view —
+    // see the Tenancy Ledger's Phase 4.
+    const ownedCompany = await companyRepository.findByOwnerUserId(id);
+    const memberOf = await companyRepository.findMembershipsForUser(id);
+
+    const team = ownedCompany
+      ? await companyRepository.findMembersForCompany(ownedCompany.id)
+      : [];
+
+    const companyId = ownedCompany?.id || null;
+    const clients = await adminRepository.getCustomerClients(companyId);
+    const invoiceStats = await adminRepository.getCustomerInvoiceStats(companyId);
 
     return {
       customer: formatCustomer({
@@ -57,6 +72,35 @@ class AdminService {
         invoice_count: invoiceStats.invoice_count,
         invoice_total: invoiceStats.invoice_total,
       }),
+      company: ownedCompany && {
+        id: ownedCompany.id,
+        name: ownedCompany.name,
+        status: ownedCompany.status,
+        team: team
+          .filter((m) => m.role !== "OWNER")
+          .map((m) => ({
+            membership_id: m.id,
+            user_id: m.user_id,
+            name: m.name,
+            email: m.email,
+            role: m.role,
+            status: m.status,
+            permissions: m.permissions,
+            invited_at: m.invited_at,
+            accepted_at: m.accepted_at,
+            removed_at: m.removed_at,
+          })),
+      },
+      memberOf: memberOf.map((m) => ({
+        membership_id: m.id,
+        company_id: m.company_id,
+        company_name: m.company_name,
+        company_status: m.company_status,
+        role: m.role,
+        status: m.status,
+        invited_at: m.invited_at,
+        accepted_at: m.accepted_at,
+      })),
       clients: clients.map((client) => ({
         id: client.id,
         company_name: client.company_name,
@@ -139,7 +183,7 @@ class AdminService {
   //   return "Subscription plan updated successfully.";
   // }
 
-  async updateCustomerPlan(userId, planId, billingCycle = "monthly") {
+  async updateCustomerPlan(userId, planId, billingCycle = "monthly", adminUserId = null) {
 
     const customer =
         await adminRepository.getCustomerById(userId);
@@ -148,12 +192,32 @@ class AdminService {
         throw new Error("Customer not found.");
     }
 
+    const company = await companyRepository.findByOwnerUserId(userId);
+
+    if (!company) {
+        throw new Error("This customer does not own a company.");
+    }
+
     const subscription =
         await subscriptionService.changePlan(
-            userId,
+            company.id,
             planId,
             billingCycle
         );
+
+    // subscriptionService.changePlan already logs a "plan_changed" event
+    // attributed to the company owner — this second entry distinguishes
+    // that it was an admin-initiated override (spec's Admin event category).
+    try {
+        await auditLogRepository.create({
+            userId: adminUserId,
+            companyId: company.id,
+            action: "plan_changed_by_admin",
+            module: "Admin",
+            status: "SUCCESS",
+            description: `Plan changed for "${company.name}" by Super Admin`,
+        });
+    } catch (logErr) {}
 
     return subscription;
 }
@@ -190,6 +254,7 @@ function formatSubscription(row) {
   return {
     id: row.id,
     user_id: row.user_id,
+    company_id: row.company_id,
     plan_id: row.plan_id,
     customer_name: row.customer_name,
     customer_email: row.customer_email,
@@ -220,6 +285,7 @@ function formatCustomer(row) {
     name: row.name,
     email: row.email,
     company_name: row.company_name,
+    account_type: row.account_type,
     phone: row.phone || "",
     country: row.country || "",
     plan: row.plan || "starter",

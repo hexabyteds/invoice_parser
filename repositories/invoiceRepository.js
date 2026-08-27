@@ -11,7 +11,9 @@ class InvoiceRepository {
         const sql = `
             INSERT INTO invoices (
                 user_id,
-                client_id,
+                company_id,
+                customer_id,
+                supplier_id,
                 invoice_type,
                 document_type,
                 invoice_no,
@@ -31,14 +33,23 @@ class InvoiceRepository {
                 trn,
                 image_path
             )
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `;
+
+        // A Bill's counterparty is a vendor (suppliers table), not a
+        // customer — client_id is the generic "selected party" id from the
+        // upload form; document_type decides which FK it actually belongs
+        // in. Never both, so dashboard/export joins never double-count.
+        const documentType = invoice.document_type || invoice.documentType || null;
+        const isBill = documentType === "bill";
 
         const values = [
             invoice.user_id,
-            invoice.client_id,
+            invoice.company_id,
+            isBill ? null : invoice.client_id,
+            isBill ? invoice.client_id : null,
             invoice.invoiceType,
-            invoice.document_type || invoice.documentType || null,
+            documentType,
             invoice.invoiceNo,
             invoice.clientName,
             invoice.sellerName || null,
@@ -56,16 +67,16 @@ class InvoiceRepository {
             invoice.trn,
             invoice.image_path ?? invoice.imagePath ?? null
         ];
-    
+
         const [result] = await db.execute(sql, values);
-    
+
         return result.insertId;
     }
 
-    async updateImagePath(id, userId, imagePath) {
+    async updateImagePath(id, companyId, imagePath) {
         await db.execute(
-            `UPDATE invoices SET image_path = ? WHERE id = ? AND user_id = ?`,
-            [imagePath, id, userId]
+            `UPDATE invoices SET image_path = ? WHERE id = ? AND company_id = ?`,
+            [imagePath, id, companyId]
         );
     }
 
@@ -80,16 +91,20 @@ class InvoiceRepository {
 
   return await this.mapInvoices(rows);
 
-      
+
     }
 
     // Get invoice by ID
 
-    // Get invoices of one user
-    async findByUser(userId, { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}) {
+    // Get invoices belonging to one company — every member with access to
+    // that company (owner or authorized freelancer/staff) sees the same
+    // set, since the data belongs to the company, not to whoever uploaded
+    // it. See middleware/companyContext.js for how companyId is resolved
+    // and authorized before reaching here.
+    async findByCompany(companyId, { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}) {
 
-        let sql = `SELECT * FROM invoices WHERE user_id = ?`;
-        const params = [userId];
+        let sql = `SELECT * FROM invoices WHERE company_id = ?`;
+        const params = [companyId];
 
         if (documentType) {
             sql += ` AND document_type = ?`;
@@ -114,10 +129,10 @@ class InvoiceRepository {
         return await this.mapInvoices(rows);
     }
 
-    async countByUser(userId, { documentType = null, from = null, to = null } = {}) {
+    async countByCompany(companyId, { documentType = null, from = null, to = null } = {}) {
 
-        let sql = `SELECT COUNT(*) AS total FROM invoices WHERE user_id = ?`;
-        const params = [userId];
+        let sql = `SELECT COUNT(*) AS total FROM invoices WHERE company_id = ?`;
+        const params = [companyId];
 
         if (documentType) {
             sql += ` AND document_type = ?`;
@@ -139,36 +154,42 @@ class InvoiceRepository {
         return Number(rows[0]?.total || 0);
     }
 
-    // Get invoice by ID
+    // Get invoice by ID, scoped to the company — an id alone is guessable
+    // (auto-increment), so every lookup must also prove company membership
+    // via this filter. Never trust an id from the URL on its own.
     //
-    // Joins clients to also return the actual selected-client entity's own
-    // name (client_company_name) alongside invoices.client_name (which
-    // holds the resolved Party Name — see services/partyNameService.js).
-    // The two are conceptually different: client_company_name is "whose
-    // books this document belongs to", client_name/Party Name is "the
-    // other party on the document". `invoices.*` (not `SELECT *`) avoids
-    // an `id`/`created_at`/etc. column collision with the joined table.
-    async findById(id, userId) {
+    // Joins customers/suppliers to also return the actual selected-party
+    // entity's own name (client_company_name / supplier_company_name)
+    // alongside invoices.client_name (which holds the resolved Party Name
+    // — see services/partyNameService.js). Only one of customer_id/
+    // supplier_id is ever set per row (see create()), so only one of the
+    // two joined names comes back non-null. `invoices.*` (not `SELECT *`)
+    // avoids an `id`/`created_at`/etc. column collision with the joined
+    // tables.
+    async findById(id, companyId) {
 
         const sql = `
-            SELECT invoices.*, clients.company_name AS client_company_name
+            SELECT invoices.*,
+                customers.company_name AS client_company_name,
+                suppliers.company_name AS supplier_company_name
             FROM invoices
-            LEFT JOIN clients ON clients.id = invoices.client_id
+            LEFT JOIN customers ON customers.id = invoices.customer_id
+            LEFT JOIN suppliers ON suppliers.id = invoices.supplier_id
             WHERE invoices.id = ?
-            AND invoices.user_id = ?
+            AND invoices.company_id = ?
             LIMIT 1
         `;
 
         const [rows] = await db.execute(sql, [
             id,
-            userId
+            companyId
         ]);
 
         return rows.length ? rows[0] : null;
 
     }
     // Update invoice
-    async update(id, userId, invoice) {
+    async update(id, companyId, invoice) {
 
         const sql = `
             UPDATE invoices SET
@@ -187,7 +208,7 @@ class InvoiceRepository {
                 trn = ?,
                 document_type = ?
             WHERE id = ?
-            AND user_id = ?
+            AND company_id = ?
         `;
 
         const values = [
@@ -206,7 +227,7 @@ class InvoiceRepository {
             invoice.trn ?? null,
             invoice.document_type || null,
             id,
-            userId
+            companyId
         ];
 
         const [result] = await db.execute(sql, values);
@@ -214,12 +235,12 @@ class InvoiceRepository {
         return result.affectedRows;
     }
 
-    // Delete invoice (scoped to user)
-    async deleteById(id, userId) {
+    // Delete invoice (scoped to company)
+    async deleteById(id, companyId) {
 
         const [result] = await db.execute(
-            `DELETE FROM invoices WHERE id = ? AND user_id = ?`,
-            [id, userId]
+            `DELETE FROM invoices WHERE id = ? AND company_id = ?`,
+            [id, companyId]
         );
 
         return result.affectedRows;
@@ -234,30 +255,30 @@ class InvoiceRepository {
         );
     }
 
-    // Delete all invoices of one user
-    async deleteAll(userId) {
+    // Delete all invoices of one company
+    async deleteAll(companyId) {
 
         await db.execute(
-            `DELETE FROM invoices WHERE user_id = ?`,
-            [userId]
+            `DELETE FROM invoices WHERE company_id = ?`,
+            [companyId]
         );
     }
 
-    // Source file paths for every one of a user's invoices — read before a
-    // bulk delete (deleteAll) so the caller can still clean up the files
+    // Source file paths for every one of a company's invoices — read before
+    // a bulk delete (deleteAll) so the caller can still clean up the files
     // and reclaim storage afterward, once the rows themselves are gone.
-    async findImagePathsByUser(userId) {
+    async findImagePathsByCompany(companyId) {
 
         const [rows] = await db.execute(
-            `SELECT image_path FROM invoices WHERE user_id = ? AND image_path IS NOT NULL`,
-            [userId]
+            `SELECT image_path FROM invoices WHERE company_id = ? AND image_path IS NOT NULL`,
+            [companyId]
         );
 
         return rows.map(row => row.image_path);
     }
 
     // Statistics
-    async getStatistics(userId) {
+    async getStatistics(companyId) {
 
         const [rows] = await db.execute(`
             SELECT
@@ -266,14 +287,14 @@ class InvoiceRepository {
                 SUM(total_amount) AS totalAmount,
                 SUM(vat_amount) AS totalVAT
             FROM invoices
-            WHERE user_id = ?
-        `, [userId]);
+            WHERE company_id = ?
+        `, [companyId]);
 
         return rows[0];
     }
 
 
-    async getAnalytics(userId, clientId = null) {
+    async getAnalytics(companyId, clientId = null) {
 
         let sql = `
             SELECT
@@ -288,13 +309,13 @@ class InvoiceRepository {
                     END
                 ) AS monthlyInvoices
             FROM invoices
-            WHERE user_id = ?
+            WHERE company_id = ?
         `;
 
-        const values = [userId];
+        const values = [companyId];
 
         if (clientId) {
-            sql += ` AND client_id = ?`;
+            sql += ` AND customer_id = ?`;
             values.push(clientId);
         }
 
@@ -302,10 +323,10 @@ class InvoiceRepository {
 
         return rows[0];
     }
-    async findByClient(userId, clientId, { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}) {
+    async findByClient(companyId, clientId, { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}) {
 
-        let sql = `SELECT * FROM invoices WHERE user_id = ? AND client_id = ?`;
-        const params = [userId, clientId];
+        let sql = `SELECT * FROM invoices WHERE company_id = ? AND customer_id = ?`;
+        const params = [companyId, clientId];
 
         if (documentType) {
             sql += ` AND document_type = ?`;
@@ -330,10 +351,10 @@ class InvoiceRepository {
         return await this.mapInvoices(rows);
     }
 
-    async countByClient(userId, clientId, { documentType = null, from = null, to = null } = {}) {
+    async countByClient(companyId, clientId, { documentType = null, from = null, to = null } = {}) {
 
-        let sql = `SELECT COUNT(*) AS total FROM invoices WHERE user_id = ? AND client_id = ?`;
-        const params = [userId, clientId];
+        let sql = `SELECT COUNT(*) AS total FROM invoices WHERE company_id = ? AND customer_id = ?`;
+        const params = [companyId, clientId];
 
         if (documentType) {
             sql += ` AND document_type = ?`;
@@ -356,37 +377,44 @@ class InvoiceRepository {
     }
 
     // Export filter: optional client + optional document type + optional date range on invoice_date
-    async findForExport(userId, { clientId = null, from = null, to = null, documentType = null } = {}) {
+    // Joins suppliers so exports (Zoho Bills, QuickBooks) can resolve a
+    // Bill's real Vendor Name/payment terms from the linked supplier
+    // record instead of only the OCR-extracted Party Name text.
+    async findForExport(companyId, { clientId = null, from = null, to = null, documentType = null } = {}) {
 
         let sql = `
-            SELECT *
+            SELECT invoices.*,
+                suppliers.company_name AS supplier_company_name,
+                suppliers.payment_terms AS supplier_payment_terms,
+                suppliers.trn AS supplier_trn
             FROM invoices
-            WHERE user_id = ?
+            LEFT JOIN suppliers ON suppliers.id = invoices.supplier_id
+            WHERE invoices.company_id = ?
         `;
 
-        const values = [userId];
+        const values = [companyId];
 
         if (clientId) {
-            sql += ` AND client_id = ?`;
+            sql += ` AND invoices.customer_id = ?`;
             values.push(Number(clientId));
         }
 
         if (documentType) {
-            sql += ` AND document_type = ?`;
+            sql += ` AND invoices.document_type = ?`;
             values.push(documentType);
         }
 
         if (from) {
-            sql += ` AND invoice_date >= ?`;
+            sql += ` AND invoices.invoice_date >= ?`;
             values.push(formatDate(from) || from);
         }
 
         if (to) {
-            sql += ` AND invoice_date <= ?`;
+            sql += ` AND invoices.invoice_date <= ?`;
             values.push(formatDate(to) || to);
         }
 
-        sql += ` ORDER BY invoice_date DESC, created_at DESC`;
+        sql += ` ORDER BY invoices.invoice_date DESC, invoices.created_at DESC`;
 
         const [rows] = await db.execute(sql, values);
 
@@ -394,7 +422,7 @@ class InvoiceRepository {
     }
 
 
-    async getStatisticsByClient(userId, clientId) {
+    async getStatisticsByClient(companyId, clientId) {
 
         const [rows] = await db.execute(`
             SELECT
@@ -403,10 +431,10 @@ class InvoiceRepository {
                 SUM(vat_amount) AS totalVAT,
                 COUNT(DISTINCT invoice_no) AS uniqueInvoices
             FROM invoices
-            WHERE user_id = ?
-            AND client_id = ?
-        `,[userId, clientId]);
-    
+            WHERE company_id = ?
+            AND customer_id = ?
+        `,[companyId, clientId]);
+
         return rows[0];
     }
 
@@ -438,7 +466,12 @@ class InvoiceRepository {
 
                 id: row.id,
                 userId: row.user_id,
-                clientId: row.client_id,
+                companyId: row.company_id,
+                clientId: row.customer_id,
+                supplierId: row.supplier_id,
+                supplierCompanyName: row.supplier_company_name ?? null,
+                supplierPaymentTerms: row.supplier_payment_terms ?? null,
+                supplierTrn: row.supplier_trn ?? null,
 
                 invoiceType: row.invoice_type,
                 documentType: row.document_type,

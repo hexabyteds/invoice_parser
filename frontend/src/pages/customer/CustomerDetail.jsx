@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import clientApi from "../../services/clientApi.js";
+import customerApi from "../../services/customerApi.js";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
@@ -23,15 +23,15 @@ import {
   } from "../../services/invoiceApi";
 import { formatDateDisplay } from "../../utils/formatDate";
 import { documentTypeLabel, documentTypeBadgeClass } from "../../utils/documentTypes";
-import { isClientActive, clientStatusLabel, clientStatusBadgeClass } from "../../utils/clientStatus";
+import { isPartyActive, partyStatusLabel, partyStatusBadgeClass } from "../../utils/clientStatus";
 
 const ROWS_PER_PAGE = 10;
 
-export default function ClientDetails() {
+export default function CustomerDetail() {
 
     const { id } = useParams();
 
-    const [client, setClient] = useState(null);
+    const [customer, setCustomer] = useState(null);
     const [invoices, setInvoices] = useState([]);
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
@@ -47,13 +47,13 @@ export default function ClientDetails() {
     async function handleDelete() {
         try {
             setDeleting(true);
-            await clientApi.delete(id);
-            toast.success("Client deleted.");
-            navigate("/dashboard/clients");
+            await customerApi.delete(id);
+            toast.success("Customer deleted.");
+            navigate("/dashboard/customers");
         } catch (err) {
             toast.error(
                 err.response?.data?.error ||
-                    "Could not delete client. Please try again."
+                    "Could not delete customer. Please try again."
             );
         } finally {
             setDeleting(false);
@@ -62,21 +62,21 @@ export default function ClientDetails() {
     }
 
     async function handleToggleStatus() {
-        if (!client) return;
+        if (!customer) return;
 
-        const nextStatus = isClientActive(client.status) ? "INACTIVE" : "ACTIVE";
+        const nextStatus = isPartyActive(customer.status) ? "INACTIVE" : "ACTIVE";
 
         try {
             setTogglingStatus(true);
-            const res = await clientApi.updateStatus(id, nextStatus);
-            setClient(res.client);
+            const res = await customerApi.updateStatus(id, nextStatus);
+            setCustomer(res.customer);
             toast.success(
-                nextStatus === "ACTIVE" ? "Client reactivated." : "Client deactivated."
+                nextStatus === "ACTIVE" ? "Customer reactivated." : "Customer deactivated."
             );
         } catch (err) {
             toast.error(
                 err.response?.data?.error ||
-                    "Could not update client status. Please try again."
+                    "Could not update customer status. Please try again."
             );
         } finally {
             setTogglingStatus(false);
@@ -114,19 +114,19 @@ export default function ClientDetails() {
 
         try {
 
-            const clientRes = await clientApi.get(id);
+            const customerRes = await customerApi.get(id);
             const invoiceRes = await getInvoicesByClient(id);
 
-            setClient(clientRes.client);
+            setCustomer(customerRes.customer);
             setInvoices(invoiceRes?.data?.invoices || []);
 
         } catch (err) {
 
-            setClient(null);
+            setCustomer(null);
             setInvoices([]);
             setError(
                 err.response?.data?.error ||
-                    "Could not load this client. Please try again."
+                    "Could not load this customer. Please try again."
             );
 
         } finally {
@@ -145,14 +145,14 @@ export default function ClientDetails() {
         return invoices.slice(start, start + ROWS_PER_PAGE);
     }, [invoices, safePage]);
 
-    // Client-wise Excel: /api/download-excel?client_id={id}
+    // Customer-wise Excel: /api/download-excel?client_id={id}
     async function handleDownloadExcel() {
 
         try {
 
             setDownloading(true);
 
-            const blob = await clientApi.downloadExcel(id);
+            const blob = await customerApi.downloadExcel(id);
 
             // Backend returned an error as JSON
             if (blob.type?.includes("application/json")) {
@@ -169,7 +169,7 @@ export default function ClientDetails() {
             const link = document.createElement("a");
 
             link.href = url;
-            link.download = `${client.company_name}-invoices.xlsx`;
+            link.download = `${customer.company_name}-invoices.xlsx`;
 
             document.body.appendChild(link);
 
@@ -196,21 +196,21 @@ export default function ClientDetails() {
             <div className="py-20 flex flex-col items-center justify-center">
                 <Loader2 size={36} className="animate-spin text-indigo-600" />
                 <p className="mt-4 text-slate-500">
-                    Loading client...
+                    Loading customer...
                 </p>
             </div>
         );
     }
 
-    if (error || !client) {
+    if (error || !customer) {
         return (
             <div className="py-20 flex flex-col items-center justify-center text-center">
                 <AlertCircle size={48} className="text-red-500" />
                 <h3 className="mt-4 text-xl font-semibold text-slate-900">
-                    Couldn't load client
+                    Couldn't load customer
                 </h3>
                 <p className="mt-2 text-slate-500 max-w-sm">
-                    {error || "This client no longer exists."}
+                    {error || "This customer no longer exists."}
                 </p>
                 <div className="mt-5 flex items-center gap-3">
                     <button
@@ -222,10 +222,10 @@ export default function ClientDetails() {
                     </button>
                     <button
                         type="button"
-                        onClick={() => navigate("/dashboard/clients")}
+                        onClick={() => navigate("/dashboard/customers")}
                         className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition"
                     >
-                        Back to clients
+                        Back to customers
                     </button>
                 </div>
             </div>
@@ -244,18 +244,18 @@ export default function ClientDetails() {
                         <div className="flex items-center gap-3">
                             <h1 className="text-4xl font-bold text-slate-900">
 
-                                {client.company_name}
+                                {customer.company_name}
 
                             </h1>
 
-                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${clientStatusBadgeClass(client.status)}`}>
-                                {clientStatusLabel(client.status)}
+                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${partyStatusBadgeClass(customer.status)}`}>
+                                {partyStatusLabel(customer.status)}
                             </span>
                         </div>
 
                         <p className="text-slate-500 mt-3">
 
-                            {client.contact_person}
+                            {customer.contact_person}
 
                         </p>
                     </div>
@@ -267,19 +267,19 @@ export default function ClientDetails() {
                             onClick={handleToggleStatus}
                             disabled={togglingStatus}
                             className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border transition disabled:opacity-60 ${
-                                isClientActive(client.status)
+                                isPartyActive(customer.status)
                                     ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
                                     : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                             }`}
                         >
-                            {isClientActive(client.status) ? (
+                            {isPartyActive(customer.status) ? (
                                 <PowerOff size={16} />
                             ) : (
                                 <Power size={16} />
                             )}
                             {togglingStatus
                                 ? "Updating..."
-                                : isClientActive(client.status)
+                                : isPartyActive(customer.status)
                                     ? "Deactivate"
                                     : "Activate"}
                         </button>
@@ -287,7 +287,7 @@ export default function ClientDetails() {
                         <button
                             type="button"
                             onClick={() =>
-                                navigate(`/dashboard/clients/${id}/edit`)
+                                navigate(`/dashboard/customers/${id}/edit`)
                             }
                             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition"
                         >
@@ -321,7 +321,7 @@ export default function ClientDetails() {
 
                         <p className="text-slate-900 mt-1">
 
-                            {client.email}
+                            {customer.email}
 
                         </p>
 
@@ -337,7 +337,7 @@ export default function ClientDetails() {
 
                         <p className="text-slate-900 mt-1">
 
-                            {client.phone}
+                            {customer.phone}
 
                         </p>
 
@@ -353,7 +353,7 @@ export default function ClientDetails() {
 
                         <p className="text-slate-900 mt-1">
 
-                            {client.country}
+                            {customer.country}
 
                         </p>
 
@@ -369,7 +369,7 @@ export default function ClientDetails() {
 
                         <p className="text-slate-900 mt-1">
 
-                            {client.trn}
+                            {customer.trn}
 
                         </p>
 
@@ -383,7 +383,7 @@ export default function ClientDetails() {
 
                 <div className="px-6 py-5 border-b">
                     <h2 className="text-xl font-semibold text-slate-900">
-                        Client Invoices
+                        Customer Invoices
                     </h2>
                 </div>
 
@@ -397,158 +397,11 @@ export default function ClientDetails() {
                             No documents found
                         </h3>
                         <p className="mt-2 text-slate-500">
-                            No documents for this client yet.
+                            No documents for this customer yet.
                         </p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        {/* <table className="min-w-full">
-                            <thead className="bg-slate-50 border-b">
-                                <tr>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        #
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Invoice #
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Supplier
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Type
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
-                                        Date
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
-                                        Without VAT
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
-                                        Amount
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
-                                        VAT
-                                    </th>
-                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
-                                        VAT Rate
-                                    </th>
-                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
-                                        Currency
-                                    </th>
-                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
-                                        Actions
-                                    </th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-
-                                {paginatedInvoices.map((invoice, index) => (
-
-                                        <tr
-                                            key={invoice.id}
-                                            className="border-b hover:bg-slate-50 transition"
-                                        >
-
-                                            <td className="px-6 py-5 text-slate-500">
-                                                {(safePage - 1) * ROWS_PER_PAGE + index + 1}
-                                            </td>
-
-                                            <td className="px-6 py-5 font-semibold text-slate-900">
-                                                {invoice.invoiceNo}
-                                            </td>
-
-                                            <td className="px-6 py-5 text-slate-900">
-                                                {invoice.clientName}
-                                            </td>
-
-                                            <td className="px-6 py-5">
-                                                <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${documentTypeBadgeClass(invoice.documentType)}`}>
-                                                    {documentTypeLabel(invoice.documentType)}
-                                                </span>
-                                            </td>
-
-                                            <td className="px-6 py-5 text-slate-900">
-                                                {formatDateDisplay(invoice.invoiceDate)}
-                                            </td>
-
-                                            <td className="px-6 py-5 text-right text-slate-900">
-                                                {Number(
-                                                    invoice.subtotal || 0
-                                                ).toLocaleString(undefined, {
-                                                    minimumFractionDigits: 2,
-                                                    maximumFractionDigits: 2,
-                                                })}
-                                            </td>
-
-                                            <td className="px-6 py-5 text-right font-semibold text-slate-900">
-                                                {Number(
-                                                    invoice.totalAmount
-                                                ).toLocaleString(undefined, {
-                                                    minimumFractionDigits: 2,
-                                                    maximumFractionDigits: 2,
-                                                })}
-                                            </td>
-
-                                            <td className="px-6 py-5 text-right text-slate-900">
-                                                {Number(
-                                                    invoice.vatAmount || 0
-                                                ).toLocaleString(undefined, {
-                                                    minimumFractionDigits: 2,
-                                                    maximumFractionDigits: 2,
-                                                })}
-                                            </td>
-
-                                            <td className="px-6 py-5 text-center text-slate-900">
-                                                {invoice.vatRate ? `${invoice.vatRate}%` : "-"}
-                                            </td>
-
-                                            <td className="px-6 py-5 text-center">
-                                                <span className="inline-flex px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 text-xs font-semibold">
-                                                    {invoice.currency}
-                                                </span>
-                                            </td>
-
-                                            <td className="px-6 py-5">
-                                                <div className="flex justify-center gap-2">
-                                                    <button
-                                                        onClick={() =>
-                                                            navigate(
-                                                                `/dashboard/invoices/${invoice.id}`
-                                                            )
-                                                        }
-                                                        className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition"
-                                                    >
-                                                        <Eye size={18} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() =>
-                                                            navigate(
-                                                                `/dashboard/invoices/${invoice.id}/edit`
-                                                            )
-                                                        }
-                                                        className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition"
-                                                    >
-                                                        <Pencil size={18} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() =>
-                                                            setDeleteInvoiceTarget(invoice)
-                                                        }
-                                                        className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-red-100 text-red-600 flex items-center justify-center transition"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
-                                                </div>
-                                            </td>
-
-                                        </tr>
-
-                                    ))}
-
-                            </tbody>
-
-                        </table> */}
                         <table className="min-w-full">
                             <thead className="bg-slate-50 border-b">
                                 <tr>
@@ -579,14 +432,14 @@ export default function ClientDetails() {
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
                                         Document Type
                                     </th>
-                               
+
                                     <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
                                         Currency
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
                                         Document Uploaded Date
                                     </th>
-                                   
+
                                     <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
                                         Actions
                                     </th>
@@ -642,8 +495,7 @@ export default function ClientDetails() {
                                                 {documentTypeLabel(invoice.documentType)}
                                             </span>
                                         </td>
-                                     
-                                       
+
                                         <td className="px-6 py-5 text-center">
                                             <span className="inline-flex px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-xs font-semibold">
                                                 {invoice.currency}
@@ -683,7 +535,7 @@ export default function ClientDetails() {
                                                 </button>
                                                 <button
                                                     onClick={() =>
-                                                        setDeleteTarget(invoice)
+                                                        setDeleteInvoiceTarget(invoice)
                                                     }
                                                     className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-red-100 text-red-600 flex items-center justify-center transition"
                                                 >
@@ -745,10 +597,10 @@ export default function ClientDetails() {
 
             <ConfirmDialog
                 open={confirmOpen}
-                title="Delete this client?"
+                title="Delete this customer?"
                 message={
-                    client
-                        ? `"${client.company_name}" will be permanently deleted. This cannot be undone.`
+                    customer
+                        ? `"${customer.company_name}" will be permanently deleted. This cannot be undone.`
                         : ""
                 }
                 loading={deleting}

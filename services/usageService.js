@@ -1,6 +1,10 @@
 const usageRepository = require("../repositories/usageRepository");
-const clientRepository = require("../repositories/clientRepository");
+const customerRepository = require("../repositories/customerRepository");
+const supplierRepository = require("../repositories/supplierRepository");
 const invoiceRepository = require("../repositories/invoiceRepository");
+const companyRepository = require("../repositories/companyRepository");
+const userRepository = require("../repositories/userRepository");
+const planLimitsRepository = require("../repositories/planLimitsRepository");
 const subscriptionService = require("./subscriptionService");
 
 const BYTES_PER_MB = 1024 * 1024;
@@ -9,13 +13,40 @@ function storageLimitToBytes(limitMb) {
   return Number(limitMb || 0) * BYTES_PER_MB;
 }
 
-function planFromSubscription(subscription) {
+// limit === null means Unlimited — remaining is reported as null too
+// (rather than Infinity, which doesn't survive JSON) so the frontend can
+// render an infinity glyph/"Unlimited" instead of a number.
+function remainingOf(used, limit) {
+  if (limit === null || limit === undefined) return null;
+  return Math.max(0, limit - used);
+}
+
+function metric(used, limit) {
+  return {
+    used,
+    limit: limit === undefined ? null : limit,
+    remaining: remainingOf(used, limit)
+  };
+}
+
+// Merges a subscription's plan with its account-type-aware plan_limits row
+// (see migrations/0021 + planLimitsRepository). Legacy plans predating this
+// feature (Starter/Business/Enterprise — no plan_limits row) fall back to
+// the plan's own flat customer_limit/invoice_limit columns unchanged;
+// suppliers/companies were never capped before this feature existed, so
+// they fall back to Unlimited (null) rather than inventing a number.
+// storage/OCR/team limits are untouched by this feature — always read from
+// the plan's own flat columns, same as before.
+function buildLimits(subscription, accountType, planLimits) {
   return {
     id: subscription.plan_id,
     name: subscription.name,
     slug: subscription.slug,
-    invoice_limit: subscription.invoice_limit,
-    client_limit: subscription.client_limit,
+    accountType,
+    invoice_limit: planLimits ? planLimits.invoices_limit : subscription.invoice_limit,
+    customer_limit: planLimits ? planLimits.customers_limit : subscription.customer_limit,
+    supplier_limit: planLimits ? planLimits.suppliers_limit : null,
+    companies_limit: planLimits ? planLimits.companies_limit : null,
     ocr_limit: subscription.ocr_limit,
     storage_limit: subscription.storage_limit,
     user_limit: subscription.user_limit,
@@ -28,108 +59,137 @@ class UsageService {
   // the atomic reserve* methods below, which must NOT go through getUsage's
   // reconciliation (see reserveInvoiceSlot for why that combination is
   // unsafe under concurrency).
-  async getPlanLimits(userId) {
+  //
+  // Account-type-aware (spec's "Critical Architecture Rule"): a Company
+  // account's own company always resolves against that company's own
+  // subscription + plan_limits(COMPANY). A Freelancer-owned company
+  // resolves against the Freelancer's own account-level subscription +
+  // plan_limits(FREELANCER) instead — the plan tier is the Freelancer's,
+  // applied uniformly to every company they own; only the *usage* stays
+  // per-company (this company's own usage_stats row).
+  async getPlanLimits(companyId) {
+
+    const { subscription, accountType } =
+      await subscriptionService.resolveSubscriptionForCompany(companyId);
+
+    const planLimits = await planLimitsRepository.getForPlanAndAccountType(
+      subscription.plan_id,
+      accountType
+    );
+
+    return buildLimits(subscription, accountType, planLimits);
+
+  }
+
+  // The Freelancer's own plan limits, resolved directly from their user id
+  // — used to gate company creation (there's no company yet at that point)
+  // and to render the account-level "Companies: X/Y" usage indicator.
+  async getFreelancerLimits(userId) {
 
     let subscription;
 
     try {
-      subscription = await subscriptionService.getCurrentSubscription(userId);
+      subscription = await subscriptionService.getCurrentSubscriptionForUser(userId);
     } catch (error) {
       if (error.message === "No active subscription found.") {
-        subscription = await subscriptionService.createFreeSubscription(userId);
+        subscription = await subscriptionService.createFreeSubscriptionForUser(userId);
       } else {
         throw error;
       }
     }
 
-    return planFromSubscription(subscription);
+    const planLimits = await planLimitsRepository.getForPlanAndAccountType(
+      subscription.plan_id,
+      "FREELANCER"
+    );
+
+    return buildLimits(subscription, "FREELANCER", planLimits);
 
   }
 
-  async getUsage(userId) {
+  async getUsage(companyId) {
 
-    let usage = await usageRepository.getByUserId(userId);
+    let usage = await usageRepository.getByCompanyId(companyId);
 
     // Create usage record automatically if missing
     if (!usage) {
-      await usageRepository.create(userId);
-      usage = await usageRepository.getByUserId(userId);
+      await usageRepository.create(companyId);
+      usage = await usageRepository.getByCompanyId(companyId);
     }
 
-    const plan = await this.getPlanLimits(userId);
+    const plan = await this.getPlanLimits(companyId);
 
-    const actualClients = await clientRepository.countByUser(userId);
-    const actualInvoices = await invoiceRepository.countByUser(userId);
+    const actualCustomers = await customerRepository.countByCompany(companyId);
+    const actualSuppliers = await supplierRepository.countByCompany(companyId);
+    const actualInvoices = await invoiceRepository.countByCompany(companyId);
 
-    if (usage.clients_used !== actualClients) {
-      await usageRepository.updateClients(userId, actualClients);
-      usage.clients_used = actualClients;
+    if (usage.customers_used !== actualCustomers) {
+      await usageRepository.updateCustomers(companyId, actualCustomers);
+      usage.customers_used = actualCustomers;
+    }
+
+    if (usage.suppliers_used !== actualSuppliers) {
+      await usageRepository.updateSuppliers(companyId, actualSuppliers);
+      usage.suppliers_used = actualSuppliers;
     }
 
     if (usage.invoices_used !== actualInvoices) {
-      await usageRepository.updateInvoices(userId, actualInvoices);
+      await usageRepository.updateInvoices(companyId, actualInvoices);
       usage.invoices_used = actualInvoices;
     }
 
-    return {
+    const result = {
 
       plan: {
         id: plan.id,
         name: plan.name,
-        slug: plan.slug
+        slug: plan.slug,
+        accountType: plan.accountType
       },
 
       usage: {
 
-        invoices: {
-          used: usage.invoices_used,
-          limit: plan.invoice_limit,
-          remaining: Math.max(
-            0,
-            plan.invoice_limit - usage.invoices_used
-          )
-        },
+        invoices: metric(usage.invoices_used, plan.invoice_limit),
 
-        clients: {
-          used: usage.clients_used,
-          limit: plan.client_limit,
-          remaining: Math.max(
-            0,
-            plan.client_limit - usage.clients_used
-          )
-        },
+        customers: metric(usage.customers_used, plan.customer_limit),
 
-        ocr: {
-          used: usage.ocr_pages_used,
-          limit: plan.ocr_limit,
-          remaining: Math.max(
-            0,
-            plan.ocr_limit - usage.ocr_pages_used
-          )
-        },
+        suppliers: metric(usage.suppliers_used, plan.supplier_limit),
+
+        ocr: metric(usage.ocr_pages_used, plan.ocr_limit),
 
         storage: {
           used: Number(usage.storage_used || 0),
           limit: plan.storage_limit,
-          remaining: Math.max(
-            0,
-            storageLimitToBytes(plan.storage_limit) -
-              Number(usage.storage_used || 0)
+          remaining: remainingOf(
+            Number(usage.storage_used || 0),
+            storageLimitToBytes(plan.storage_limit)
           )
         },
 
-        team: {
-          used: usage.team_members_used,
-          limit: plan.user_limit,
-          remaining: Math.max(
-            0,
-            plan.user_limit - usage.team_members_used
-          )
-        }
+        team: metric(usage.team_members_used, plan.user_limit)
 
       }
 
     };
+
+    // A Freelancer's "Companies: X/Y" is an account-level concept (not
+    // tied to whichever company is currently selected) — surfaced
+    // alongside the per-company breakdown above so the dashboard can show
+    // both without a second round trip.
+    if (plan.accountType === "FREELANCER") {
+
+      const company = await companyRepository.findById(companyId);
+      const freelancerLimits = await this.getFreelancerLimits(company.owner_user_id);
+      const accountUsage = await usageRepository.getByUserIdAccountLevel(company.owner_user_id);
+
+      result.companies = metric(
+        accountUsage?.companies_used || 0,
+        freelancerLimits.companies_limit
+      );
+
+    }
+
+    return result;
 
   }
 
@@ -149,14 +209,14 @@ class UsageService {
   // other requests' reservations and letting more through than the limit
   // allows. Skipping the reconciliation avoids that entirely; the atomic
   // UPDATE below is the only thing that needs to see the live row.
-  async reserveInvoiceSlot(userId) {
+  async reserveInvoiceSlot(companyId) {
 
-    await this.ensureUsageRecord(userId);
+    await this.ensureUsageRecord(companyId);
 
-    const plan = await this.getPlanLimits(userId);
+    const plan = await this.getPlanLimits(companyId);
 
     const reserved = await usageRepository.incrementInvoicesIfUnderLimit(
-      userId,
+      companyId,
       plan.invoice_limit
     );
 
@@ -168,17 +228,17 @@ class UsageService {
 
   }
 
-  async checkClientLimit(userId) {
+  async checkCustomerLimit(companyId) {
 
-    const data = await this.getUsage(userId);
+    const data = await this.getUsage(companyId);
 
     if (
-      data.usage.clients.used >=
-      data.usage.clients.limit
+      data.usage.customers.limit !== null &&
+      data.usage.customers.used >= data.usage.customers.limit
     ) {
 
       throw new Error(
-        "Client limit reached. Please upgrade your subscription."
+        "Customer limit reached. Please upgrade your subscription."
       );
 
     }
@@ -187,9 +247,9 @@ class UsageService {
 
   }
 
-  async checkStorageLimit(userId, bytes) {
+  async checkStorageLimit(companyId, bytes) {
 
-    const data = await this.getUsage(userId);
+    const data = await this.getUsage(companyId);
     const limitBytes = storageLimitToBytes(data.usage.storage.limit);
 
     if (data.usage.storage.used + bytes > limitBytes) {
@@ -202,32 +262,53 @@ class UsageService {
 
   }
 
-  // Atomically checks-and-increments in one DB call — checkClientLimit
-  // above (a separate SELECT) followed by a separate incrementClients
-  // UPDATE let concurrent client-creation requests all read the same
+  // Atomically checks-and-increments in one DB call — checkCustomerLimit
+  // above (a separate SELECT) followed by a separate incrementCustomers
+  // UPDATE let concurrent customer-creation requests all read the same
   // pre-increment count and all pass the check before any of them had
   // incremented, so N concurrent requests near the limit could all
-  // succeed and push clients_used arbitrarily past it. This is the same
+  // succeed and push customers_used arbitrarily past it. This is the same
   // race reserveInvoiceSlot/reserveOCRPages were already fixed for; the
   // client and storage paths just hadn't been given the same fix yet.
   // Callers that need to undo a successful reservation on a later failure
-  // call decrementClients to release it.
+  // call decrementCustomers to release it.
   // See reserveInvoiceSlot for why this uses getPlanLimits rather than
   // getUsage — same reconciliation-vs-reservation conflict applies here.
-  async reserveClientSlot(userId) {
+  async reserveCustomerSlot(companyId) {
 
-    await this.ensureUsageRecord(userId);
+    await this.ensureUsageRecord(companyId);
 
-    const plan = await this.getPlanLimits(userId);
+    const plan = await this.getPlanLimits(companyId);
 
-    const reserved = await usageRepository.incrementClientsIfUnderLimit(
-      userId,
-      plan.client_limit
+    const reserved = await usageRepository.incrementCustomersIfUnderLimit(
+      companyId,
+      plan.customer_limit
     );
 
     if (!reserved) {
       throw new Error(
-        "Client limit reached. Please upgrade your subscription."
+        "Customer limit reached. Please upgrade your subscription."
+      );
+    }
+
+  }
+
+  // Same atomic check-and-increment pattern as reserveCustomerSlot — no
+  // supplier quota existed before this feature.
+  async reserveSupplierSlot(companyId) {
+
+    await this.ensureUsageRecord(companyId);
+
+    const plan = await this.getPlanLimits(companyId);
+
+    const reserved = await usageRepository.incrementSuppliersIfUnderLimit(
+      companyId,
+      plan.supplier_limit
+    );
+
+    if (!reserved) {
+      throw new Error(
+        "Supplier limit reached. Please upgrade your subscription."
       );
     }
 
@@ -238,15 +319,15 @@ class UsageService {
   // pair — concurrent uploads could all read the same pre-upload
   // storage_used, all pass the check, and all add their bytes, pushing
   // storage_used past the plan's limit.
-  async reserveStorage(userId, bytes) {
+  async reserveStorage(companyId, bytes) {
 
-    await this.ensureUsageRecord(userId);
+    await this.ensureUsageRecord(companyId);
 
-    const plan = await this.getPlanLimits(userId);
+    const plan = await this.getPlanLimits(companyId);
     const limitBytes = storageLimitToBytes(plan.storage_limit);
 
     const reserved = await usageRepository.addStorageIfUnderLimit(
-      userId,
+      companyId,
       bytes,
       limitBytes
     );
@@ -269,7 +350,7 @@ class UsageService {
   // it (this is PERF-02). Folding the check and the increment into a
   // single `UPDATE ... WHERE ocr_pages_used + ? <= limit` closes that
   // window: MySQL takes a row lock for the duration of the UPDATE, so
-  // concurrent reservations for the same user are forced to execute one
+  // concurrent reservations for the same company are forced to execute one
   // at a time, and each one evaluates the limit against the row's true,
   // just-updated value rather than a stale value read earlier. Whichever
   // requests still fit end up incremented; the rest see affectedRows = 0
@@ -277,14 +358,14 @@ class UsageService {
   // explicit transaction or SELECT ... FOR UPDATE needed.
   // See reserveInvoiceSlot for why this uses getPlanLimits rather than
   // getUsage — same reconciliation-vs-reservation conflict applies here.
-  async reserveOCRPages(userId, pages = 1) {
+  async reserveOCRPages(companyId, pages = 1) {
 
-    await this.ensureUsageRecord(userId);
+    await this.ensureUsageRecord(companyId);
 
-    const plan = await this.getPlanLimits(userId);
+    const plan = await this.getPlanLimits(companyId);
 
     const reserved = await usageRepository.incrementOCRIfUnderLimit(
-      userId,
+      companyId,
       pages,
       plan.ocr_limit
     );
@@ -297,13 +378,54 @@ class UsageService {
 
   }
 
-  async ensureUsageRecord(userId) {
+  async ensureUsageRecord(companyId) {
 
-    const usage = await usageRepository.getByUserId(userId);
+    const usage = await usageRepository.getByCompanyId(companyId);
 
     if (!usage) {
-      await usageRepository.create(userId);
+      await usageRepository.create(companyId);
     }
+
+  }
+
+  async ensureAccountLevelUsageRecord(userId) {
+
+    const usage = await usageRepository.getByUserIdAccountLevel(userId);
+
+    if (!usage) {
+      await usageRepository.createAccountLevel(userId);
+    }
+
+  }
+
+  // Gates company creation for a Freelancer — atomically checks-and-
+  // increments companies_used on their own account-level usage_stats row
+  // (company_id IS NULL) in one DB call, same pattern as every other
+  // reserve* method here. Called BEFORE the company row itself is created
+  // (see companyService.createCompany); on any failure afterward,
+  // decrementCompanySlot releases the reservation.
+  async reserveCompanySlot(userId) {
+
+    await this.ensureAccountLevelUsageRecord(userId);
+
+    const limits = await this.getFreelancerLimits(userId);
+
+    const reserved = await usageRepository.incrementCompaniesIfUnderLimit(
+      userId,
+      limits.companies_limit
+    );
+
+    if (!reserved) {
+      throw new Error(
+        "Company limit reached. Please upgrade your subscription."
+      );
+    }
+
+  }
+
+  async decrementCompanySlot(userId) {
+
+    await usageRepository.decrementCompanies(userId);
 
   }
 
@@ -338,13 +460,13 @@ class UsageService {
         used: Number(row.bank_statements_used || 0)
       },
 
-      clients: {
-        used: Number(row.clients_used || 0),
-        limit: Number(row.client_limit || 0),
+      customers: {
+        used: Number(row.customers_used || 0),
+        limit: Number(row.customer_limit || 0),
         remaining: Math.max(
           0,
-          Number(row.client_limit || 0) -
-          Number(row.clients_used || 0)
+          Number(row.customer_limit || 0) -
+          Number(row.customers_used || 0)
         )
       },
 
@@ -382,64 +504,73 @@ class UsageService {
 
   }
 
-  async decrementInvoices(userId) {
+  async decrementInvoices(companyId) {
 
-    await usageRepository.decrementInvoices(userId);
+    await usageRepository.decrementInvoices(companyId);
 
   }
 
   // Bank statements consume OCR pages (reserveOCRPages/decrementOCR,
   // unchanged above) but never invoices_used/invoice_limit — this is a
   // separate, uncapped counter for admin/dashboard reporting only.
-  async incrementBankStatements(userId) {
+  async incrementBankStatements(companyId) {
 
-    await this.ensureUsageRecord(userId);
-    await usageRepository.incrementBankStatements(userId);
-
-  }
-
-  async decrementBankStatements(userId) {
-
-    await usageRepository.decrementBankStatements(userId);
+    await this.ensureUsageRecord(companyId);
+    await usageRepository.incrementBankStatements(companyId);
 
   }
 
-  async incrementClients(userId) {
+  async decrementBankStatements(companyId) {
 
-    await this.ensureUsageRecord(userId);
-    await usageRepository.incrementClients(userId);
-
-  }
-
-  async decrementClients(userId) {
-
-    await usageRepository.decrementClients(userId);
+    await usageRepository.decrementBankStatements(companyId);
 
   }
 
-  async decrementOCR(userId, pages = 1) {
+  async incrementCustomers(companyId) {
 
-    await usageRepository.decrementOCR(userId, pages);
-
-  }
-
-  async addStorage(userId, bytes) {
-
-    await this.ensureUsageRecord(userId);
-    await usageRepository.addStorage(userId, bytes);
+    await this.ensureUsageRecord(companyId);
+    await usageRepository.incrementCustomers(companyId);
 
   }
 
-  async removeStorage(userId, bytes) {
+  async decrementCustomers(companyId) {
 
-    await usageRepository.removeStorage(userId, bytes);
+    await usageRepository.decrementCustomers(companyId);
 
   }
-  async canCreateInvoice(userId) {
 
-    const data = await this.getUsage(userId);
+  async decrementSuppliers(companyId) {
 
-    if (data.usage.invoices.used >= data.usage.invoices.limit) {
+    await usageRepository.decrementSuppliers(companyId);
+
+  }
+
+  async decrementOCR(companyId, pages = 1) {
+
+    await usageRepository.decrementOCR(companyId, pages);
+
+  }
+
+  async addStorage(companyId, bytes) {
+
+    await this.ensureUsageRecord(companyId);
+    await usageRepository.addStorage(companyId, bytes);
+
+  }
+
+  async removeStorage(companyId, bytes) {
+
+    await usageRepository.removeStorage(companyId, bytes);
+
+  }
+  async canCreateInvoice(companyId) {
+
+    const data = await this.getUsage(companyId);
+
+    if (
+      data.usage.invoices.limit !== null &&
+      data.usage.invoices.used >= data.usage.invoices.limit
+    ) {
       throw new Error(
         "Invoice limit reached. Please upgrade your subscription."
       );
@@ -447,21 +578,24 @@ class UsageService {
 
     return true;
   }
-  async canCreateClient(userId) {
+  async canCreateCustomer(companyId) {
 
-    const data = await this.getUsage(userId);
+    const data = await this.getUsage(companyId);
 
-    if (data.usage.clients.used >= data.usage.clients.limit) {
+    if (
+      data.usage.customers.limit !== null &&
+      data.usage.customers.used >= data.usage.customers.limit
+    ) {
       throw new Error(
-        "Client limit reached. Please upgrade your subscription."
+        "Customer limit reached. Please upgrade your subscription."
       );
     }
 
     return true;
   }
-  async canUseOCR(userId, pages = 1) {
+  async canUseOCR(companyId, pages = 1) {
 
-    const data = await this.getUsage(userId);
+    const data = await this.getUsage(companyId);
 
     if (
       data.usage.ocr.used + pages >
@@ -474,9 +608,9 @@ class UsageService {
 
     return true;
   }
-  async canUploadStorage(userId, bytes) {
+  async canUploadStorage(companyId, bytes) {
 
-    const data = await this.getUsage(userId);
+    const data = await this.getUsage(companyId);
     const limitBytes = storageLimitToBytes(data.usage.storage.limit);
 
     if (data.usage.storage.used + bytes > limitBytes) {

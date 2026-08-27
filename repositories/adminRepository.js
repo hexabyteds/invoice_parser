@@ -64,10 +64,11 @@ class AdminRepository {
         u.name,
         u.email,
         u.company_name,
+        u.account_type,
         u.plan,
         u.status,
         u.created_at,
-        (SELECT COUNT(*) FROM clients c WHERE c.user_id = u.id) AS client_count,
+        (SELECT COUNT(*) FROM customers c WHERE c.user_id = u.id) AS client_count,
         (SELECT COUNT(*) FROM invoices i WHERE i.user_id = u.id) AS invoice_count
       FROM users u
       WHERE ${CUSTOMER_FILTER}
@@ -106,6 +107,7 @@ class AdminRepository {
         u.name,
         u.email,
         u.company_name,
+        u.account_type,
         u.plan,
         u.status,
         u.created_at,
@@ -115,7 +117,7 @@ class AdminRepository {
       FROM users u
       LEFT JOIN (
         SELECT user_id, COUNT(*) AS client_count
-        FROM clients
+        FROM customers
         GROUP BY user_id
       ) client_counts ON client_counts.user_id = u.id
       LEFT JOIN (
@@ -149,6 +151,7 @@ class AdminRepository {
         u.name,
         u.email,
         u.company_name,
+        u.account_type,
         u.phone,
         u.country,
         u.plan,
@@ -182,34 +185,44 @@ class AdminRepository {
     return rows[0] || null;
   }
 
-  async getCustomerClients(userId) {
+  // Company-scoped, not user-scoped — a COMPANY account's clients/invoices
+  // are shared with its whole team (see the Dashboard fix this mirrors),
+  // so counting only rows this specific user_id created would undercount
+  // for any company with more than one active uploader. companyId is null
+  // for a FREELANCER (who owns no company of their own) — callers get an
+  // empty result rather than a query with no filter at all.
+  async getCustomerClients(companyId) {
+    if (!companyId) return [];
+
     const [rows] = await db.execute(
       `
       SELECT
         c.*,
         COUNT(i.id) AS invoice_count
-      FROM clients c
-      LEFT JOIN invoices i ON i.client_id = c.id
-      WHERE c.user_id = ?
+      FROM customers c
+      LEFT JOIN invoices i ON i.customer_id = c.id
+      WHERE c.company_id = ?
       GROUP BY c.id
       ORDER BY c.company_name
       `,
-      [Number(userId)]
+      [Number(companyId)]
     );
 
     return rows;
   }
 
-  async getCustomerInvoiceStats(userId) {
+  async getCustomerInvoiceStats(companyId) {
+    if (!companyId) return { invoice_count: 0, invoice_total: 0 };
+
     const [[stats]] = await db.execute(
       `
       SELECT
         COUNT(*) AS invoice_count,
         COALESCE(SUM(total_amount), 0) AS invoice_total
       FROM invoices
-      WHERE user_id = ?
+      WHERE company_id = ?
       `,
-      [Number(userId)]
+      [Number(companyId)]
     );
 
     return {

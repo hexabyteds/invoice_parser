@@ -14,10 +14,40 @@ const { samplePngBuffer, samplePdfBuffer } = require("../helpers/fixtures");
 
 async function createClient(token, name = "Upload Client") {
   const res = await request(app)
-    .post("/api/clients")
+    .post("/api/customers")
     .set(authed(token))
     .send({ company_name: name });
-  return res.body.client.id;
+  return res.body.customer.id;
+}
+
+// A Bill's party is a supplier (invoices.supplier_id), not a customer —
+// see invoiceRepository.create().
+async function createSupplier(token, name = "Upload Supplier") {
+  const res = await request(app)
+    .post("/api/suppliers")
+    .set(authed(token))
+    .send({
+      company_name: name,
+      email: "vendor@example.test",
+      phone: "1234567890",
+      billing_country: "AE",
+      billing_city: "Dubai",
+      trn: "100000000000000",
+    });
+  return res.body.supplier.id;
+}
+
+// registerAndLogin() registers a COMPANY account (see tests/helpers/api.js)
+// but its response isn't enriched with companies[] the way /auth/login's
+// is — resolved directly here for the two tests below that call
+// FreeInvoiceAgent's processImage/processPDF outside of HTTP (so there's
+// no companyContext middleware to resolve it for them).
+async function ownedCompanyId(userId) {
+  const [[row]] = await pool.execute(
+    `SELECT id FROM companies WHERE owner_user_id = ? LIMIT 1`,
+    [userId]
+  );
+  return row.id;
 }
 
 function uploadImage(token, clientId, filename = "invoice.png", documentType) {
@@ -172,10 +202,10 @@ describe("Invoice document type (category)", () => {
 
   it("uploads a Bill and persists the type", async () => {
     const { token } = await registerAndLogin();
-    const clientId = await createClient(token);
+    const supplierId = await createSupplier(token);
     mockSuccessfulExtract(invoiceService);
 
-    const res = await uploadImage(token, clientId, "invoice.png", "bill");
+    const res = await uploadImage(token, supplierId, "invoice.png", "bill");
 
     expect(res.status).toBe(200);
     expect(res.body.invoice.document_type).toBe("bill");
@@ -207,12 +237,13 @@ describe("Invoice document type (category)", () => {
   it("filters the invoice list by document_type", async () => {
     const { token } = await registerAndLogin();
     const clientId = await createClient(token);
+    const supplierId = await createSupplier(token);
 
     mockSuccessfulExtract(invoiceService);
     await uploadImage(token, clientId, "supplier.png", "supplier_invoice");
 
     mockSuccessfulExtract(invoiceService);
-    await uploadImage(token, clientId, "bill.png", "bill");
+    await uploadImage(token, supplierId, "bill.png", "bill");
 
     const supplierRes = await request(app)
       .get("/api/invoices?document_type=supplier_invoice")
@@ -263,9 +294,9 @@ describe("Invoice document type (category)", () => {
 
   it("rejects an invalid document type on edit", async () => {
     const { token } = await registerAndLogin();
-    const clientId = await createClient(token);
+    const supplierId = await createSupplier(token);
     mockSuccessfulExtract(invoiceService);
-    const uploadRes = await uploadImage(token, clientId, "invoice.png", "bill");
+    const uploadRes = await uploadImage(token, supplierId, "invoice.png", "bill");
     const invoice = uploadRes.body.invoice;
 
     const res = await request(app)
@@ -704,7 +735,7 @@ describe("Concurrency — usage limits cannot be exceeded by parallel requests (
     // specifically). Give this user a generous OCR budget so the invoice
     // limit is unambiguously the constraint under test here.
     const [planResult] = await pool.execute(
-      `INSERT INTO plans (name, slug, invoice_limit, client_limit, ocr_limit, storage_limit, user_limit, active)
+      `INSERT INTO plans (name, slug, invoice_limit, customer_limit, ocr_limit, storage_limit, user_limit, active)
        VALUES (?, ?, 5, 100, 1000, 5000, 1, 1)`,
       [`Concurrency Test ${user.id}`, `concurrency-test-${user.id}`]
     );
@@ -713,11 +744,13 @@ describe("Concurrency — usage limits cannot be exceeded by parallel requests (
       [planResult.insertId, user.id]
     );
 
+    const companyId = await ownedCompanyId(user.id);
+
     const agent = new FreeInvoiceAgent();
     const CONCURRENCY = 10;
     const settled = await Promise.allSettled(
       Array.from({ length: CONCURRENCY }, (_, i) =>
-        agent.processImage(`/fake/path-${i}.png`, user.id, clientId)
+        agent.processImage(`/fake/path-${i}.png`, user.id, companyId, clientId)
       )
     );
 
@@ -752,11 +785,13 @@ describe("Concurrency — usage limits cannot be exceeded by parallel requests (
     const pdfPath = path.join(os.tmpdir(), `concurrency-test-${user.id}.pdf`);
     fs.writeFileSync(pdfPath, await samplePdfBuffer(3));
 
+    const companyId = await ownedCompanyId(user.id);
+
     const agent = new FreeInvoiceAgent();
     const CONCURRENCY = 5;
     const settled = await Promise.allSettled(
       Array.from({ length: CONCURRENCY }, () =>
-        agent.processPDF(pdfPath, user.id, clientId)
+        agent.processPDF(pdfPath, user.id, companyId, clientId)
       )
     );
     fs.unlinkSync(pdfPath);

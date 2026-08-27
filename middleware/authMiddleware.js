@@ -34,6 +34,7 @@ module.exports = async (req, res, next) => {
                 name,
                 email,
                 role,
+                account_type,
                 status,
                 is_active,
                 deleted_at
@@ -83,7 +84,8 @@ module.exports = async (req, res, next) => {
             id: user.id,
             name: user.name,
             email: user.email,
-            role: user.role
+            role: user.role,
+            account_type: user.account_type
         };
 
         next();

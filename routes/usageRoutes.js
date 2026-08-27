@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 
 const authMiddleware = require("../middleware/authMiddleware");
+const companyContext = require("../middleware/companyContext");
 const requireAdmin = require("../middleware/requireAdmin");
 
 const usageController = require("../controllers/usageController");
@@ -12,6 +13,7 @@ const usageController = require("../controllers/usageController");
 router.get(
     "/",
     authMiddleware,
+    companyContext,
     usageController.getMyUsage
 );
 

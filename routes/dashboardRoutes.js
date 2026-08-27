@@ -3,9 +3,11 @@ const express = require("express");
 const router = express.Router();
 
 const authMiddleware = require("../middleware/authMiddleware");
+const companyContext = require("../middleware/companyContext");
 const dashboardController = require("../controllers/dashboardController");
 
 router.use(authMiddleware);
+router.use(companyContext);
 
 router.get("/summary", (req, res) =>
     dashboardController.getSummary(req, res)

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useParams } from "react-router-dom";
 
 import Landing from "./pages/landing/Landing";
 import Price from "./pages/landing/Price";
@@ -23,9 +23,12 @@ import Settings from "./pages/customer/Settings";
 import Profile from "./pages/customer/Profile";
 import InvoiceDetails from "./pages/customer/InvoiceDetails";
 import BankStatementDetails from "./pages/customer/BankStatementDetails";
-import Clients from "./pages/customer/Clients";
-import ClientDetails from "./pages/customer/ClientDetails";
-import AddClient from "./pages/customer/AddClient";
+import Customers from "./pages/customer/Customers";
+import CustomerDetail from "./pages/customer/CustomerDetail";
+import AddCustomer from "./pages/customer/AddCustomer";
+import Suppliers from "./pages/customer/Suppliers";
+import SupplierDetail from "./pages/customer/SupplierDetail";
+import AddSupplier from "./pages/customer/AddSupplier";
 import EditInvoice from "./pages/customer/EditInvoice";
 import ExportCenter from "./pages/customer/ExportCenter";
 import Usage from "./pages/customer/Usage";
@@ -33,9 +36,10 @@ import Billing from "./pages/customer/Billing";
 import BillingReturn from "./pages/customer/BillingReturn";
 
 import AdminDashboard from "./pages/admin/Dashboard";
-import Customers from "./pages/admin/Customers";
-import CustomerDetails from "./pages/admin/CustomerDetails";
+import AdminCustomers from "./pages/admin/Customers";
+import AdminCustomerDetails from "./pages/admin/CustomerDetails";
 import Companies from "./pages/admin/Companies";
+import AdminCompanyDetails from "./pages/admin/CompanyDetails";
 import Plans from "./pages/admin/Plans";
 import Subscriptions from "./pages/admin/Subscriptions";
 import Payments from "./pages/admin/Payments";
@@ -44,6 +48,18 @@ import AdminAnalytics from "./pages/admin/Analytics";
 import AdminSettings from "./pages/admin/Settings";
 import UsageDashboard from "./pages/admin/usage/UsageDashboard";
 import Features from "./components/landing/Features";
+
+// Redirects an old `/dashboard/clients/...` URL (with a dynamic :id
+// segment) to its `/dashboard/customers/...` replacement.
+function RedirectParam({ to }) {
+  const params = useParams();
+  const target = Object.entries(params).reduce(
+    (path, [key, value]) => path.replace(`:${key}`, value),
+    to
+  );
+  return <Navigate to={target} replace />;
+}
+
 function App() {
   
   return (
@@ -77,10 +93,20 @@ function App() {
           <Route path="profile" element={<Profile />} />
           <Route path="invoices/:id" element={<InvoiceDetails />} />
           <Route path="bank-statements/:id" element={<BankStatementDetails />} />
-          <Route path="clients" element={<Clients />} />
-          <Route path="clients/:id" element={<ClientDetails />} />
-          <Route path="clients/new" element={<AddClient />} />
-          <Route path="clients/:id/edit" element={<AddClient />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="customers/:id" element={<CustomerDetail />} />
+          <Route path="customers/new" element={<AddCustomer />} />
+          <Route path="customers/:id/edit" element={<AddCustomer />} />
+          {/* "Clients" was renamed to "Customers" — keep the old URLs
+              working for anyone with them bookmarked. */}
+          <Route path="clients" element={<Navigate to="/dashboard/customers" replace />} />
+          <Route path="clients/new" element={<Navigate to="/dashboard/customers/new" replace />} />
+          <Route path="clients/:id" element={<RedirectParam to="/dashboard/customers/:id" />} />
+          <Route path="clients/:id/edit" element={<RedirectParam to="/dashboard/customers/:id/edit" />} />
+          <Route path="suppliers" element={<Suppliers />} />
+          <Route path="suppliers/:id" element={<SupplierDetail />} />
+          <Route path="suppliers/new" element={<AddSupplier />} />
+          <Route path="suppliers/:id/edit" element={<AddSupplier />} />
           <Route path="upload/:clientId" element={<Upload />} />
           <Route path="export" element={<ExportCenter />} />
           <Route path="usage" element={<Usage />} />
@@ -98,9 +124,10 @@ function App() {
           }
         >
           <Route index element={<AdminDashboard />} />
-          <Route path="customers" element={<Customers />} />
-          <Route path="customers/:id" element={<CustomerDetails />} />
+          <Route path="customers" element={<AdminCustomers />} />
+          <Route path="customers/:id" element={<AdminCustomerDetails />} />
           <Route path="companies" element={<Companies />} />
+          <Route path="companies/:id" element={<AdminCompanyDetails />} />
           <Route path="plans" element={<Plans />} />
           <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="usage" element={<UsageDashboard />} />

@@ -19,11 +19,20 @@ async function registerAndLogin(overrides = {}) {
   const email = overrides.email || uniqueEmail();
   const password = overrides.password || "Password123!";
 
+  // Defaults to a COMPANY account so a test user gets its own workspace by
+  // default, matching what every test written before the tenancy model
+  // already assumes (the user owns whatever it creates). Pass
+  // account_type: "FREELANCER" explicitly for tests that need one.
+  const accountType = overrides.account_type || "COMPANY";
+
   const res = await request(app).post("/api/auth/register").send({
     name: overrides.name || "Test User",
     email,
     password,
-    company_name: overrides.company_name,
+    account_type: accountType,
+    company_name: accountType === "COMPANY"
+      ? (overrides.company_name || "Test Co")
+      : overrides.company_name,
     country: overrides.country || "Pakistan",
     country_code: overrides.country_code || "+92",
     mobile_number: overrides.mobile_number || uniqueMobileNumber(),

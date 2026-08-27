@@ -14,7 +14,7 @@ import {
   Loader2,
 } from "lucide-react";
 
-import clientApi from "../../services/clientApi";
+import customerApi from "../../services/customerApi";
 import dashboardApi from "../../services/dashboardApi";
 import { getInvoices, getInvoicesByClient } from "../../services/invoiceApi";
 import { downloadExcel, openHtmlReport } from "../../services/reportApi";
@@ -74,8 +74,8 @@ export default function Analytics() {
 
   async function loadClients() {
     try {
-      const res = await clientApi.getAll();
-      setClients(res.clients || []);
+      const res = await customerApi.getAll();
+      setClients(res.customers || []);
     } catch (err) {
       // handled by empty state
     }
@@ -218,14 +218,14 @@ export default function Analytics() {
         <div className="flex flex-col md:flex-row gap-4">
           <div className="md:w-72">
             <label className="block mb-2 text-sm font-semibold text-slate-900">
-              Select Client
+              Select Customer
             </label>
             <select
               value={clientId}
               onChange={(e) => handleClientChange(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition text-slate-900"
             >
-              <option value="">All Clients</option>
+              <option value="">All Customers</option>
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.company_name}
@@ -303,7 +303,7 @@ export default function Analytics() {
         />
         {summary?.totalClients && (
           <KpiCard
-            title="Total Clients"
+            title="Total Customers"
             value={summary.totalClients.value.toLocaleString()}
             icon={<Users size={20} />}
             color="purple"
@@ -350,7 +350,7 @@ export default function Analytics() {
               <thead className="bg-slate-50">
                 <tr>
                   <th className="text-left px-6 py-4 font-medium text-slate-900">Invoice</th>
-                  <th className="text-left px-6 py-4 font-medium text-slate-900">Client</th>
+                  <th className="text-left px-6 py-4 font-medium text-slate-900">Customer</th>
                   <th className="text-left px-6 py-4 font-medium text-slate-900">Date</th>
                   <th className="text-right px-6 py-4 font-medium text-slate-900">Amount</th>
                   <th className="text-center px-6 py-4 font-medium text-slate-900">Action</th>
