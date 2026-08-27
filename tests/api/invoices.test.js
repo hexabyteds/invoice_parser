@@ -20,6 +20,23 @@ async function createClient(token, name = "Upload Client") {
   return res.body.customer.id;
 }
 
+// A Bill's party is a supplier (invoices.supplier_id), not a customer —
+// see invoiceRepository.create().
+async function createSupplier(token, name = "Upload Supplier") {
+  const res = await request(app)
+    .post("/api/suppliers")
+    .set(authed(token))
+    .send({
+      company_name: name,
+      email: "vendor@example.test",
+      phone: "1234567890",
+      billing_country: "AE",
+      billing_city: "Dubai",
+      trn: "100000000000000",
+    });
+  return res.body.supplier.id;
+}
+
 // registerAndLogin() registers a COMPANY account (see tests/helpers/api.js)
 // but its response isn't enriched with companies[] the way /auth/login's
 // is — resolved directly here for the two tests below that call
@@ -185,10 +202,10 @@ describe("Invoice document type (category)", () => {
 
   it("uploads a Bill and persists the type", async () => {
     const { token } = await registerAndLogin();
-    const clientId = await createClient(token);
+    const supplierId = await createSupplier(token);
     mockSuccessfulExtract(invoiceService);
 
-    const res = await uploadImage(token, clientId, "invoice.png", "bill");
+    const res = await uploadImage(token, supplierId, "invoice.png", "bill");
 
     expect(res.status).toBe(200);
     expect(res.body.invoice.document_type).toBe("bill");
@@ -220,12 +237,13 @@ describe("Invoice document type (category)", () => {
   it("filters the invoice list by document_type", async () => {
     const { token } = await registerAndLogin();
     const clientId = await createClient(token);
+    const supplierId = await createSupplier(token);
 
     mockSuccessfulExtract(invoiceService);
     await uploadImage(token, clientId, "supplier.png", "supplier_invoice");
 
     mockSuccessfulExtract(invoiceService);
-    await uploadImage(token, clientId, "bill.png", "bill");
+    await uploadImage(token, supplierId, "bill.png", "bill");
 
     const supplierRes = await request(app)
       .get("/api/invoices?document_type=supplier_invoice")
@@ -276,9 +294,9 @@ describe("Invoice document type (category)", () => {
 
   it("rejects an invalid document type on edit", async () => {
     const { token } = await registerAndLogin();
-    const clientId = await createClient(token);
+    const supplierId = await createSupplier(token);
     mockSuccessfulExtract(invoiceService);
-    const uploadRes = await uploadImage(token, clientId, "invoice.png", "bill");
+    const uploadRes = await uploadImage(token, supplierId, "invoice.png", "bill");
     const invoice = uploadRes.body.invoice;
 
     const res = await request(app)

@@ -53,7 +53,8 @@ class CustomerController {
             const customer = await customerService.update(
                 req.params.id,
                 req.company.id,
-                req.body
+                req.body,
+                req.user.id
             );
 
             res.json({
@@ -142,7 +143,7 @@ class CustomerController {
 
         try {
 
-            await customerService.delete(req.params.id, req.company.id);
+            await customerService.delete(req.params.id, req.company.id, req.user.id);
 
             res.json({
                 success: true,

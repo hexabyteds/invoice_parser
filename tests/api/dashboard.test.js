@@ -19,6 +19,23 @@ async function createClient(token, name) {
   return res.body.customer.id;
 }
 
+// A Bill's party is a supplier (invoices.supplier_id), not a customer —
+// see invoiceRepository.create().
+async function createSupplier(token, name = "Dashboard Supplier") {
+  const res = await request(app)
+    .post("/api/suppliers")
+    .set(authed(token))
+    .send({
+      company_name: name,
+      email: "vendor@example.test",
+      phone: "1234567890",
+      billing_country: "AE",
+      billing_city: "Dubai",
+      trn: "100000000000000",
+    });
+  return res.body.supplier.id;
+}
+
 function uploadImage(token, clientId, documentType) {
   const req = request(app)
     .post("/api/upload")
@@ -231,6 +248,7 @@ describe("Dashboard document-type breakdown", () => {
   it("counts supplier invoices, bills, and uncategorized documents from the database", async () => {
     const { token } = await registerAndLogin();
     const clientId = await createClient(token, "Client A");
+    const supplierId = await createSupplier(token);
 
     mockSuccessfulExtract(invoiceService);
     await uploadImage(token, clientId, "supplier_invoice");
@@ -239,7 +257,7 @@ describe("Dashboard document-type breakdown", () => {
     await uploadImage(token, clientId, "supplier_invoice");
 
     mockSuccessfulExtract(invoiceService);
-    await uploadImage(token, clientId, "bill");
+    await uploadImage(token, supplierId, "bill");
 
     mockSuccessfulExtract(invoiceService);
     await uploadImage(token, clientId); // no type selected
@@ -262,12 +280,18 @@ describe("Dashboard document-type breakdown", () => {
     const { token } = await registerAndLogin();
     const clientA = await createClient(token, "Client A");
     const clientB = await createClient(token, "Client B");
+    const supplierId = await createSupplier(token);
 
     mockSuccessfulExtract(invoiceService);
-    await uploadImage(token, clientA, "bill");
+    await uploadImage(token, clientA, "supplier_invoice");
 
     mockSuccessfulExtract(invoiceService);
     await uploadImage(token, clientB, "supplier_invoice");
+
+    // A Bill belongs to a supplier, not any customer — must never appear
+    // in a customer-scoped (client_id) breakdown.
+    mockSuccessfulExtract(invoiceService);
+    await uploadImage(token, supplierId, "bill");
 
     const res = await request(app)
       .get("/api/dashboard/document-types")
@@ -275,8 +299,8 @@ describe("Dashboard document-type breakdown", () => {
       .set(authed(token));
 
     expect(res.body.counts).toEqual({
-      supplierInvoices: 0,
-      bills: 1,
+      supplierInvoices: 1,
+      bills: 0,
       bankStatements: 0,
       uncategorized: 0,
       total: 1,
@@ -286,9 +310,10 @@ describe("Dashboard document-type breakdown", () => {
   it("counts a bank statement in its own bucket, not uncategorized", async () => {
     const { token } = await registerAndLogin();
     const clientId = await createClient(token, "Client A");
+    const supplierId = await createSupplier(token);
 
     mockSuccessfulExtract(invoiceService);
-    await uploadImage(token, clientId, "bill");
+    await uploadImage(token, supplierId, "bill");
 
     mockSuccessfulExtractImage(bankStatementExtractionService);
     await request(app)
@@ -322,12 +347,13 @@ describe("Dashboard summary filtered by document_type", () => {
   it("scopes the summary KPIs to a single document type", async () => {
     const { token } = await registerAndLogin();
     const clientId = await createClient(token, "Client A");
+    const supplierId = await createSupplier(token);
 
     mockSuccessfulExtract(invoiceService, { invoice: { totalAmount: 100 } });
     await uploadImage(token, clientId, "supplier_invoice");
 
     mockSuccessfulExtract(invoiceService, { invoice: { totalAmount: 250 } });
-    await uploadImage(token, clientId, "bill");
+    await uploadImage(token, supplierId, "bill");
 
     const supplierRes = await request(app)
       .get("/api/dashboard/summary")

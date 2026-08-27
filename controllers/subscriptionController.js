@@ -1,5 +1,6 @@
 const subscriptionService = require("../services/subscriptionService");
 const companyRepository = require("../repositories/companyRepository");
+const userRepository = require("../repositories/userRepository");
 
 class SubscriptionController {
 
@@ -11,10 +12,13 @@ class SubscriptionController {
 
     try {
 
+      // A Freelancer's plan is account-level (governs every company they
+      // own uniformly — see usageService.getPlanLimits), not tied to
+      // whichever company happens to be currently selected.
       const subscription =
-        await subscriptionService.getCurrentSubscription(
-          req.company.id
-        );
+        req.user.account_type === "FREELANCER"
+          ? await subscriptionService.getCurrentSubscriptionForUser(req.user.id)
+          : await subscriptionService.getCurrentSubscription(req.company.id);
 
       res.json({
         success: true,
@@ -41,9 +45,9 @@ class SubscriptionController {
     try {
 
       const history =
-        await subscriptionService.getSubscriptionHistory(
-          req.company.id
-        );
+        req.user.account_type === "FREELANCER"
+          ? await subscriptionService.getSubscriptionHistoryForUser(req.user.id)
+          : await subscriptionService.getSubscriptionHistory(req.company.id);
 
       res.json({
         success: true,
@@ -80,25 +84,50 @@ class SubscriptionController {
 
       } = req.body;
 
-      const company = await companyRepository.findByOwnerUserId(userId);
+      const targetUser = await userRepository.findById(userId);
 
-      if (!company) {
+      if (!targetUser) {
         return res.status(400).json({
           success: false,
-          error: "This customer does not own a company."
+          error: "Customer not found."
         });
       }
 
-      const subscription =
-        await subscriptionService.changePlan(
+      // A Freelancer's plan is account-level and governs every company
+      // they own — changing it here must not go through only one of their
+      // companies (companyRepository.findByOwnerUserId only ever finds
+      // one, which was wrong for a multi-company Freelancer even before
+      // this feature).
+      let subscription;
 
-          company.id,
+      if (targetUser.account_type === "FREELANCER") {
 
-          planId,
+        subscription =
+          await subscriptionService.changePlanForUser(
+            userId,
+            planId,
+            billingCycle
+          );
 
-          billingCycle
+      } else {
 
-        );
+        const company = await companyRepository.findByOwnerUserId(userId);
+
+        if (!company) {
+          return res.status(400).json({
+            success: false,
+            error: "This customer does not own a company."
+          });
+        }
+
+        subscription =
+          await subscriptionService.changePlan(
+            company.id,
+            planId,
+            billingCycle
+          );
+
+      }
 
       res.json({
 
@@ -151,11 +180,9 @@ class SubscriptionController {
       }
 
       const subscription =
-        await subscriptionService.changePlan(
-          req.company.id,
-          planId,
-          billingCycle
-        );
+        req.user.account_type === "FREELANCER"
+          ? await subscriptionService.changePlanForUser(req.user.id, planId, billingCycle)
+          : await subscriptionService.changePlan(req.company.id, planId, billingCycle);
 
       res.json({
         success: true,
@@ -185,12 +212,10 @@ class SubscriptionController {
 
       const { planId, interval } = req.body;
 
-      const result = await subscriptionService.startCheckout(
-        req.user.id,
-        req.company.id,
-        planId,
-        interval
-      );
+      const result =
+        req.user.account_type === "FREELANCER"
+          ? await subscriptionService.startCheckoutForUser(req.user.id, planId, interval)
+          : await subscriptionService.startCheckout(req.user.id, req.company.id, planId, interval);
 
       res.json({
         success: true,
@@ -243,9 +268,9 @@ class SubscriptionController {
     try {
 
       const result =
-        await subscriptionService.cancelSubscription(
-          req.company.id
-        );
+        req.user.account_type === "FREELANCER"
+          ? await subscriptionService.cancelSubscriptionForUser(req.user.id)
+          : await subscriptionService.cancelSubscription(req.company.id);
 
       res.json({
 
@@ -280,9 +305,9 @@ class SubscriptionController {
     try {
 
       const subscription =
-        await subscriptionService.renewSubscription(
-          req.company.id
-        );
+        req.user.account_type === "FREELANCER"
+          ? await subscriptionService.renewSubscriptionForUser(req.user.id)
+          : await subscriptionService.renewSubscription(req.company.id);
 
       res.json({
 

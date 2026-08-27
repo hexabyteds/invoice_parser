@@ -8,6 +8,7 @@ import {
 import toast from "react-hot-toast";
 import { uploadInvoice } from "../../services/invoiceApi";
 import customerApi from "../../services/customerApi";
+import supplierApi from "../../services/supplierApi";
 import { useParams, useNavigate } from "react-router-dom";
 import { DOCUMENT_TYPES, documentTypeLabel } from "../../utils/documentTypes";
 import { isPartyActive } from "../../utils/clientStatus";
@@ -46,13 +47,19 @@ export default function Upload() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [clients, setClients] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [clientId, setClientId] = useState(routeClientId || "");
   const [documentType, setDocumentType] = useState("");
 
   // When opened from Client Details, client is locked
   const isClientLocked = Boolean(routeClientId);
+  const isBill = documentType === "bill";
+  // A Bill's counterparty is a vendor, not a customer — matches how the
+  // backend picks customer_id vs supplier_id (see invoiceRepository.create).
+  const parties = isBill ? suppliers : clients;
+  const partyNoun = isBill ? "supplier" : "customer";
 
-  const selectedClient = clients.find(
+  const selectedClient = parties.find(
     (c) => String(c.id) === String(clientId)
   );
   const selectedClientInactive = Boolean(selectedClient) && !isPartyActive(selectedClient.status);
@@ -89,6 +96,7 @@ export default function Upload() {
 
   useEffect(() => {
     loadClients();
+    loadSuppliers();
   }, []);
 
   // Keep clientId in sync if route changes
@@ -98,10 +106,28 @@ export default function Upload() {
     }
   }, [routeClientId]);
 
+  // Switching Document Type between Bill and everything else swaps which
+  // list the id belongs to (supplier vs customer) — a leftover id from the
+  // other list would be silently wrong, so clear it. A locked route
+  // (isClientLocked) always refers to a customer, so it never offers Bill.
+  useEffect(() => {
+    if (!isClientLocked) {
+      setClientId("");
+    }
+  }, [isBill]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadClients = async () => {
     try {
       const res = await customerApi.getAll();
       setClients(res.customers || []);
+    } catch (err) {
+     }
+  };
+
+  const loadSuppliers = async () => {
+    try {
+      const res = await supplierApi.getAll();
+      setSuppliers(res.suppliers || []);
     } catch (err) {
      }
   };
@@ -113,13 +139,13 @@ export default function Upload() {
     }
 
     if (!clientId) {
-      setError("Please select a customer.");
+      setError(`Please select a ${partyNoun}.`);
       return;
     }
 
     if (selectedClientInactive) {
       setError(
-        "This customer is inactive. Please activate the customer before adding documents."
+        `This ${partyNoun} is inactive. Please activate the ${partyNoun} before adding documents.`
       );
       return;
     }
@@ -187,7 +213,33 @@ export default function Upload() {
 
         <div className="mb-8">
           <label className="block mb-2 text-sm font-semibold text-slate-900">
-            {isClientLocked ? "Customer" : "Select Customer"}
+            Document Type
+          </label>
+
+          <select
+            value={documentType}
+            onChange={(e) => setDocumentType(e.target.value)}
+            className="w-full rounded-xl border p-3 bg-white text-slate-900"
+          >
+            <option value="">Select Document Type</option>
+
+            {DOCUMENT_TYPES.filter(
+              (type) => !isClientLocked || type.value !== "bill"
+            ).map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+
+          <p className="text-sm text-slate-500 mt-2">
+            Select whether this document is a supplier invoice, a bill, or a bank statement.
+          </p>
+        </div>
+
+        <div className="mb-8">
+          <label className="block mb-2 text-sm font-semibold text-slate-900">
+            {isClientLocked ? "Customer" : isBill ? "Select Supplier" : "Select Customer"}
           </label>
 
           <select
@@ -196,16 +248,16 @@ export default function Upload() {
             disabled={isClientLocked}
             className="w-full rounded-xl border p-3 bg-white text-slate-900 disabled:bg-slate-100"
           >
-            <option value="">Select Customer</option>
+            <option value="">{isBill ? "Select Supplier" : "Select Customer"}</option>
 
-            {clients.map((client) => (
+            {parties.map((party) => (
               <option
-                key={client.id}
-                value={client.id}
-                disabled={!isPartyActive(client.status)}
+                key={party.id}
+                value={party.id}
+                disabled={!isPartyActive(party.status)}
               >
-                {client.company_name}
-                {!isPartyActive(client.status) ? " (Inactive)" : ""}
+                {party.company_name}
+                {!isPartyActive(party.status) ? " (Inactive)" : ""}
               </option>
             ))}
           </select>
@@ -218,33 +270,9 @@ export default function Upload() {
 
           {selectedClientInactive && (
             <div className="mt-3 rounded-xl bg-red-50 text-red-600 p-3 text-sm">
-              This customer is inactive. Please activate the customer before adding documents.
+              This {partyNoun} is inactive. Please activate the {partyNoun} before adding documents.
             </div>
           )}
-        </div>
-
-        <div className="mb-8">
-          <label className="block mb-2 text-sm font-semibold text-slate-900">
-            Document Type
-          </label>
-
-          <select
-            value={documentType}
-            onChange={(e) => setDocumentType(e.target.value)}
-            className="w-full rounded-xl border p-3 bg-white text-slate-900"
-          >
-            <option value="">Select Document Type</option>
-
-            {DOCUMENT_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
-
-          <p className="text-sm text-slate-500 mt-2">
-            Select whether this document is a supplier invoice, a bill, or a bank statement.
-          </p>
         </div>
 
         <div
@@ -415,7 +443,7 @@ export default function Upload() {
           </div>
 
           <div>
-            <label className="text-slate-500">Customer</label>
+            <label className="text-slate-500">{isBill ? "Supplier" : "Customer"}</label>
             <p className="font-semibold text-slate-900">
               {result.invoice?.clientName || selectedClient?.company_name}
             </p>

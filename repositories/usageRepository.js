@@ -163,13 +163,22 @@ class UsageRepository {
 // UPDATE (under the row's write lock), not against a value read earlier by
 // the caller — so two concurrent calls for the same company can never both
 // succeed past `limit`. Returns whether the increment actually happened.
+// `limit === null` means Unlimited (see plan_limits) — `x < NULL` is
+// always unknown/false in SQL, so that case increments unconditionally
+// instead of going through the capped WHERE clause.
 async incrementInvoicesIfUnderLimit(companyId, limit) {
 
-  const [result] = await db.execute(`
-      UPDATE usage_stats
-      SET invoices_used = invoices_used + 1
-      WHERE company_id = ? AND invoices_used < ?
-  `,[companyId, limit]);
+  const [result] = limit === null
+    ? await db.execute(`
+        UPDATE usage_stats
+        SET invoices_used = invoices_used + 1
+        WHERE company_id = ?
+    `,[companyId])
+    : await db.execute(`
+        UPDATE usage_stats
+        SET invoices_used = invoices_used + 1
+        WHERE company_id = ? AND invoices_used < ?
+    `,[companyId, limit]);
 
   return result.affectedRows > 0;
 
@@ -225,11 +234,17 @@ async incrementCustomers(companyId) {
 // company can never both succeed past `limit`.
 async incrementCustomersIfUnderLimit(companyId, limit) {
 
-    const [result] = await db.execute(`
-        UPDATE usage_stats
-        SET customers_used = customers_used + 1
-        WHERE company_id = ? AND customers_used < ?
-    `,[companyId, limit]);
+    const [result] = limit === null
+        ? await db.execute(`
+            UPDATE usage_stats
+            SET customers_used = customers_used + 1
+            WHERE company_id = ?
+        `,[companyId])
+        : await db.execute(`
+            UPDATE usage_stats
+            SET customers_used = customers_used + 1
+            WHERE company_id = ? AND customers_used < ?
+        `,[companyId, limit]);
 
     return result.affectedRows > 0;
 
@@ -241,6 +256,106 @@ async decrementCustomers(companyId) {
         SET customers_used = GREATEST(customers_used-1,0)
         WHERE company_id = ?
     `,[companyId]);
+
+}
+
+// Same atomic check-and-increment pattern as incrementCustomersIfUnderLimit.
+// `limit === null` means Unlimited (see plan_limits) — increments
+// unconditionally rather than applying a numeric cap.
+async incrementSuppliersIfUnderLimit(companyId, limit) {
+
+    const [result] = limit === null
+        ? await db.execute(`
+            UPDATE usage_stats
+            SET suppliers_used = suppliers_used + 1
+            WHERE company_id = ?
+        `,[companyId])
+        : await db.execute(`
+            UPDATE usage_stats
+            SET suppliers_used = suppliers_used + 1
+            WHERE company_id = ? AND suppliers_used < ?
+        `,[companyId, limit]);
+
+    return result.affectedRows > 0;
+
+}
+
+async decrementSuppliers(companyId) {
+
+    await db.execute(`
+        UPDATE usage_stats
+        SET suppliers_used = GREATEST(suppliers_used-1,0)
+        WHERE company_id = ?
+    `,[companyId]);
+
+}
+
+async updateSuppliers(companyId, count) {
+
+    await db.execute(`
+        UPDATE usage_stats
+        SET suppliers_used = ?
+        WHERE company_id = ?
+    `,[count, companyId]);
+
+}
+
+// Freelancer account-level counter (company_id IS NULL — see migration
+// 0023/0025) — how many companies this Freelancer currently owns. Same
+// atomic check-and-increment pattern, keyed by user_id instead of
+// company_id since there's no company yet at the moment this is called
+// (this IS the check that gates creating one).
+async incrementCompaniesIfUnderLimit(userId, limit) {
+
+    const [result] = limit === null
+        ? await db.execute(`
+            UPDATE usage_stats
+            SET companies_used = companies_used + 1
+            WHERE user_id = ? AND company_id IS NULL
+        `,[userId])
+        : await db.execute(`
+            UPDATE usage_stats
+            SET companies_used = companies_used + 1
+            WHERE user_id = ? AND company_id IS NULL AND companies_used < ?
+        `,[userId, limit]);
+
+    return result.affectedRows > 0;
+
+}
+
+async decrementCompanies(userId) {
+
+    await db.execute(`
+        UPDATE usage_stats
+        SET companies_used = GREATEST(companies_used-1,0)
+        WHERE user_id = ? AND company_id IS NULL
+    `,[userId]);
+
+}
+
+async getByUserIdAccountLevel(userId) {
+
+    const [rows] = await db.execute(`
+        SELECT *
+        FROM usage_stats
+        WHERE user_id = ? AND company_id IS NULL
+        LIMIT 1
+    `,[userId]);
+
+    return rows[0] || null;
+
+}
+
+async createAccountLevel(userId) {
+
+    const [result] = await db.execute(`
+        INSERT INTO usage_stats
+        (user_id, company_id, invoices_used, bank_statements_used, customers_used,
+         suppliers_used, companies_used, ocr_pages_used, storage_used, api_calls_used, team_members_used)
+        VALUES (?, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 1)
+    `,[userId]);
+
+    return result.insertId;
 
 }
 // Same atomic check-and-increment pattern as incrementInvoicesIfUnderLimit,

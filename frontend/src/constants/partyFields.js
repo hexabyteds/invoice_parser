@@ -59,13 +59,46 @@ export const VENDOR_CLASSIFICATIONS = ["Preferred", "Approved", "Under Review", 
 
 export const PROCUREMENT_CATEGORIES = ["Direct", "Indirect", "Capital Expenditure", "Services"];
 
+export const DEPARTMENTS = [
+  "Sales",
+  "Marketing",
+  "Finance",
+  "Accounting",
+  "Procurement",
+  "Operations",
+  "Human Resources",
+  "IT",
+  "Legal",
+  "Administration",
+  "Customer Service",
+  "Management",
+  "Other",
+];
+
+export const DESIGNATIONS = [
+  "Owner",
+  "CEO",
+  "CFO",
+  "COO",
+  "Director",
+  "Manager",
+  "Supervisor",
+  "Accountant",
+  "Purchasing Officer",
+  "Sales Executive",
+  "Administrator",
+  "Coordinator",
+  "Executive",
+  "Other",
+];
+
 const CONTACT_FIELDS = [
   { name: "email", label: "Email", type: "email", required: true },
   { name: "phone", label: "Phone", type: "tel", required: true },
   { name: "mobile", label: "Mobile", type: "tel" },
   { name: "website", label: "Website", type: "text" },
-  { name: "department", label: "Department", type: "text" },
-  { name: "designation", label: "Designation", type: "text" },
+  { name: "department", label: "Department", type: "select", options: DEPARTMENTS },
+  { name: "designation", label: "Designation", type: "select", options: DESIGNATIONS },
 ];
 
 const TAX_FINANCIAL_FIELDS = [
@@ -80,10 +113,10 @@ const TAX_FINANCIAL_FIELDS = [
 
 const BILLING_ADDRESS_FIELDS = [
   { name: "billing_attention", label: "Attention", type: "text" },
-  { name: "billing_country", label: "Country", type: "text", required: true },
+  { name: "billing_country", label: "Country", type: "country", required: true },
   { name: "billing_address_line1", label: "Address Line 1", type: "text" },
   { name: "billing_address_line2", label: "Address Line 2", type: "text" },
-  { name: "billing_city", label: "City", type: "text", required: true },
+  { name: "billing_city", label: "City", type: "city", countryField: "billing_country", required: true },
   { name: "billing_state", label: "State", type: "text" },
   { name: "billing_postal_code", label: "Postal Code", type: "text" },
   { name: "billing_phone", label: "Phone", type: "tel" },
@@ -91,10 +124,10 @@ const BILLING_ADDRESS_FIELDS = [
 
 const SHIPPING_ADDRESS_FIELDS = [
   { name: "shipping_attention", label: "Attention", type: "text" },
-  { name: "shipping_country", label: "Country", type: "text" },
+  { name: "shipping_country", label: "Country", type: "country" },
   { name: "shipping_address_line1", label: "Address Line 1", type: "text" },
   { name: "shipping_address_line2", label: "Address Line 2", type: "text" },
-  { name: "shipping_city", label: "City", type: "text" },
+  { name: "shipping_city", label: "City", type: "city", countryField: "shipping_country" },
   { name: "shipping_state", label: "State", type: "text" },
   { name: "shipping_postal_code", label: "Postal Code", type: "text" },
   { name: "shipping_phone", label: "Phone", type: "tel" },

@@ -220,10 +220,10 @@ class ExportFormatsService {
                     val(formatDate(invoice.invoiceDate)), // Bill Date
                     val(formatDate(invoice.dueDate)), // Due Date
                     "", // Bill ID (Zoho internal)
-                    val(invoice.clientName), // Vendor Name
+                    val(invoice.supplierCompanyName || invoice.clientName), // Vendor Name
                     "", // Entity Discount Percent
                     "", // Payment Terms
-                    "", // Payment Terms Label
+                    val(invoice.supplierPaymentTerms), // Payment Terms Label
                     val(invoice.invoiceNo), // Bill Number
                     "", // PurchaseOrder
                     val(invoice.currency), // Currency Code
@@ -398,10 +398,10 @@ class ExportFormatsService {
                     val(formatDate(invoice.invoiceDate)),
                     val(formatDate(invoice.dueDate)),
                     "",
-                    val(invoice.clientName),
+                    val(invoice.supplierCompanyName || invoice.clientName),
                     "",
                     "",
-                    "",
+                    val(invoice.supplierPaymentTerms), // Payment Terms Label
                     val(invoice.invoiceNo),
                     "",
                     val(invoice.currency),
@@ -509,10 +509,10 @@ class ExportFormatsService {
 
                 rows.push([
                     invoice.invoiceNo || "",
-                    invoice.clientName || "",
+                    invoice.supplierCompanyName || invoice.clientName || "",
                     formatDate(invoice.invoiceDate),
                     formatDate(invoice.dueDate),
-                    "Net 30",
+                    invoice.supplierPaymentTerms || "Net 30",
                     invoice.location || "",
                     invoice.description || "",
                     item.description || "Services",

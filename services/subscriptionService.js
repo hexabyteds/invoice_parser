@@ -1,6 +1,8 @@
 const subscriptionRepository = require("../repositories/subscriptionRepository");
 const companyRepository = require("../repositories/companyRepository");
+const userRepository = require("../repositories/userRepository");
 const stripeService = require("./stripeService");
+const auditLogRepository = require("../repositories/auditLogRepository");
 
 // Stripe subscription.status -> local subscriptions.status enum.
 // The local enum predates Stripe and `getActiveSubscription` only ever
@@ -103,6 +105,46 @@ class SubscriptionService {
     return await subscriptionRepository.getActiveSubscription(companyId);
   }
 
+  // Mirrors createFreeSubscription, but for a Freelancer's own
+  // account-level plan (company_id NULL — see migration 0023) rather than
+  // a specific company's. This is what governs how many companies the
+  // Freelancer may create, and cascades as the per-company Customer/
+  // Supplier/Invoice limits for every company they own.
+  async createFreeSubscriptionForUser(userId) {
+
+    const active =
+      await subscriptionRepository.getActiveSubscriptionForUser(userId);
+
+    if (active) {
+      return active;
+    }
+
+    const freePlan =
+      await subscriptionRepository.getFreePlan();
+
+    if (!freePlan) {
+      throw new Error("Free plan not found.");
+    }
+
+    const today = new Date();
+
+    await subscriptionRepository.createSubscription({
+      company_id: null,
+      user_id: userId,
+      plan_id: freePlan.id,
+      status: "active",
+      billing_cycle: "monthly",
+      price: freePlan.monthly_price,
+      starts_at: today,
+      expires_at: null,
+      next_billing: null,
+    });
+
+    await subscriptionRepository.updateUserPlan(userId, freePlan.slug);
+
+    return await subscriptionRepository.getActiveSubscriptionForUser(userId);
+  }
+
   // =====================================================
   // Current Subscription
   // =====================================================
@@ -117,6 +159,76 @@ class SubscriptionService {
     }
 
     return subscription;
+
+  }
+
+  async getCurrentSubscriptionForUser(userId) {
+
+    const subscription =
+      await subscriptionRepository.getActiveSubscriptionForUser(userId);
+
+    if (!subscription) {
+      throw new Error("No active subscription found.");
+    }
+
+    return subscription;
+
+  }
+
+  // =====================================================
+  // Effective Subscription — the single entry point for "what plan
+  // governs this company's limits". A Company account's own company
+  // always resolves to that company's own subscription (unchanged
+  // behavior). A Freelancer-owned company resolves to the Freelancer's
+  // own account-level subscription instead — the per-company Customer/
+  // Supplier/Invoice limits still apply per-company (see plan_limits +
+  // usageService), but WHICH plan tier applies is governed by the
+  // Freelancer's own plan, not anything tied to this specific company.
+  // Auto-creates a Free subscription if none exists yet, same lazy-create
+  // fallback both callers used to do themselves.
+  // =====================================================
+
+  async resolveSubscriptionForCompany(companyId) {
+
+    const company = await companyRepository.findById(companyId);
+
+    if (!company) {
+      throw new Error(`Company ${companyId} not found.`);
+    }
+
+    const owner = await userRepository.findById(company.owner_user_id);
+    const accountType = owner?.account_type === "FREELANCER" ? "FREELANCER" : "COMPANY";
+
+    if (accountType === "FREELANCER") {
+
+      let subscription;
+
+      try {
+        subscription = await this.getCurrentSubscriptionForUser(owner.id);
+      } catch (error) {
+        if (error.message === "No active subscription found.") {
+          subscription = await this.createFreeSubscriptionForUser(owner.id);
+        } else {
+          throw error;
+        }
+      }
+
+      return { subscription, accountType };
+    }
+
+    let subscription;
+
+    try {
+      subscription = await this.getCurrentSubscription(companyId);
+    } catch (error) {
+      if (error.message === "No active subscription found.") {
+        subscription = await this.createFreeSubscription(companyId);
+      } else {
+        throw error;
+      }
+    }
+
+    return { subscription, accountType };
 
   }
 
@@ -232,7 +344,9 @@ class SubscriptionService {
 
   buildSubscription({
 
-    companyId,
+    companyId = null,
+
+    userId = null,
 
     plan,
 
@@ -249,6 +363,8 @@ class SubscriptionService {
     return {
 
       company_id: companyId,
+
+      user_id: userId,
 
       plan_id: plan.id,
 
@@ -338,12 +454,83 @@ class SubscriptionService {
       );
     }
 
+    try {
+      await auditLogRepository.create({
+        userId: company?.owner_user_id || null,
+        companyId,
+        action: "plan_changed",
+        module: "Billing",
+        status: "SUCCESS",
+        description: `Plan changed to ${plan.name} (${billingCycle})`,
+      });
+    } catch (logErr) {}
+
     // Return latest subscription
     return await subscriptionRepository.getSubscriptionById(
       subscriptionId
     );
 
   }
+
+  // Mirrors changePlan, targeting a Freelancer's own account-level
+  // subscription instead of a specific company's.
+  async changePlanForUser(userId, planId, billingCycle = "monthly") {
+
+    const currentSubscription =
+      await this.getCurrentSubscriptionForUser(userId);
+
+    const plan =
+      await this.validatePlan(planId);
+
+    if (currentSubscription.plan_id === plan.id) {
+      throw new Error(
+        `Already subscribed to ${plan.name}.`
+      );
+    }
+
+    const {
+      startsAt,
+      expiresAt,
+      nextBilling
+    } = this.calculateBillingDates(billingCycle);
+
+    await subscriptionRepository.expireSubscription(
+      currentSubscription.id
+    );
+
+    const subscription =
+      this.buildSubscription({
+        userId,
+        plan,
+        billingCycle,
+        startsAt,
+        expiresAt,
+        nextBilling
+      });
+
+    const subscriptionId =
+      await subscriptionRepository.createSubscription(
+        subscription
+      );
+
+    await subscriptionRepository.updateUserPlan(userId, plan.slug);
+
+    try {
+      await auditLogRepository.create({
+        userId,
+        action: "plan_changed",
+        module: "Billing",
+        status: "SUCCESS",
+        description: `Plan changed to ${plan.name} (${billingCycle})`,
+      });
+    } catch (logErr) {}
+
+    return await subscriptionRepository.getSubscriptionById(
+      subscriptionId
+    );
+
+  }
+
     // =====================================================
   // Cancel Subscription
   // =====================================================
@@ -352,6 +539,18 @@ class SubscriptionService {
 
     const subscription =
       await this.validateActiveSubscription(companyId);
+
+    try {
+      const company = await companyRepository.findById(companyId);
+      await auditLogRepository.create({
+        userId: company?.owner_user_id || null,
+        companyId,
+        action: "subscription_cancelled",
+        module: "Billing",
+        status: "SUCCESS",
+        description: "Subscription cancellation requested",
+      });
+    } catch (logErr) {}
 
     // Stripe-backed subscriptions retain access until the paid period
     // actually ends — Stripe is the source of truth here, so we only flag
@@ -409,6 +608,63 @@ class SubscriptionService {
     // cancelling alone left pointing at the paid plan.
     const freeSubscription =
       await this.createFreeSubscription(companyId);
+
+    return {
+      success: true,
+      message:
+        "Subscription cancelled successfully. You are now on the Free plan.",
+      subscription: freeSubscription
+    };
+
+  }
+
+  // Mirrors cancelSubscription, for a Freelancer's own account-level
+  // subscription.
+  async cancelSubscriptionForUser(userId) {
+
+    const subscription =
+      await this.getCurrentSubscriptionForUser(userId);
+
+    try {
+      await auditLogRepository.create({
+        userId,
+        action: "subscription_cancelled",
+        module: "Billing",
+        status: "SUCCESS",
+        description: "Subscription cancellation requested",
+      });
+    } catch (logErr) {}
+
+    if (subscription.stripe_subscription_id) {
+
+      const updated = await stripeService.cancelAtPeriodEnd(
+        subscription.stripe_subscription_id
+      );
+
+      const synced = await this.syncSubscriptionFromStripe(updated);
+
+      return {
+        success: true,
+        message:
+          "Your subscription will cancel at the end of the current billing period. You'll keep access until then.",
+        subscription: synced
+      };
+
+    }
+
+    const freePlan =
+      await subscriptionRepository.getFreePlan();
+
+    if (!freePlan) {
+      throw new Error("Free plan not found.");
+    }
+
+    await subscriptionRepository.cancelSubscription(
+      subscription.id
+    );
+
+    const freeSubscription =
+      await this.createFreeSubscriptionForUser(userId);
 
     return {
       success: true,
@@ -514,6 +770,90 @@ class SubscriptionService {
       priceId,
       userId,
       companyId,
+      billingScope: "company",
+      planId: plan.id,
+      successUrl: `${frontendUrl}/dashboard/billing/return?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${frontendUrl}/price?checkout=cancelled`
+    });
+
+    return {
+      updated: false,
+      url: session.url
+    };
+
+  }
+
+  // Mirrors startCheckout, for a Freelancer's own account-level plan
+  // (company_id NULL) — the checkout session carries billingScope:
+  // "freelancer" in its metadata so the webhook (syncSubscriptionFromStripe)
+  // knows to upsert the user-level row instead of falling back to one of
+  // the Freelancer's owned companies.
+  async startCheckoutForUser(userId, planId, interval) {
+
+    if (!["monthly", "yearly"].includes(interval)) {
+      throw new Error("Invalid billing interval.");
+    }
+
+    const plan = await this.validatePlan(planId);
+
+    if (plan.slug === "free") {
+      throw new Error(
+        "The Free plan doesn't require checkout — use select-plan instead."
+      );
+    }
+
+    const priceId =
+      interval === "yearly"
+        ? plan.stripe_price_id_yearly
+        : plan.stripe_price_id_monthly;
+
+    if (!priceId) {
+      throw new Error(
+        `${plan.name} is not available on the ${interval} billing interval.`
+      );
+    }
+
+    const current =
+      await subscriptionRepository.getActiveSubscriptionForUser(userId);
+
+    const currentIsLiveStripeSub =
+      current &&
+      current.stripe_subscription_id &&
+      (current.stripe_status === "active" ||
+        current.stripe_status === "trialing");
+
+    if (currentIsLiveStripeSub) {
+
+      if (current.plan_id === plan.id && current.billing_cycle === interval) {
+        throw new Error(
+          `Already subscribed to ${plan.name} (${interval}).`
+        );
+      }
+
+      const updated = await stripeService.updateSubscriptionPrice(
+        current.stripe_subscription_id,
+        priceId
+      );
+
+      const synced = await this.syncSubscriptionFromStripe(updated);
+
+      return {
+        updated: true,
+        subscription: synced
+      };
+
+    }
+
+    const customer = await this.getOrCreateStripeCustomer(userId);
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+
+    const session = await stripeService.createCheckoutSession({
+      customerId: customer.id,
+      priceId,
+      userId,
+      companyId: null,
+      billingScope: "freelancer",
       planId: plan.id,
       successUrl: `${frontendUrl}/dashboard/billing/return?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${frontendUrl}/price?checkout=cancelled`
@@ -762,25 +1102,35 @@ class SubscriptionService {
       userId = user.id;
     }
 
+    // A Freelancer's own account-level plan is never tied to any one
+    // company (checkout stamps billingScope: "freelancer" — see
+    // subscriptionService.startCheckoutForUser) — resolving a companyId
+    // for it would be wrong even if the freelancer happens to own one.
+    const isFreelancerScoped = stripeSubscription.metadata?.billingScope === "freelancer";
+
     // The subscription row belongs to a company, not the user (see
     // subscriptionRepository's module note). Checkout stamps companyId
     // into Stripe metadata (see stripeService.createCheckoutSession) so
     // most webhooks resolve it directly; a subscription created before
     // that metadata existed falls back to the userId's owned company.
-    let companyId = stripeSubscription.metadata?.companyId
-      ? Number(stripeSubscription.metadata.companyId)
-      : null;
+    let companyId = null;
 
-    if (!companyId) {
-      const company = await companyRepository.findByOwnerUserId(userId);
+    if (!isFreelancerScoped) {
+      companyId = stripeSubscription.metadata?.companyId
+        ? Number(stripeSubscription.metadata.companyId)
+        : null;
 
-      if (!company) {
-        throw new Error(
-          `No company found for Stripe customer ${stripeSubscription.customer} (user ${userId}).`
-        );
+      if (!companyId) {
+        const company = await companyRepository.findByOwnerUserId(userId);
+
+        if (!company) {
+          throw new Error(
+            `No company found for Stripe customer ${stripeSubscription.customer} (user ${userId}).`
+          );
+        }
+
+        companyId = company.id;
       }
-
-      companyId = company.id;
     }
 
     const billingCycle =
@@ -817,9 +1167,11 @@ class SubscriptionService {
 
     if (localStatus === "active") {
       await subscriptionRepository.updateUserPlan(userId, plan.slug);
-    } else {
+    } else if (isFreelancerScoped) {
       // Terminal Stripe state — Free is the floor, same fallback the
       // manual-cancel flow uses.
+      await this.createFreeSubscriptionForUser(userId);
+    } else {
       await this.createFreeSubscription(companyId);
     }
 
@@ -858,6 +1210,62 @@ class SubscriptionService {
 
     // No Stripe subscription behind this row — keep the original
     // manual-extend behavior (admin-comped plans, etc.).
+
+    let expiresAt;
+    let nextBilling;
+
+    if (subscription.billing_cycle === "monthly") {
+
+      expiresAt = this.addMonths(
+        subscription.expires_at || new Date(),
+        1
+      );
+
+      nextBilling = expiresAt;
+
+    } else if (subscription.billing_cycle === "yearly") {
+
+      expiresAt = this.addYears(
+        subscription.expires_at || new Date(),
+        1
+      );
+
+      nextBilling = expiresAt;
+
+    } else {
+
+      return subscription;
+
+    }
+
+    await subscriptionRepository.renewSubscription(
+      subscription.id,
+      expiresAt,
+      nextBilling
+    );
+
+    return await subscriptionRepository.getSubscriptionById(
+      subscription.id
+    );
+
+  }
+
+  // Mirrors renewSubscription, for a Freelancer's own account-level
+  // subscription.
+  async renewSubscriptionForUser(userId) {
+
+    const subscription =
+      await this.getCurrentSubscriptionForUser(userId);
+
+    if (subscription.stripe_subscription_id) {
+
+      const updated = await stripeService.resumeSubscription(
+        subscription.stripe_subscription_id
+      );
+
+      return await this.syncSubscriptionFromStripe(updated);
+
+    }
 
     let expiresAt;
     let nextBilling;

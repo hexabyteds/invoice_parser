@@ -31,6 +31,8 @@ CREATE TABLE `audit_logs` (
   `user_id` int DEFAULT NULL,
   `company_id` int DEFAULT NULL,
   `action` varchar(255) DEFAULT NULL,
+  `module` varchar(50) DEFAULT NULL,
+  `status` enum('SUCCESS','FAILED') DEFAULT 'SUCCESS',
   `description` text,
   `ip_address` varchar(50) DEFAULT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -39,6 +41,8 @@ CREATE TABLE `audit_logs` (
   KEY `idx_audit_logs_customer_id` (`customer_id`),
   KEY `idx_audit_logs_user_created` (`user_id`,`created_at`),
   KEY `fk_audit_logs_company` (`company_id`),
+  KEY `idx_audit_logs_module` (`module`),
+  KEY `idx_audit_logs_company_created` (`company_id`,`created_at`),
   CONSTRAINT `audit_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `fk_audit_logs_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`),
   CONSTRAINT `fk_audit_logs_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE SET NULL
@@ -106,7 +110,7 @@ CREATE TABLE `companies` (
   `name` varchar(255) NOT NULL,
   `legal_name` varchar(255) DEFAULT NULL,
   `owner_user_id` int NOT NULL,
-  `status` enum('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+  `status` enum('ACTIVE','SUSPENDED','DEACTIVATED') NOT NULL DEFAULT 'ACTIVE',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `address` text,
@@ -234,6 +238,7 @@ CREATE TABLE `invoices` (
   `user_id` int NOT NULL,
   `company_id` int NOT NULL,
   `customer_id` int DEFAULT NULL,
+  `supplier_id` int DEFAULT NULL,
   `invoice_type` varchar(100) DEFAULT NULL,
   `document_type` enum('supplier_invoice','bill') DEFAULT NULL,
   `invoice_no` varchar(100) DEFAULT NULL,
@@ -259,7 +264,9 @@ CREATE TABLE `invoices` (
   KEY `idx_invoices_user_document_type` (`user_id`,`document_type`),
   KEY `fk_invoice_customer` (`customer_id`),
   KEY `fk_invoices_company` (`company_id`),
+  KEY `fk_invoices_supplier` (`supplier_id`),
   CONSTRAINT `fk_invoice_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_invoice_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_invoice_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_invoices_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -278,6 +285,24 @@ CREATE TABLE `login_history` (
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `login_history_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `plan_limits`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `plan_limits` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `plan_id` int NOT NULL,
+  `account_type` enum('COMPANY','FREELANCER') NOT NULL,
+  `companies_limit` int DEFAULT NULL,
+  `customers_limit` int DEFAULT NULL,
+  `suppliers_limit` int DEFAULT NULL,
+  `invoices_limit` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_plan_limits_plan_account` (`plan_id`,`account_type`),
+  CONSTRAINT `fk_plan_limits_plan` FOREIGN KEY (`plan_id`) REFERENCES `plans` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `plans`;
@@ -336,7 +361,7 @@ DROP TABLE IF EXISTS `subscriptions`;
 CREATE TABLE `subscriptions` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
-  `company_id` int NOT NULL,
+  `company_id` int DEFAULT NULL,
   `plan_id` int NOT NULL,
   `status` enum('trial','active','expired','cancelled','suspended') DEFAULT NULL,
   `billing_cycle` enum('monthly','yearly') DEFAULT NULL,
@@ -357,6 +382,7 @@ CREATE TABLE `subscriptions` (
   KEY `user_id` (`user_id`),
   KEY `plan_id` (`plan_id`),
   KEY `fk_subscriptions_company` (`company_id`),
+  KEY `idx_subscriptions_user_company_status` (`user_id`,`company_id`,`status`),
   CONSTRAINT `fk_subscriptions_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`),
   CONSTRAINT `subscriptions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `subscriptions_ibfk_2` FOREIGN KEY (`plan_id`) REFERENCES `plans` (`id`)
@@ -429,6 +455,8 @@ CREATE TABLE `usage_stats` (
   `invoices_used` int DEFAULT '0',
   `bank_statements_used` int DEFAULT '0',
   `customers_used` int DEFAULT '0',
+  `suppliers_used` int DEFAULT '0',
+  `companies_used` int DEFAULT '0',
   `ocr_pages_used` int DEFAULT '0',
   `storage_used` bigint DEFAULT '0',
   `api_calls_used` int DEFAULT '0',

@@ -1,6 +1,7 @@
 const stripe = require("../config/stripe");
 const subscriptionRepository = require("../repositories/subscriptionRepository");
 const subscriptionService = require("../services/subscriptionService");
+const auditLogRepository = require("../repositories/auditLogRepository");
 
 class StripeWebhookController {
 
@@ -107,6 +108,11 @@ class StripeWebhookController {
           );
 
           await subscriptionService.syncSubscriptionFromStripe(subscription);
+          await this.logPaymentEvent(subscription, {
+            action: "payment_succeeded",
+            status: "SUCCESS",
+            description: `Payment received (${((invoice.amount_paid || 0) / 100).toFixed(2)} ${(invoice.currency || "").toUpperCase()})`,
+          });
 
         }
 
@@ -125,6 +131,11 @@ class StripeWebhookController {
           );
 
           await subscriptionService.syncSubscriptionFromStripe(subscription);
+          await this.logPaymentEvent(subscription, {
+            action: "payment_failed",
+            status: "FAILED",
+            description: `Payment failed (${((invoice.amount_due || 0) / 100).toFixed(2)} ${(invoice.currency || "").toUpperCase()})`,
+          });
 
         }
 
@@ -137,6 +148,42 @@ class StripeWebhookController {
         break;
 
     }
+
+  }
+
+  // Best-effort — resolves the userId/companyId the same way
+  // syncSubscriptionFromStripe does (metadata first, owned-company
+  // fallback) so payment audit events land against the right actor
+  // without a second Stripe round trip.
+  async logPaymentEvent(stripeSubscription, { action, status, description }) {
+
+    try {
+
+      let userId = stripeSubscription.metadata?.userId
+        ? Number(stripeSubscription.metadata.userId)
+        : null;
+
+      if (!userId) {
+        const user = await subscriptionRepository.findUserByStripeCustomerId(
+          stripeSubscription.customer
+        );
+        userId = user?.id || null;
+      }
+
+      const companyId = stripeSubscription.metadata?.companyId
+        ? Number(stripeSubscription.metadata.companyId)
+        : null;
+
+      await auditLogRepository.create({
+        userId,
+        companyId,
+        action,
+        module: "Billing",
+        status,
+        description,
+      });
+
+    } catch (logErr) {}
 
   }
 

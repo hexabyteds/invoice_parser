@@ -6,6 +6,7 @@ const invoiceNormalizer = require("./services/invoiceNormalizer");
 const usageService = require("./services/usageService");
 const pdfService = require("./services/pdfService");
 const customerService = require("./services/customerService");
+const supplierService = require("./services/supplierService");
 const partyNameService = require("./services/partyNameService");
 
 const invoiceRepository = require("./repositories/invoiceRepository");
@@ -36,19 +37,24 @@ class FreeInvoiceAgent {
     // PARTY NAME
     // =========================
 
-    // Loads the selected client entity used as a sanity check by
+    // Loads the selected party entity used as a sanity check by
     // partyNameService (see applyPartyName). Never throws — the upload
-    // route already validated the client exists/is active before calling
+    // route already validated the party exists/is active before calling
     // in here, so a failure here should only disable the sanity check,
-    // never block the upload/edit itself. Company-scoped: a client belongs
+    // never block the upload/edit itself. Company-scoped: a party belongs
     // to the company, not to whichever user is currently uploading.
-    async loadClientForPartyName(companyId, clientId) {
+    // A Bill's party is a supplier row, everything else is a customer row
+    // — matches how invoiceRepository.create() picks customer_id vs
+    // supplier_id.
+    async loadClientForPartyName(companyId, clientId, documentType = null) {
         if (!clientId) {
             return null;
         }
 
         try {
-            return await customerService.get(clientId, companyId);
+            return documentType === "bill"
+                ? await supplierService.get(clientId, companyId)
+                : await customerService.get(clientId, companyId);
         } catch (err) {
             return null;
         }
@@ -178,7 +184,8 @@ class FreeInvoiceAgent {
 
         const selectedClient = await this.loadClientForPartyName(
             companyId,
-            clientId
+            clientId,
+            documentType
         );
 
         this.applyPartyName(
@@ -340,7 +347,8 @@ class FreeInvoiceAgent {
         // PDF, so the selected client only needs to be loaded once.
         const selectedClient = await this.loadClientForPartyName(
             companyId,
-            clientId
+            clientId,
+            documentType
         );
 
         for (
@@ -704,7 +712,8 @@ class FreeInvoiceAgent {
         ) {
             const selectedClient = await this.loadClientForPartyName(
                 companyId,
-                existing.customer_id
+                existing.customer_id || existing.supplier_id,
+                existing.document_type
             );
 
             clientName = partyNameService.resolvePartyName({

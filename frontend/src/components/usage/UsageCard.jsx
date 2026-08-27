@@ -1,14 +1,19 @@
 import {
   FileText,
   Users,
+  Truck,
   ScanText,
   HardDrive,
   UserPlus,
+  Building2,
 } from "lucide-react";
 
 const ICONS = {
   Invoices: FileText,
   Clients: Users,
+  Customers: Users,
+  Suppliers: Truck,
+  Companies: Building2,
   "OCR Pages": ScanText,
   Storage: HardDrive,
   "Team Members": UserPlus,
@@ -24,6 +29,21 @@ const ACCENTS = {
     icon: "bg-emerald-50 text-emerald-600",
     bar: "bg-emerald-500",
     ring: "ring-emerald-100",
+  },
+  Customers: {
+    icon: "bg-emerald-50 text-emerald-600",
+    bar: "bg-emerald-500",
+    ring: "ring-emerald-100",
+  },
+  Suppliers: {
+    icon: "bg-cyan-50 text-cyan-600",
+    bar: "bg-cyan-500",
+    ring: "ring-cyan-100",
+  },
+  Companies: {
+    icon: "bg-indigo-50 text-indigo-600",
+    bar: "bg-indigo-500",
+    ring: "ring-indigo-100",
   },
   "OCR Pages": {
     icon: "bg-violet-50 text-violet-600",
@@ -56,6 +76,7 @@ function formatBytes(bytes) {
 }
 
 function formatValue(title, value, isLimit = false) {
+  if (value === null || value === undefined) return "Unlimited";
   if (title === "Storage") {
     return isLimit ? `${value} MB` : formatBytes(value);
   }
@@ -66,15 +87,21 @@ export default function UsageCard({ title, used, limit, remaining }) {
   const Icon = ICONS[title] || FileText;
   const accent = ACCENTS[title] || ACCENTS.Invoices;
 
- 
-  const percentage =
-    limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
+  // limit === null means Unlimited (see usageService) — no meaningful
+  // percentage to show, the bar renders full in the accent color instead
+  // of red/amber "near limit" shading.
+  const isUnlimited = limit === null;
+  const percentage = isUnlimited
+    ? 100
+    : limit > 0
+      ? Math.min((used / limit) * 100, 100)
+      : 0;
 
   let barColor = accent.bar;
-  if (percentage >= 90) barColor = "bg-red-500";
-  else if (percentage >= 70) barColor = "bg-amber-500";
+  if (!isUnlimited && percentage >= 90) barColor = "bg-red-500";
+  else if (!isUnlimited && percentage >= 70) barColor = "bg-amber-500";
 
-  const isNearLimit = percentage >= 90;
+  const isNearLimit = !isUnlimited && percentage >= 90;
 
   return (
     <div
@@ -108,7 +135,7 @@ export default function UsageCard({ title, used, limit, remaining }) {
               isNearLimit ? "text-red-600" : "text-slate-700"
             }`}
           >
-            {percentage.toFixed(0)}%
+            {isUnlimited ? "∞" : `${percentage.toFixed(0)}%`}
           </span>
         </div>
 

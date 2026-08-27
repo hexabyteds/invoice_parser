@@ -1,9 +1,65 @@
 const planRepository = require("../repositories/planRepository");
+const planLimitsRepository = require("../repositories/planLimitsRepository");
+
+// Neither field is ever required from the admin form — omitting one (or
+// sending it explicitly as null/empty) means Unlimited, never an implicit
+// 0. Companies is only meaningful for the Freelancer side (a Company
+// account's own company count is always exactly 1, enforced structurally
+// elsewhere) — normalized to null on the Company side regardless of what's
+// posted, so it's never accidentally read.
+function normalizeLimit(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeLimits(limits = {}) {
+  return {
+    company: {
+      companies_limit: null,
+      customers_limit: normalizeLimit(limits.company?.customers_limit),
+      suppliers_limit: normalizeLimit(limits.company?.suppliers_limit),
+      invoices_limit: normalizeLimit(limits.company?.invoices_limit),
+    },
+    freelancer: {
+      companies_limit: normalizeLimit(limits.freelancer?.companies_limit),
+      customers_limit: normalizeLimit(limits.freelancer?.customers_limit),
+      suppliers_limit: normalizeLimit(limits.freelancer?.suppliers_limit),
+      invoices_limit: normalizeLimit(limits.freelancer?.invoices_limit),
+    },
+  };
+}
+
+async function attachLimits(plan) {
+  if (!plan) return plan;
+
+  const rows = await planLimitsRepository.getAllForPlan(plan.id);
+  const company = rows.find((r) => r.account_type === "COMPANY") || null;
+  const freelancer = rows.find((r) => r.account_type === "FREELANCER") || null;
+
+  return {
+    ...plan,
+    limits: {
+      company: company && {
+        customers_limit: company.customers_limit,
+        suppliers_limit: company.suppliers_limit,
+        invoices_limit: company.invoices_limit,
+      },
+      freelancer: freelancer && {
+        companies_limit: freelancer.companies_limit,
+        customers_limit: freelancer.customers_limit,
+        suppliers_limit: freelancer.suppliers_limit,
+        invoices_limit: freelancer.invoices_limit,
+      },
+    },
+  };
+}
 
 class PlanService {
 
   async getPlans() {
-    return await planRepository.getAllPlans();
+    const plans = await planRepository.getAllPlans();
+    return Promise.all(plans.map(attachLimits));
   }
 
   async getPlan(id) {
@@ -14,11 +70,12 @@ class PlanService {
       throw new Error("Plan not found.");
     }
 
-    return plan;
+    return await attachLimits(plan);
   }
   async getActivePlans() {
 
-    return await planRepository.getActivePlans();
+    const plans = await planRepository.getActivePlans();
+    return Promise.all(plans.map(attachLimits));
 
 }
   async createPlan(data) {
@@ -31,7 +88,13 @@ class PlanService {
 
     const id = await planRepository.createPlan(data);
 
-    return await planRepository.getPlanById(id);
+    // Always seed both rows for a brand-new plan (defaulting to Unlimited
+    // if the caller sent none) — every plan needs plan_limits rows to
+    // resolve correctly, unlike updatePlan below where omitting `limits`
+    // means "leave the existing configuration alone".
+    await planLimitsRepository.upsertForPlan(id, normalizeLimits(data.limits));
+
+    return await this.getPlan(id);
   }
 
   async updatePlan(id, data) {
@@ -50,7 +113,15 @@ class PlanService {
 
     await planRepository.updatePlan(id, data);
 
-    return await planRepository.getPlanById(id);
+    // Only touch plan_limits if the caller actually sent them — an update
+    // that only changes price/name (or predates this feature) must never
+    // silently wipe out an existing Company/Freelancer limit configuration
+    // back to Unlimited.
+    if (data.limits) {
+      await planLimitsRepository.upsertForPlan(id, normalizeLimits(data.limits));
+    }
+
+    return await this.getPlan(id);
   }
 
   async changeStatus(id, active) {

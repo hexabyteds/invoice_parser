@@ -13,6 +13,7 @@ class InvoiceRepository {
                 user_id,
                 company_id,
                 customer_id,
+                supplier_id,
                 invoice_type,
                 document_type,
                 invoice_no,
@@ -32,15 +33,23 @@ class InvoiceRepository {
                 trn,
                 image_path
             )
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `;
+
+        // A Bill's counterparty is a vendor (suppliers table), not a
+        // customer — client_id is the generic "selected party" id from the
+        // upload form; document_type decides which FK it actually belongs
+        // in. Never both, so dashboard/export joins never double-count.
+        const documentType = invoice.document_type || invoice.documentType || null;
+        const isBill = documentType === "bill";
 
         const values = [
             invoice.user_id,
             invoice.company_id,
-            invoice.client_id,
+            isBill ? null : invoice.client_id,
+            isBill ? invoice.client_id : null,
             invoice.invoiceType,
-            invoice.document_type || invoice.documentType || null,
+            documentType,
             invoice.invoiceNo,
             invoice.clientName,
             invoice.sellerName || null,
@@ -149,19 +158,23 @@ class InvoiceRepository {
     // (auto-increment), so every lookup must also prove company membership
     // via this filter. Never trust an id from the URL on its own.
     //
-    // Joins customers to also return the actual selected-customer entity's
-    // own name (client_company_name) alongside invoices.client_name (which
-    // holds the resolved Party Name — see services/partyNameService.js).
-    // The two are conceptually different: client_company_name is "whose
-    // books this document belongs to", client_name/Party Name is "the
-    // other party on the document". `invoices.*` (not `SELECT *`) avoids
-    // an `id`/`created_at`/etc. column collision with the joined table.
+    // Joins customers/suppliers to also return the actual selected-party
+    // entity's own name (client_company_name / supplier_company_name)
+    // alongside invoices.client_name (which holds the resolved Party Name
+    // — see services/partyNameService.js). Only one of customer_id/
+    // supplier_id is ever set per row (see create()), so only one of the
+    // two joined names comes back non-null. `invoices.*` (not `SELECT *`)
+    // avoids an `id`/`created_at`/etc. column collision with the joined
+    // tables.
     async findById(id, companyId) {
 
         const sql = `
-            SELECT invoices.*, customers.company_name AS client_company_name
+            SELECT invoices.*,
+                customers.company_name AS client_company_name,
+                suppliers.company_name AS supplier_company_name
             FROM invoices
             LEFT JOIN customers ON customers.id = invoices.customer_id
+            LEFT JOIN suppliers ON suppliers.id = invoices.supplier_id
             WHERE invoices.id = ?
             AND invoices.company_id = ?
             LIMIT 1
@@ -364,37 +377,44 @@ class InvoiceRepository {
     }
 
     // Export filter: optional client + optional document type + optional date range on invoice_date
+    // Joins suppliers so exports (Zoho Bills, QuickBooks) can resolve a
+    // Bill's real Vendor Name/payment terms from the linked supplier
+    // record instead of only the OCR-extracted Party Name text.
     async findForExport(companyId, { clientId = null, from = null, to = null, documentType = null } = {}) {
 
         let sql = `
-            SELECT *
+            SELECT invoices.*,
+                suppliers.company_name AS supplier_company_name,
+                suppliers.payment_terms AS supplier_payment_terms,
+                suppliers.trn AS supplier_trn
             FROM invoices
-            WHERE company_id = ?
+            LEFT JOIN suppliers ON suppliers.id = invoices.supplier_id
+            WHERE invoices.company_id = ?
         `;
 
         const values = [companyId];
 
         if (clientId) {
-            sql += ` AND customer_id = ?`;
+            sql += ` AND invoices.customer_id = ?`;
             values.push(Number(clientId));
         }
 
         if (documentType) {
-            sql += ` AND document_type = ?`;
+            sql += ` AND invoices.document_type = ?`;
             values.push(documentType);
         }
 
         if (from) {
-            sql += ` AND invoice_date >= ?`;
+            sql += ` AND invoices.invoice_date >= ?`;
             values.push(formatDate(from) || from);
         }
 
         if (to) {
-            sql += ` AND invoice_date <= ?`;
+            sql += ` AND invoices.invoice_date <= ?`;
             values.push(formatDate(to) || to);
         }
 
-        sql += ` ORDER BY invoice_date DESC, created_at DESC`;
+        sql += ` ORDER BY invoices.invoice_date DESC, invoices.created_at DESC`;
 
         const [rows] = await db.execute(sql, values);
 
@@ -448,6 +468,10 @@ class InvoiceRepository {
                 userId: row.user_id,
                 companyId: row.company_id,
                 clientId: row.customer_id,
+                supplierId: row.supplier_id,
+                supplierCompanyName: row.supplier_company_name ?? null,
+                supplierPaymentTerms: row.supplier_payment_terms ?? null,
+                supplierTrn: row.supplier_trn ?? null,
 
                 invoiceType: row.invoice_type,
                 documentType: row.document_type,

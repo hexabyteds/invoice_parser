@@ -52,6 +52,19 @@ module.exports = async function globalSetup() {
     `SELECT id FROM plans WHERE slug = 'free' LIMIT 1`
   );
 
+  // Account-type-aware limits (migrations 0021/0024) — mirrors the seeded
+  // Free plan's own customer_limit(2)/invoice_limit(5) above exactly for
+  // COMPANY (existing tests assert those two numbers directly), adding
+  // suppliers (never capped before this feature) and, for FREELANCER, the
+  // companies-per-account cap this feature introduces.
+  await admin.query(
+    `INSERT INTO plan_limits (plan_id, account_type, companies_limit, customers_limit, suppliers_limit, invoices_limit)
+     VALUES
+      (?, 'COMPANY', NULL, 2, 3, 5),
+      (?, 'FREELANCER', 2, 2, 3, 5)`,
+    [freePlan.id, freePlan.id]
+  );
+
   const adminPasswordHash = await bcrypt.hash(
     process.env.QA_ADMIN_PASSWORD,
     10

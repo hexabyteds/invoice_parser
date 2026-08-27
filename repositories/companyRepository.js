@@ -28,6 +28,17 @@ class CompanyRepository {
         return rows[0] || null;
     }
 
+    // Super Admin only (see adminCompanyService) — ACTIVE/SUSPENDED/
+    // DEACTIVATED, see migration 0026. companyContext.js already treats
+    // any non-ACTIVE status as blocked, so this alone is enough to cut
+    // off access without touching auth code.
+    async updateStatus(companyId, status) {
+        await db.execute(
+            `UPDATE companies SET status = ? WHERE id = ?`,
+            [status, companyId]
+        );
+    }
+
     // Used wherever a caller only has a target userId in hand (e.g. the
     // admin panel's "change this customer's plan") but the row it needs to
     // touch is keyed by company_id — resolves the company that user owns.

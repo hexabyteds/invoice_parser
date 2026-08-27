@@ -53,7 +53,8 @@ class SupplierController {
             const supplier = await supplierService.update(
                 req.params.id,
                 req.company.id,
-                req.body
+                req.body,
+                req.user.id
             );
 
             res.json({
@@ -142,7 +143,7 @@ class SupplierController {
 
         try {
 
-            await supplierService.delete(req.params.id, req.company.id);
+            await supplierService.delete(req.params.id, req.company.id, req.user.id);
 
             res.json({
                 success: true,

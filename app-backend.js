@@ -25,6 +25,7 @@ const usageRoutes = require("./routes/usageRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const usageService = require("./services/usageService");
 const customerService = require("./services/customerService");
+const supplierService = require("./services/supplierService");
 const validationService = require("./services/validationService");
 const auditLogRepository = require("./repositories/auditLogRepository");
 const db = require("./config/database");
@@ -248,7 +249,14 @@ app.post(
       // ===========================
       // NEW: Reject uploads against a deactivated client
       // ===========================
-      await customerService.assertActive(clientId, req.company.id);
+      // A Bill's party is a vendor (suppliers table), everything else
+      // (Invoice, Bank Statement) uses the customers table — matches how
+      // invoiceRepository.create() decides which FK to populate.
+      if (documentType === DOCUMENT_TYPES.BILL) {
+        await supplierService.assertActive(clientId, req.company.id);
+      } else {
+        await customerService.assertActive(clientId, req.company.id);
+      }
 
       // Reserves the bytes atomically — under concurrent uploads, the old
       // checkStorageLimit()-then-addStorage() pair let every request read
@@ -296,7 +304,10 @@ app.post(
               companyId: req.company.id,
               customerId: clientId,
               action: "bank_statement_error",
+              module: "Bank Statement",
+              status: "FAILED",
               description: bsResult.message,
+              ipAddress: req.ip,
             });
           } catch (logErr) {}
 
@@ -312,7 +323,10 @@ app.post(
             companyId: req.company.id,
             customerId: clientId,
             action: "bank_statement_uploaded",
+            module: "Bank Statement",
+            status: "SUCCESS",
             description: `Bank statement (${bsResult.transactionCount} transaction(s))`,
+            ipAddress: req.ip,
           });
 
           if (bsResult.meta?.failedPages > 0) {
@@ -321,7 +335,10 @@ app.post(
               companyId: req.company.id,
               customerId: clientId,
               action: "bank_statement_error",
+              module: "Bank Statement",
+              status: "FAILED",
               description: `${bsResult.meta.failedPages} page(s) failed during extraction`,
+              ipAddress: req.ip,
             });
           }
         } catch (logErr) {}
@@ -375,7 +392,10 @@ app.post(
             // wasn't a valid invoice; no validation object means a hard
             // extraction/OCR/system failure.
             action: result.validation ? "invoice_rejected" : "invoice_error",
+            module: "Invoice",
+            status: "FAILED",
             description: result.message,
+            ipAddress: req.ip,
           });
         } catch (logErr) {}
 
@@ -396,7 +416,10 @@ app.post(
             companyId: req.company.id,
             customerId: clientId,
             action: "invoice_uploaded",
+            module: "Invoice",
+            status: "SUCCESS",
             description: `${result.totalInvoices} invoice(s) processed from PDF`,
+            ipAddress: req.ip,
           });
 
           if (result.meta?.failedPages > 0) {
@@ -405,7 +428,10 @@ app.post(
               companyId: req.company.id,
               customerId: clientId,
               action: "invoice_error",
+              module: "Invoice",
+              status: "FAILED",
               description: `${result.meta.failedPages} page(s) failed during PDF extraction`,
+              ipAddress: req.ip,
             });
           }
         } catch (logErr) {}
@@ -432,7 +458,10 @@ app.post(
           companyId: req.company.id,
           customerId: clientId,
           action: "invoice_uploaded",
+          module: "Invoice",
+          status: "SUCCESS",
           description: invoice.invoiceNo ? `Invoice ${invoice.invoiceNo}` : "Invoice",
+          ipAddress: req.ip,
         });
 
         await auditLogRepository.create({
@@ -440,7 +469,10 @@ app.post(
           companyId: req.company.id,
           customerId: clientId,
           action: "invoice_processed",
+          module: "Invoice",
+          status: "SUCCESS",
           description: `${validation.confidence}% confidence`,
+          ipAddress: req.ip,
         });
       } catch (logErr) {}
 
@@ -1004,6 +1036,19 @@ app.get("/api/export", authMiddleware, companyContext, requireCompanyPermission(
       format,
       ...filters,
     });
+
+    try {
+      await auditLogRepository.create({
+        userId: req.user.id,
+        companyId: req.company.id,
+        customerId: filters.clientId || null,
+        action: "export_generated",
+        module: "Export",
+        status: "SUCCESS",
+        description: `Exported as ${format}${filters.documentType ? ` (${filters.documentType})` : ""}`,
+        ipAddress: req.ip,
+      });
+    } catch (logErr) {}
 
     if (format === "csv") {
       const { csv } = await agent.exportCSV(req.company.id, filters);

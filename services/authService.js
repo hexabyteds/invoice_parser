@@ -1,5 +1,6 @@
 const userRepository = require("../repositories/userRepository");
 const loginHistoryRepository = require("../repositories/loginHistoryRepository");
+const auditLogRepository = require("../repositories/auditLogRepository");
 const companyRepository = require("../repositories/companyRepository");
 const companyService = require("./companyService");
 const subscriptionService = require("./subscriptionService");
@@ -192,12 +193,32 @@ class AuthService {
         const user = await userRepository.findByEmail(email);
 
         if (!user) {
+            try {
+                await auditLogRepository.create({
+                    userId: null,
+                    action: "login_failed",
+                    module: "Authentication",
+                    status: "FAILED",
+                    description: `Failed login attempt for ${email}`,
+                    ipAddress: requestMeta.ipAddress || null,
+                });
+            } catch (logErr) {}
             throw new Error("Invalid email or password.");
         }
 
         const valid = await comparePassword(password, user.password);
 
         if (!valid) {
+            try {
+                await auditLogRepository.create({
+                    userId: user.id,
+                    action: "login_failed",
+                    module: "Authentication",
+                    status: "FAILED",
+                    description: "Incorrect password",
+                    ipAddress: requestMeta.ipAddress || null,
+                });
+            } catch (logErr) {}
             throw new Error("Invalid email or password.");
         }
 
@@ -210,6 +231,17 @@ class AuthService {
         }
 
         const token = generateToken(user);
+
+        try {
+            await auditLogRepository.create({
+                userId: user.id,
+                action: "login",
+                module: "Authentication",
+                status: "SUCCESS",
+                description: `${user.name} logged in`,
+                ipAddress: requestMeta.ipAddress || null,
+            });
+        } catch (logErr) {}
 
         // Best-effort — a login_history write must never block a
         // successful login (same "try/catch and swallow" pattern used for

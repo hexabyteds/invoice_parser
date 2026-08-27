@@ -10,6 +10,7 @@ const { fromDbStatus } = require("../utils/userStatus");
 const subscriptionService = require("./subscriptionService");
 const subscriptionRepository = require("../repositories/subscriptionRepository");
 const companyRepository = require("../repositories/companyRepository");
+const auditLogRepository = require("../repositories/auditLogRepository");
 class AdminService {
   async getDashboardStats() {
     const platform = await adminRepository.getPlatformStats();
@@ -182,7 +183,7 @@ class AdminService {
   //   return "Subscription plan updated successfully.";
   // }
 
-  async updateCustomerPlan(userId, planId, billingCycle = "monthly") {
+  async updateCustomerPlan(userId, planId, billingCycle = "monthly", adminUserId = null) {
 
     const customer =
         await adminRepository.getCustomerById(userId);
@@ -203,6 +204,20 @@ class AdminService {
             planId,
             billingCycle
         );
+
+    // subscriptionService.changePlan already logs a "plan_changed" event
+    // attributed to the company owner — this second entry distinguishes
+    // that it was an admin-initiated override (spec's Admin event category).
+    try {
+        await auditLogRepository.create({
+            userId: adminUserId,
+            companyId: company.id,
+            action: "plan_changed_by_admin",
+            module: "Admin",
+            status: "SUCCESS",
+            description: `Plan changed for "${company.name}" by Super Admin`,
+        });
+    } catch (logErr) {}
 
     return subscription;
 }

@@ -2,6 +2,7 @@ const companyRepository = require("../repositories/companyRepository");
 const userRepository = require("../repositories/userRepository");
 const subscriptionService = require("./subscriptionService");
 const usageService = require("./usageService");
+const auditLogRepository = require("../repositories/auditLogRepository");
 
 function toPublicCompany(row) {
     return {
@@ -68,24 +69,51 @@ class CompanyService {
             throw new Error("Company name is required.");
         }
 
-        const companyId = await companyRepository.create({
-            name: trimmedName,
-            ownerUserId: userId,
-            address: data.address?.trim() || null,
-            phone: data.phone?.trim() || null,
-            email: data.email?.trim() || null,
-            trn: data.trn?.trim() || null,
-        });
+        // Reserves the slot atomically against the Freelancer's own plan
+        // (see usageService.reserveCompanySlot) — before the company row
+        // itself exists, since that's exactly what this check gates.
+        await usageService.reserveCompanySlot(userId);
 
-        await companyRepository.createMembership({
-            companyId,
-            userId,
-            role: "OWNER",
-            status: "ACTIVE",
-        });
+        let companyId;
 
-        await subscriptionService.createFreeSubscription(companyId);
-        await usageService.ensureUsageRecord(companyId);
+        try {
+            companyId = await companyRepository.create({
+                name: trimmedName,
+                ownerUserId: userId,
+                address: data.address?.trim() || null,
+                phone: data.phone?.trim() || null,
+                email: data.email?.trim() || null,
+                trn: data.trn?.trim() || null,
+            });
+
+            await companyRepository.createMembership({
+                companyId,
+                userId,
+                role: "OWNER",
+                status: "ACTIVE",
+            });
+
+            // A Freelancer-owned company's plan/limits are governed by the
+            // Freelancer's own account-level subscription (see
+            // usageService.getPlanLimits), not a subscription of its own —
+            // just make sure the Freelancer's exists (lazy-Free like before).
+            await subscriptionService.createFreeSubscriptionForUser(userId);
+            await usageService.ensureUsageRecord(companyId);
+        } catch (err) {
+            await usageService.decrementCompanySlot(userId);
+            throw err;
+        }
+
+        try {
+            await auditLogRepository.create({
+                userId,
+                companyId,
+                action: "company_created",
+                module: "Company",
+                status: "SUCCESS",
+                description: `Company "${trimmedName}" created`,
+            });
+        } catch (logErr) {}
 
         return companyId;
     }
@@ -210,7 +238,7 @@ class CompanyService {
             );
         }
 
-        return await companyRepository.createMembership({
+        const membershipId = await companyRepository.createMembership({
             companyId,
             userId: user.id,
             role: "FREELANCER",
@@ -218,6 +246,19 @@ class CompanyService {
             invitedBy: invitedByUserId,
             permissions,
         });
+
+        try {
+            await auditLogRepository.create({
+                userId: invitedByUserId,
+                companyId,
+                action: "freelancer_access_granted",
+                module: "Freelancer",
+                status: "SUCCESS",
+                description: `Invited ${trimmedEmail} as Freelancer`,
+            });
+        } catch (logErr) {}
+
+        return membershipId;
     }
 
     async listMembers(companyId) {
@@ -248,8 +289,19 @@ class CompanyService {
             throw new Error("Invalid status.");
         }
 
-        await this.assertMutableMember(membershipId, companyId);
+        const membership = await this.assertMutableMember(membershipId, companyId);
         await companyRepository.updateMemberStatusForCompany(membershipId, companyId, status);
+
+        try {
+            await auditLogRepository.create({
+                userId: membership.user_id,
+                companyId,
+                action: status === "REMOVED" ? "freelancer_access_revoked" : "freelancer_access_changed",
+                module: "Freelancer",
+                status: "SUCCESS",
+                description: `Access ${status.toLowerCase()} for membership #${membershipId}`,
+            });
+        } catch (logErr) {}
     }
 
     async setMemberPermissions(companyId, membershipId, permissions) {

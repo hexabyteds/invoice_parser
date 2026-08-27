@@ -20,6 +20,10 @@ const EMPTY_FORM = {
   stripe_product_id: "",
   stripe_price_id_monthly: "",
   stripe_price_id_yearly: "",
+  limits: {
+    company: { customers_limit: "", suppliers_limit: "", invoices_limit: "" },
+    freelancer: { companies_limit: "", customers_limit: "", suppliers_limit: "", invoices_limit: "" },
+  },
 };
 
 function slugify(value) {
@@ -31,8 +35,17 @@ function slugify(value) {
     .replace(/-+/g, "-");
 }
 
+// "" in a limit field means Unlimited (mirrors the backend's null
+// sentinel — see planLimitsRepository) — never an implicit 0.
+function limitToFormValue(value) {
+  return value === null || value === undefined ? "" : String(value);
+}
+
 function toFormValues(plan) {
-  if (!plan) return { ...EMPTY_FORM };
+  if (!plan) return { ...EMPTY_FORM, limits: { ...EMPTY_FORM.limits } };
+
+  const company = plan.limits?.company;
+  const freelancer = plan.limits?.freelancer;
 
   return {
     name: plan.name || "",
@@ -51,7 +64,25 @@ function toFormValues(plan) {
     stripe_product_id: plan.stripe_product_id || "",
     stripe_price_id_monthly: plan.stripe_price_id_monthly || "",
     stripe_price_id_yearly: plan.stripe_price_id_yearly || "",
+    limits: {
+      company: {
+        customers_limit: limitToFormValue(company?.customers_limit),
+        suppliers_limit: limitToFormValue(company?.suppliers_limit),
+        invoices_limit: limitToFormValue(company?.invoices_limit),
+      },
+      freelancer: {
+        companies_limit: limitToFormValue(freelancer?.companies_limit),
+        customers_limit: limitToFormValue(freelancer?.customers_limit),
+        suppliers_limit: limitToFormValue(freelancer?.suppliers_limit),
+        invoices_limit: limitToFormValue(freelancer?.invoices_limit),
+      },
+    },
   };
+}
+
+// "" (Unlimited) becomes null; any other value is coerced to a number.
+function limitToPayloadValue(value) {
+  return value === "" || value === null || value === undefined ? null : Number(value);
 }
 
 function toPayload(form) {
@@ -72,6 +103,19 @@ function toPayload(form) {
     stripe_product_id: form.stripe_product_id.trim() || null,
     stripe_price_id_monthly: form.stripe_price_id_monthly.trim() || null,
     stripe_price_id_yearly: form.stripe_price_id_yearly.trim() || null,
+    limits: {
+      company: {
+        customers_limit: limitToPayloadValue(form.limits.company.customers_limit),
+        suppliers_limit: limitToPayloadValue(form.limits.company.suppliers_limit),
+        invoices_limit: limitToPayloadValue(form.limits.company.invoices_limit),
+      },
+      freelancer: {
+        companies_limit: limitToPayloadValue(form.limits.freelancer.companies_limit),
+        customers_limit: limitToPayloadValue(form.limits.freelancer.customers_limit),
+        suppliers_limit: limitToPayloadValue(form.limits.freelancer.suppliers_limit),
+        invoices_limit: limitToPayloadValue(form.limits.freelancer.invoices_limit),
+      },
+    },
   };
 }
 
@@ -87,6 +131,38 @@ function Field({ label, children, hint }) {
 
 const inputClass =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500";
+
+// A limit field paired with an "Unlimited" toggle — "" (Unlimited) is a
+// real, explicit configuration, not a placeholder for a large number.
+function LimitField({ label, value, onChange }) {
+  const unlimited = value === "";
+
+  return (
+    <label className="block">
+      <span className="text-sm font-medium text-slate-600">{label}</span>
+      <div className="mt-1.5 flex items-center gap-2">
+        <input
+          type="number"
+          min="0"
+          value={unlimited ? "" : value}
+          disabled={unlimited}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={unlimited ? "Unlimited" : ""}
+          className={`${inputClass} disabled:bg-slate-100 disabled:text-slate-400`}
+        />
+        <label className="flex shrink-0 items-center gap-1.5 text-xs text-slate-500">
+          <input
+            type="checkbox"
+            checked={unlimited}
+            onChange={(e) => onChange(e.target.checked ? "" : "0")}
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          Unlimited
+        </label>
+      </div>
+    </label>
+  );
+}
 
 export default function PlanModal({ open, plan, onClose, onSaved }) {
   const isEdit = Boolean(plan?.id);
@@ -113,6 +189,16 @@ export default function PlanModal({ open, plan, onClose, onSaved }) {
 
       return next;
     });
+  };
+
+  const updateLimit = (accountType, key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      limits: {
+        ...prev.limits,
+        [accountType]: { ...prev.limits[accountType], [key]: value },
+      },
+    }));
   };
 
   const handleSubmit = async (event) => {
@@ -290,6 +376,68 @@ export default function PlanModal({ open, plan, onClose, onSaved }) {
                 className={inputClass}
               />
             </Field>
+          </section>
+
+          <section className="space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-indigo-600">
+                Company Limits
+              </h3>
+              <p className="mt-1 text-xs text-slate-400">
+                Applies to a Company account&apos;s own single workspace.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <LimitField
+                label="Customers"
+                value={form.limits.company.customers_limit}
+                onChange={(v) => updateLimit("company", "customers_limit", v)}
+              />
+              <LimitField
+                label="Suppliers"
+                value={form.limits.company.suppliers_limit}
+                onChange={(v) => updateLimit("company", "suppliers_limit", v)}
+              />
+              <LimitField
+                label="Invoices"
+                value={form.limits.company.invoices_limit}
+                onChange={(v) => updateLimit("company", "invoices_limit", v)}
+              />
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-indigo-600">
+                Freelancer Limits
+              </h3>
+              <p className="mt-1 text-xs text-slate-400">
+                Companies caps how many workspaces a Freelancer may create;
+                the rest apply to each of their companies independently.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <LimitField
+                label="Companies"
+                value={form.limits.freelancer.companies_limit}
+                onChange={(v) => updateLimit("freelancer", "companies_limit", v)}
+              />
+              <LimitField
+                label="Customers / company"
+                value={form.limits.freelancer.customers_limit}
+                onChange={(v) => updateLimit("freelancer", "customers_limit", v)}
+              />
+              <LimitField
+                label="Suppliers / company"
+                value={form.limits.freelancer.suppliers_limit}
+                onChange={(v) => updateLimit("freelancer", "suppliers_limit", v)}
+              />
+              <LimitField
+                label="Invoices / company"
+                value={form.limits.freelancer.invoices_limit}
+                onChange={(v) => updateLimit("freelancer", "invoices_limit", v)}
+              />
+            </div>
           </section>
 
           <section className="grid gap-4 md:grid-cols-2">

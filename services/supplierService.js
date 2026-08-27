@@ -1,4 +1,6 @@
 const supplierRepository = require("../repositories/supplierRepository");
+const usageService = require("./usageService");
+const auditLogRepository = require("../repositories/auditLogRepository");
 
 // Matches the actual VARCHAR(n) size of each column in the `suppliers`
 // table (db/schema.sql) — exceeding it used to reach the DB and come back
@@ -98,18 +100,41 @@ class SupplierService {
             throw new Error("A supplier with this company name already exists.");
         }
 
-        const id = await supplierRepository.create({
-            user_id: userId,
-            company_id: companyId,
-            company_name: data.company_name,
-            email: data.email,
-            phone: data.phone,
-            billing_country: data.billing_country,
-            billing_city: data.billing_city,
-            trn: data.trn,
-            notes: data.notes || "",
-            ...pickOptionalFields(data)
-        });
+        // Reserves the slot atomically — same pattern as
+        // customerService.create (see reserveCustomerSlot), extended to
+        // suppliers for the first time here.
+        await usageService.reserveSupplierSlot(companyId);
+
+        let id;
+
+        try {
+            id = await supplierRepository.create({
+                user_id: userId,
+                company_id: companyId,
+                company_name: data.company_name,
+                email: data.email,
+                phone: data.phone,
+                billing_country: data.billing_country,
+                billing_city: data.billing_city,
+                trn: data.trn,
+                notes: data.notes || "",
+                ...pickOptionalFields(data)
+            });
+        } catch (err) {
+            await usageService.decrementSuppliers(companyId);
+            throw err;
+        }
+
+        try {
+            await auditLogRepository.create({
+                userId,
+                companyId,
+                action: "supplier_created",
+                module: "Supplier",
+                status: "SUCCESS",
+                description: `Supplier "${data.company_name}" created`,
+            });
+        } catch (logErr) {}
 
         return await supplierRepository.findById(id, companyId);
     }
@@ -118,7 +143,7 @@ class SupplierService {
         return await supplierRepository.findByCompany(companyId);
     }
 
-    async update(id, companyId, data) {
+    async update(id, companyId, data, userId = null) {
 
         const existing = await supplierRepository.findById(id, companyId);
 
@@ -155,6 +180,17 @@ class SupplierService {
 
         await supplierRepository.update(id, companyId, merged);
 
+        try {
+            await auditLogRepository.create({
+                userId,
+                companyId,
+                action: "supplier_updated",
+                module: "Supplier",
+                status: "SUCCESS",
+                description: `Supplier "${merged.company_name}" updated`,
+            });
+        } catch (logErr) {}
+
         return await supplierRepository.findById(id, companyId);
     }
 
@@ -183,7 +219,28 @@ class SupplierService {
         return await supplierRepository.findById(id, companyId);
     }
 
-    async delete(id, companyId) {
+    // Guards the Bill upload path — throws (with a 403 statusCode) if the
+    // supplier has been deactivated, mirroring customerService.assertActive.
+    async assertActive(id, companyId) {
+
+        const supplier = await supplierRepository.findById(id, companyId);
+
+        if (!supplier) {
+            throw new Error("Supplier not found.");
+        }
+
+        if (supplier.status !== "ACTIVE") {
+            const err = new Error(
+                "This supplier is inactive. Please activate the supplier before adding documents."
+            );
+            err.statusCode = 403;
+            throw err;
+        }
+
+        return supplier;
+    }
+
+    async delete(id, companyId, userId = null) {
 
         const supplier = await supplierRepository.findById(id, companyId);
 
@@ -192,6 +249,19 @@ class SupplierService {
         }
 
         await supplierRepository.delete(id, companyId);
+
+        await usageService.decrementSuppliers(companyId);
+
+        try {
+            await auditLogRepository.create({
+                userId,
+                companyId,
+                action: "supplier_deleted",
+                module: "Supplier",
+                status: "SUCCESS",
+                description: `Supplier "${supplier.company_name}" deleted`,
+            });
+        } catch (logErr) {}
 
         return true;
     }

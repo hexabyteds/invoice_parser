@@ -137,7 +137,9 @@ class CustomerService {
                 companyId,
                 customerId: id,
                 action: "client_added",
-                description: data.company_name,
+                module: "Customer",
+                status: "SUCCESS",
+                description: `Customer "${data.company_name}" created`,
             });
         } catch (err) {
             // ignore
@@ -150,7 +152,7 @@ class CustomerService {
         return await customerRepository.findByCompany(companyId);
     }
 
-    async update(id, companyId, data) {
+    async update(id, companyId, data, userId = null) {
 
         const existing = await customerRepository.findById(id, companyId);
 
@@ -188,6 +190,18 @@ class CustomerService {
         };
 
         await customerRepository.update(id, companyId, merged);
+
+        try {
+            await auditLogRepository.create({
+                userId,
+                companyId,
+                customerId: id,
+                action: "customer_updated",
+                module: "Customer",
+                status: "SUCCESS",
+                description: `Customer "${merged.company_name}" updated`,
+            });
+        } catch (logErr) {}
 
         return await customerRepository.findById(id, companyId);
     }
@@ -239,7 +253,7 @@ class CustomerService {
         return customer;
     }
 
-    async delete(id, companyId) {
+    async delete(id, companyId, userId = null) {
 
         const customer = await customerRepository.findById(id, companyId);
 
@@ -250,6 +264,17 @@ class CustomerService {
         await customerRepository.delete(id, companyId);
 
         await usageService.decrementCustomers(companyId);
+
+        try {
+            await auditLogRepository.create({
+                userId,
+                companyId,
+                action: "customer_deleted",
+                module: "Customer",
+                status: "SUCCESS",
+                description: `Customer "${customer.company_name}" deleted`,
+            });
+        } catch (logErr) {}
 
         return true;
     }

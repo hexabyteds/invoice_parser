@@ -78,6 +78,38 @@ class SubscriptionRepository {
     return rows[0] || null;
   }
 
+  // A Freelancer's own account-level plan — company_id IS NULL identifies
+  // it (vs a Company's own per-company row). Same shape as
+  // getActiveSubscription so callers can treat both interchangeably.
+  async getActiveSubscriptionForUser(userId) {
+    const [rows] = await db.execute(
+      `
+      SELECT
+          s.*,
+          p.name,
+          p.slug,
+          p.invoice_limit,
+          p.customer_limit,
+          p.user_limit,
+          p.storage_limit,
+          p.ocr_limit,
+          p.api_access,
+          p.priority_support
+      FROM subscriptions s
+      INNER JOIN plans p
+          ON s.plan_id = p.id
+      WHERE
+          s.user_id = ?
+      AND s.company_id IS NULL
+      AND s.status = 'active'
+      LIMIT 1
+      `,
+      [userId]
+    );
+
+    return rows[0] || null;
+  }
+
   async getSubscriptionHistory(companyId) {
     const [rows] = await db.execute(
       `
@@ -97,25 +129,56 @@ class SubscriptionRepository {
     return rows;
   }
 
+  async getSubscriptionHistoryForUser(userId) {
+    const [rows] = await db.execute(
+      `
+      SELECT
+          s.*,
+          p.name,
+          p.slug
+      FROM subscriptions s
+      INNER JOIN plans p
+          ON s.plan_id = p.id
+      WHERE s.user_id = ? AND s.company_id IS NULL
+      ORDER BY s.created_at DESC
+      `,
+      [userId]
+    );
+
+    return rows;
+  }
+
   // ===========================
   // Create Subscription
   // ===========================
 
-  // subscriptions.company_id is NOT NULL (migration 0013) — a subscription
-  // belongs to the company, not the user, per the architecture's core rule
-  // (spec §17). Callers pass company_id directly; user_id is resolved from
-  // the company's own owner (not from the caller) purely to satisfy the
-  // column's NOT NULL/FK constraint and for attribution — it is never used
-  // to look this row back up.
+  // A subscription belongs to EITHER a company (company_id set — a
+  // Company account's own plan) OR a Freelancer's account level
+  // (company_id NULL, data.user_id required — see migration 0023). For the
+  // company case, user_id is resolved from the company's own owner (not
+  // from the caller) purely to satisfy the column's NOT NULL-in-spirit
+  // attribution; it is never used to look the row back up. For the
+  // freelancer case, the caller must pass user_id directly since there's
+  // no company row to derive it from.
   async createSubscription(data) {
-    const [[company]] = await db.execute(
-      `SELECT owner_user_id FROM companies WHERE id = ? LIMIT 1`,
-      [data.company_id]
-    );
+    let userId = data.user_id || null;
 
-    if (!company) {
+    if (data.company_id) {
+      const [[company]] = await db.execute(
+        `SELECT owner_user_id FROM companies WHERE id = ? LIMIT 1`,
+        [data.company_id]
+      );
+
+      if (!company) {
+        throw new Error(
+          `Cannot create a subscription: company ${data.company_id} not found.`
+        );
+      }
+
+      userId = company.owner_user_id;
+    } else if (!userId) {
       throw new Error(
-        `Cannot create a subscription: company ${data.company_id} not found.`
+        "Cannot create a subscription: either company_id or user_id is required."
       );
     }
 
@@ -137,8 +200,8 @@ class SubscriptionRepository {
       (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
-        company.owner_user_id,
-        data.company_id,
+        userId,
+        data.company_id || null,
         data.plan_id,
         data.status,
         data.billing_cycle,
@@ -468,17 +531,28 @@ class SubscriptionRepository {
       return await this.getSubscriptionById(existing.id);
     }
 
-    // New Stripe subscription for this company — expire any other row
-    // still marked active before inserting, so a company never has two
-    // active rows.
-    await db.execute(
-      `
-      UPDATE subscriptions
-      SET status = 'expired', updated_at = NOW()
-      WHERE company_id = ? AND status = 'active'
-      `,
-      [data.companyId]
-    );
+    // New Stripe subscription — expire any other row still marked active
+    // before inserting, so the target (a company, or a Freelancer's own
+    // account-level row) never has two active rows.
+    if (data.companyId) {
+      await db.execute(
+        `
+        UPDATE subscriptions
+        SET status = 'expired', updated_at = NOW()
+        WHERE company_id = ? AND status = 'active'
+        `,
+        [data.companyId]
+      );
+    } else {
+      await db.execute(
+        `
+        UPDATE subscriptions
+        SET status = 'expired', updated_at = NOW()
+        WHERE user_id = ? AND company_id IS NULL AND status = 'active'
+        `,
+        [data.userId]
+      );
+    }
 
     const [result] = await db.execute(
       `

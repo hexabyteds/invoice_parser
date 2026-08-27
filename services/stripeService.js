@@ -70,12 +70,20 @@ class StripeService {
     priceId,
     userId,
     companyId,
+    billingScope = "company",
     planId,
     successUrl,
     cancelUrl
   }) {
 
     try {
+
+      const metadata = {
+        userId: String(userId),
+        companyId: companyId != null ? String(companyId) : "",
+        billingScope,
+        planId: String(planId)
+      };
 
       return await stripe.checkout.sessions.create({
         mode: "subscription",
@@ -87,17 +95,9 @@ class StripeService {
           }
         ],
         client_reference_id: String(userId),
-        metadata: {
-          userId: String(userId),
-          companyId: String(companyId),
-          planId: String(planId)
-        },
+        metadata,
         subscription_data: {
-          metadata: {
-            userId: String(userId),
-            companyId: String(companyId),
-            planId: String(planId)
-          }
+          metadata
         },
         success_url: successUrl,
         cancel_url: cancelUrl
@@ -210,6 +210,26 @@ class StripeService {
 
     } catch (err) {
       normalizeStripeError(err, "listInvoices");
+    }
+
+  }
+
+  // Platform-wide invoice list (no customer filter) — for the Super Admin
+  // Payments module. Same Stripe API, same account, just unscoped; Stripe
+  // remains the sole source of truth, nothing about this is duplicated
+  // into a local payments table.
+  async listAllInvoices({ limit = 20, startingAfter, status } = {}) {
+
+    try {
+
+      return await stripe.invoices.list({
+        limit,
+        starting_after: startingAfter || undefined,
+        status: status && status !== "all" ? status : undefined
+      });
+
+    } catch (err) {
+      normalizeStripeError(err, "listAllInvoices");
     }
 
   }
