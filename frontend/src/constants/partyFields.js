@@ -93,9 +93,9 @@ export const DESIGNATIONS = [
 ];
 
 const CONTACT_FIELDS = [
-  { name: "email", label: "Email", type: "email", required: true },
-  { name: "phone", label: "Phone", type: "tel", required: true },
-  { name: "mobile", label: "Mobile", type: "tel" },
+  { name: "email", label: "Email", type: "email", required: true, primary: true },
+  { name: "phone", label: "Phone", type: "tel", required: true, primary: true },
+  { name: "mobile", label: "Mobile", type: "tel", primary: true },
   { name: "website", label: "Website", type: "text" },
   { name: "department", label: "Department", type: "select", options: DEPARTMENTS },
   { name: "designation", label: "Designation", type: "select", options: DESIGNATIONS },
@@ -138,12 +138,12 @@ export const PARTY_FIELD_CONFIG = {
     {
       title: "Basic Info",
       fields: [
-        { name: "salutation", label: "Salutation", type: "select", options: SALUTATIONS },
-        { name: "primary_contact_first_name", label: "First Name", type: "text" },
-        { name: "primary_contact_last_name", label: "Last Name", type: "text" },
-        { name: "company_name", label: "Company Name", type: "text", required: true },
-        { name: "display_name", label: "Display Name", type: "text" },
-        { name: "customer_type", label: "Customer Type", type: "select", options: CUSTOMER_TYPES },
+        { name: "customer_type", label: "Customer Type", type: "radio", options: CUSTOMER_TYPES, primary: true, fullWidth: true },
+        { name: "salutation", label: "Salutation", type: "select", options: SALUTATIONS, primary: true },
+        { name: "primary_contact_first_name", label: "First Name", type: "text", primary: true },
+        { name: "primary_contact_last_name", label: "Last Name", type: "text", primary: true },
+        { name: "company_name", label: "Company Name", type: "text", required: true, primary: true },
+        { name: "display_name", label: "Display Name", type: "text", primary: true },
       ],
     },
     {
@@ -174,6 +174,11 @@ export const PARTY_FIELD_CONFIG = {
         { name: "salesperson", label: "Salesperson", type: "text" },
         { name: "account_manager", label: "Account Manager", type: "text" },
         { name: "cost_centre", label: "Cost Centre", type: "text" },
+      ],
+    },
+    {
+      title: "Remarks",
+      fields: [
         { name: "notes", label: "Notes", type: "textarea", fullWidth: true },
       ],
     },
@@ -183,12 +188,12 @@ export const PARTY_FIELD_CONFIG = {
     {
       title: "Basic Info",
       fields: [
-        { name: "vendor_type", label: "Vendor Type", type: "select", options: VENDOR_TYPES },
-        { name: "salutation", label: "Salutation", type: "select", options: SALUTATIONS },
-        { name: "primary_contact_first_name", label: "First Name", type: "text" },
-        { name: "primary_contact_last_name", label: "Last Name", type: "text" },
-        { name: "company_name", label: "Company Name", type: "text", required: true },
-        { name: "display_name", label: "Display Name", type: "text" },
+        { name: "vendor_type", label: "Vendor Type", type: "radio", options: VENDOR_TYPES, primary: true, fullWidth: true },
+        { name: "salutation", label: "Salutation", type: "select", options: SALUTATIONS, primary: true },
+        { name: "primary_contact_first_name", label: "First Name", type: "text", primary: true },
+        { name: "primary_contact_last_name", label: "Last Name", type: "text", primary: true },
+        { name: "company_name", label: "Company Name", type: "text", required: true, primary: true },
+        { name: "display_name", label: "Display Name", type: "text", primary: true },
       ],
     },
     {
@@ -214,6 +219,11 @@ export const PARTY_FIELD_CONFIG = {
         { name: "vendor_classification", label: "Vendor Classification", type: "select", options: VENDOR_CLASSIFICATIONS },
         { name: "procurement_category", label: "Procurement Category", type: "select", options: PROCUREMENT_CATEGORIES },
         { name: "default_expense_account", label: "Default Expense Account", type: "text" },
+      ],
+    },
+    {
+      title: "Remarks",
+      fields: [
         { name: "notes", label: "Notes", type: "textarea", fullWidth: true },
       ],
     },

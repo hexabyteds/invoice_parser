@@ -41,6 +41,9 @@ export default function Invoices() {
     const [page, setPage] = useState(1);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
+    const [selected, setSelected] = useState(() => new Set());
+    const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
     const navigate = useNavigate();
 
     async function loadClients() {
@@ -104,6 +107,7 @@ export default function Invoices() {
     useEffect(() => {
         loadDocuments(clientId, documentType, fromDate, toDate);
         setPage(1);
+        setSelected(new Set());
     }, [clientId, documentType, fromDate, toDate]);
 
     useEffect(() => {
@@ -171,6 +175,81 @@ export default function Invoices() {
             navigate(`/dashboard/invoices/${doc.id}`, {
                 state: { invoiceIds },
             });
+        }
+    }
+
+    function docKey(doc) {
+        return `${doc.documentType}-${doc.id}`;
+    }
+
+    function toggleSelected(doc) {
+        const key = docKey(doc);
+        setSelected((prev) => {
+            const next = new Set(prev);
+            if (next.has(key)) {
+                next.delete(key);
+            } else {
+                next.add(key);
+            }
+            return next;
+        });
+    }
+
+    const allOnPageSelected =
+        paginatedDocuments.length > 0 &&
+        paginatedDocuments.every((doc) => selected.has(docKey(doc)));
+
+    function toggleSelectAllOnPage() {
+        setSelected((prev) => {
+            const next = new Set(prev);
+            if (allOnPageSelected) {
+                paginatedDocuments.forEach((doc) => next.delete(docKey(doc)));
+            } else {
+                paginatedDocuments.forEach((doc) => next.add(docKey(doc)));
+            }
+            return next;
+        });
+    }
+
+    const selectedDocuments = useMemo(
+        () => filteredDocuments.filter((doc) => selected.has(docKey(doc))),
+        [filteredDocuments, selected]
+    );
+
+    async function confirmBulkDelete() {
+        if (selectedDocuments.length === 0) return;
+
+        try {
+            setBulkDeleting(true);
+
+            const results = await Promise.allSettled(
+                selectedDocuments.map((doc) =>
+                    doc.documentType === BANK_STATEMENT
+                        ? deleteBankStatement(doc.id)
+                        : deleteInvoices(doc.id)
+                )
+            );
+
+            const failed = results.filter((r) => r.status === "rejected").length;
+            const succeeded = results.length - failed;
+
+            await loadDocuments(clientId);
+            setSelected(new Set());
+
+            if (failed === 0) {
+                toast.success(
+                    `${succeeded} document${succeeded === 1 ? "" : "s"} deleted.`
+                );
+            } else if (succeeded === 0) {
+                toast.error("Could not delete the selected documents. Please try again.");
+            } else {
+                toast.error(
+                    `${succeeded} deleted, ${failed} failed. Please try again for the rest.`
+                );
+            }
+        } finally {
+            setBulkDeleting(false);
+            setBulkDeleteOpen(false);
         }
     }
 
@@ -307,6 +386,31 @@ export default function Invoices() {
                 )}
             </div>
 
+            {selected.size > 0 && (
+                <div className="flex items-center justify-between gap-4 rounded-2xl border border-indigo-200 bg-indigo-50 px-5 py-3">
+                    <p className="text-sm font-medium text-indigo-700">
+                        {selected.size} document{selected.size === 1 ? "" : "s"} selected
+                    </p>
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setSelected(new Set())}
+                            className="text-sm font-medium text-slate-600 hover:text-slate-800 transition"
+                        >
+                            Clear selection
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setBulkDeleteOpen(true)}
+                            className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"
+                        >
+                            <Trash2 size={16} />
+                            Delete selected
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 {loading ? (
                     <div className="py-20 flex flex-col items-center justify-center">
@@ -338,6 +442,15 @@ export default function Invoices() {
                         <table className="min-w-full">
                             <thead className="bg-slate-50 border-b">
                                 <tr>
+                                    <th className="px-6 py-4 text-left">
+                                        <input
+                                            type="checkbox"
+                                            checked={allOnPageSelected}
+                                            onChange={toggleSelectAllOnPage}
+                                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                            aria-label="Select all documents on this page"
+                                        />
+                                    </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
                                        Sr. #
                                     </th>
@@ -370,12 +483,22 @@ export default function Invoices() {
                             <tbody>
                                 {paginatedDocuments.map((doc, index) => {
                                     const isBankStatement = doc.documentType === BANK_STATEMENT;
+                                    const isSelected = selected.has(docKey(doc));
 
                                     return (
                                         <tr
                                             key={`${doc.documentType}-${doc.id}`}
-                                            className="border-b hover:bg-slate-50 transition"
+                                            className={`border-b hover:bg-slate-50 transition ${isSelected ? "bg-indigo-50/60" : ""}`}
                                         >
+                                            <td className="px-6 py-5">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => toggleSelected(doc)}
+                                                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                    aria-label={`Select document ${doc.number || doc.fileName || ""}`}
+                                                />
+                                            </td>
                                             <td className="px-6 py-5 text-slate-500">
                                                 {(safePage - 1) * ROWS_PER_PAGE + index + 1}
                                             </td>
@@ -503,6 +626,15 @@ export default function Invoices() {
                 loading={deleting}
                 onConfirm={confirmDelete}
                 onCancel={() => setDeleteTarget(null)}
+            />
+
+            <ConfirmDialog
+                open={bulkDeleteOpen}
+                title={`Delete ${selected.size} document${selected.size === 1 ? "" : "s"}?`}
+                message="The selected documents will be permanently deleted. This cannot be undone."
+                loading={bulkDeleting}
+                onConfirm={confirmBulkDelete}
+                onCancel={() => setBulkDeleteOpen(false)}
             />
 
         </div>

@@ -191,6 +191,15 @@ class InvoiceRepository {
     // Update invoice
     async update(id, companyId, invoice) {
 
+        // Same isBill branching as create() — client_id is the generic
+        // "selected party" id, document_type decides which FK it belongs
+        // in. Only touched when the caller explicitly passes client_id
+        // (see FreeInvoiceAgent.updateInvoice, which defaults it to the
+        // row's existing customer_id/supplier_id otherwise) — a normal
+        // field-only edit never unlinks a customer/supplier.
+        const documentType = invoice.document_type || null;
+        const isBill = documentType === "bill";
+
         const sql = `
             UPDATE invoices SET
                 invoice_no = ?,
@@ -206,7 +215,9 @@ class InvoiceRepository {
                 total_amount = ?,
                 currency = ?,
                 trn = ?,
-                document_type = ?
+                document_type = ?,
+                customer_id = ?,
+                supplier_id = ?
             WHERE id = ?
             AND company_id = ?
         `;
@@ -225,7 +236,9 @@ class InvoiceRepository {
             invoice.total_amount ?? 0,
             invoice.currency ?? null,
             invoice.trn ?? null,
-            invoice.document_type || null,
+            documentType,
+            isBill ? null : invoice.client_id ?? null,
+            isBill ? invoice.client_id ?? null : null,
             id,
             companyId
         ];
@@ -376,6 +389,63 @@ class InvoiceRepository {
         return Number(rows[0]?.total || 0);
     }
 
+    // Mirrors findByClient/countByClient above, but for a Bill's
+    // counterparty (supplier_id) instead of an Invoice's (customer_id) —
+    // powers the Supplier Detail page's Bill History, same as
+    // findByClient powers Customer Detail's Invoice History.
+    async findBySupplier(companyId, supplierId, { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}) {
+
+        let sql = `SELECT * FROM invoices WHERE company_id = ? AND supplier_id = ?`;
+        const params = [companyId, supplierId];
+
+        if (documentType) {
+            sql += ` AND document_type = ?`;
+            params.push(documentType);
+        }
+
+        if (from) {
+            sql += ` AND invoice_date >= ?`;
+            params.push(formatDate(from) || from);
+        }
+
+        if (to) {
+            sql += ` AND invoice_date <= ?`;
+            params.push(formatDate(to) || to);
+        }
+
+        sql += ` ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`;
+        params.push(limit, offset);
+
+        const [rows] = await db.query(sql, params);
+
+        return await this.mapInvoices(rows);
+    }
+
+    async countBySupplier(companyId, supplierId, { documentType = null, from = null, to = null } = {}) {
+
+        let sql = `SELECT COUNT(*) AS total FROM invoices WHERE company_id = ? AND supplier_id = ?`;
+        const params = [companyId, supplierId];
+
+        if (documentType) {
+            sql += ` AND document_type = ?`;
+            params.push(documentType);
+        }
+
+        if (from) {
+            sql += ` AND invoice_date >= ?`;
+            params.push(formatDate(from) || from);
+        }
+
+        if (to) {
+            sql += ` AND invoice_date <= ?`;
+            params.push(formatDate(to) || to);
+        }
+
+        const [rows] = await db.execute(sql, params);
+
+        return Number(rows[0]?.total || 0);
+    }
+
     // Export filter: optional client + optional document type + optional date range on invoice_date
     // Joins suppliers so exports (Zoho Bills, QuickBooks) can resolve a
     // Bill's real Vendor Name/payment terms from the linked supplier
@@ -386,9 +456,20 @@ class InvoiceRepository {
             SELECT invoices.*,
                 suppliers.company_name AS supplier_company_name,
                 suppliers.payment_terms AS supplier_payment_terms,
-                suppliers.trn AS supplier_trn
+                suppliers.trn AS supplier_trn,
+                suppliers.currency AS supplier_currency,
+                suppliers.tax_treatment AS supplier_tax_treatment,
+                suppliers.place_of_supply AS supplier_place_of_supply,
+                suppliers.billing_country AS supplier_billing_country,
+                suppliers.billing_city AS supplier_billing_city,
+                customers.company_name AS customer_company_name,
+                customers.trn AS customer_trn,
+                customers.currency AS customer_currency,
+                customers.payment_terms AS customer_payment_terms,
+                customers.place_of_supply AS customer_place_of_supply
             FROM invoices
             LEFT JOIN suppliers ON suppliers.id = invoices.supplier_id
+            LEFT JOIN customers ON customers.id = invoices.customer_id
             WHERE invoices.company_id = ?
         `;
 
@@ -472,6 +553,17 @@ class InvoiceRepository {
                 supplierCompanyName: row.supplier_company_name ?? null,
                 supplierPaymentTerms: row.supplier_payment_terms ?? null,
                 supplierTrn: row.supplier_trn ?? null,
+                supplierCurrency: row.supplier_currency ?? null,
+                supplierTaxTreatment: row.supplier_tax_treatment ?? null,
+                supplierPlaceOfSupply: row.supplier_place_of_supply ?? null,
+                supplierBillingCountry: row.supplier_billing_country ?? null,
+                supplierBillingCity: row.supplier_billing_city ?? null,
+
+                customerCompanyName: row.customer_company_name ?? null,
+                customerTrn: row.customer_trn ?? null,
+                customerCurrency: row.customer_currency ?? null,
+                customerPaymentTerms: row.customer_payment_terms ?? null,
+                customerPlaceOfSupply: row.customer_place_of_supply ?? null,
 
                 invoiceType: row.invoice_type,
                 documentType: row.document_type,

@@ -101,17 +101,177 @@ describe("Invoice upload + parsing (Gemini mocked)", () => {
     expect(res.body.invoices[0].clientName).toBe("Acme Supplies LLC");
   });
 
-  it("rejects upload with no client_id", async () => {
+  it("auto-creates a customer when no client_id is given and the buyer is identifiable (Supplier Invoice)", async () => {
     const { token } = await registerAndLogin();
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { buyerName: "Bayut Web Publishing FZ LLC", buyerTrn: "104105756100003" },
+    });
+
+    const res = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "supplier_invoice")
+      .attach("image", samplePngBuffer(), "invoice.png");
+
+    expect(res.status).toBe(200);
+    expect(res.body.invoice.clientName).toBe("Bayut Web Publishing FZ LLC");
+    expect(res.body.customerResolution.status).toBe("created");
+    expect(res.body.invoice.client_id).toBe(res.body.customerResolution.id);
+
+    const customers = await request(app)
+      .get("/api/customers")
+      .set(authed(token));
+
+    expect(customers.body.customers).toHaveLength(1);
+    expect(customers.body.customers[0].company_name).toBe("Bayut Web Publishing FZ LLC");
+    expect(customers.body.customers[0].trn).toBe("104105756100003");
+  });
+
+  it("auto-matches an existing customer by TRN, not a duplicate, when the same buyer is uploaded twice", async () => {
+    const { token } = await registerAndLogin();
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { buyerName: "Bayut Web Publishing FZ LLC", buyerTrn: "104105756100003" },
+    });
+
+    const first = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "supplier_invoice")
+      .attach("image", samplePngBuffer(), "invoice1.png");
+
+    expect(first.body.customerResolution.status).toBe("created");
+
+    // A minor punctuation/casing difference from the first upload — should
+    // still match by TRN rather than create a second customer.
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { buyerName: "Bayut Web Publishing FZ. LLC", buyerTrn: "104105756100003" },
+    });
+
+    const second = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "supplier_invoice")
+      .attach("image", samplePngBuffer(), "invoice2.png");
+
+    expect(second.status).toBe(200);
+    expect(second.body.customerResolution.status).toBe("matched");
+    expect(second.body.customerResolution.id).toBe(first.body.customerResolution.id);
+
+    const customers = await request(app)
+      .get("/api/customers")
+      .set(authed(token));
+
+    expect(customers.body.customers).toHaveLength(1);
+  });
+
+  it("flags the invoice for review (not a 400) when no client_id is given and the buyer can't be identified", async () => {
+    const { token } = await registerAndLogin();
+    // Default fixture has no buyerName/sellerName at all.
     mockSuccessfulExtract(invoiceService);
 
     const res = await request(app)
       .post("/api/upload")
       .set(authed(token))
+      .field("document_type", "supplier_invoice")
       .attach("image", samplePngBuffer(), "invoice.png");
+
+    expect(res.status).toBe(200);
+    expect(res.body.customerResolution.status).toBe("needs_review");
+    expect(res.body.invoice.client_id).toBeNull();
+
+    // The invoice itself is still saved, just unlinked, so nothing is lost.
+    const listed = await request(app)
+      .get(`/api/invoices/${res.body.invoice.id}`)
+      .set(authed(token));
+
+    expect(listed.status).toBe(200);
+  });
+
+  it("still requires client_id for a Bank Statement upload (no seller/buyer relationship to auto-detect)", async () => {
+    const { token } = await registerAndLogin();
+
+    const res = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "bank_statement")
+      .attach("image", samplePngBuffer(), "statement.png");
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/client/i);
+  });
+
+  it("auto-creates a supplier when no client_id is given and the vendor is identifiable (Bill)", async () => {
+    const { token } = await registerAndLogin();
+    mockSuccessfulExtract(invoiceService, {
+      invoice: {
+        sellerName: "ADNOC Distribution",
+        trn: "100069993200003",
+        phoneNumber: "+97124444444",
+        email: "info@adnocdistribution.ae",
+        location: "Abu Dhabi, UAE",
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "bill")
+      .attach("image", samplePngBuffer(), "bill.png");
+
+    expect(res.status).toBe(200);
+    expect(res.body.invoice.clientName).toBe("ADNOC Distribution");
+    expect(res.body.customerResolution.status).toBe("created");
+    expect(res.body.invoice.client_id).toBe(res.body.customerResolution.id);
+
+    const suppliers = await request(app)
+      .get("/api/suppliers")
+      .set(authed(token));
+
+    expect(suppliers.body.suppliers).toHaveLength(1);
+    expect(suppliers.body.suppliers[0].company_name).toBe("ADNOC Distribution");
+    expect(suppliers.body.suppliers[0].trn).toBe("100069993200003");
+
+    // Never linked as a customer — only as a supplier.
+    const customers = await request(app)
+      .get("/api/customers")
+      .set(authed(token));
+
+    expect(customers.body.customers).toHaveLength(0);
+  });
+
+  it("auto-matches an existing supplier by TRN, not a duplicate, when bills from the same vendor are uploaded repeatedly", async () => {
+    const { token } = await registerAndLogin();
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { sellerName: "ADNOC Distribution", trn: "100069993200003" },
+    });
+
+    const first = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "bill")
+      .attach("image", samplePngBuffer(), "bill1.png");
+
+    expect(first.body.customerResolution.status).toBe("created");
+
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { sellerName: "ADNOC DISTRIBUTION", trn: "100069993200003" },
+    });
+
+    const second = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "bill")
+      .attach("image", samplePngBuffer(), "bill2.png");
+
+    expect(second.status).toBe(200);
+    expect(second.body.customerResolution.status).toBe("matched");
+    expect(second.body.customerResolution.id).toBe(first.body.customerResolution.id);
+
+    const suppliers = await request(app)
+      .get("/api/suppliers")
+      .set(authed(token));
+
+    expect(suppliers.body.suppliers).toHaveLength(1);
   });
 
   it("rejects unsupported file types with a clean JSON error", async () => {

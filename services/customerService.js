@@ -122,6 +122,7 @@ class CustomerService {
                 country: data.country || "",
                 city: data.city || "",
                 notes: data.notes || "",
+                source: data.source === "auto" ? "auto" : "manual",
                 ...pickOptionalFields(data)
             });
         } catch (err) {

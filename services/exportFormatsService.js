@@ -210,23 +210,40 @@ class ExportFormatsService {
         const val = (v) =>
             v === null || v === undefined || v === "" ? "" : v;
 
+        // Prefer the value actually extracted from the document; fall back
+        // to the linked supplier/customer's saved record (populated via the
+        // Add Customer/Supplier forms) so the export isn't blank just
+        // because OCR didn't find that field on the page image.
+        const first = (...values) => {
+            for (const v of values) {
+                if (v !== null && v !== undefined && v !== "") return v;
+            }
+            return "";
+        };
+
         for (const invoice of invoices) {
             const items = invoice.lineItems?.length
                 ? invoice.lineItems
                 : [{}];
+
+            const vendorName = first(invoice.supplierCompanyName, invoice.clientName);
+            const vendorTrn = first(invoice.trn, invoice.supplierTrn);
+            const currencyCode = first(invoice.currency, invoice.supplierCurrency, invoice.customerCurrency);
+            const placeOfSupply = first(invoice.location, invoice.supplierPlaceOfSupply, invoice.supplierBillingCity, invoice.customerPlaceOfSupply);
+            const customerName = first(invoice.customerCompanyName, invoice.clientName);
 
             for (const item of items) {
                 sheet.addRow([
                     val(formatDate(invoice.invoiceDate)), // Bill Date
                     val(formatDate(invoice.dueDate)), // Due Date
                     "", // Bill ID (Zoho internal)
-                    val(invoice.supplierCompanyName || invoice.clientName), // Vendor Name
+                    val(vendorName), // Vendor Name
                     "", // Entity Discount Percent
                     "", // Payment Terms
-                    val(invoice.supplierPaymentTerms), // Payment Terms Label
+                    val(first(invoice.supplierPaymentTerms, invoice.customerPaymentTerms)), // Payment Terms Label
                     val(invoice.invoiceNo), // Bill Number
                     "", // PurchaseOrder
-                    val(invoice.currency), // Currency Code
+                    val(currencyCode), // Currency Code
                     "", // Exchange Rate
                     roundMoney(invoice.subtotal), // SubTotal
                     roundMoney(invoice.totalAmount), // Total
@@ -245,9 +262,9 @@ class ExportFormatsService {
                     "", // Approved Date
                     "", // Bill Status
                     "", // Created By
-                    val(invoice.trn), // TIN Number
+                    val(vendorTrn), // TIN Number
                     "", // Buyer ID Authority
-                    "", // Legal Name
+                    val(vendorName), // Legal Name
                     "", // Product ID
                     val(item.description), // Item Name
                     "", // Account
@@ -257,9 +274,9 @@ class ExportFormatsService {
                     "", // Tax Amount (per-item tax not stored)
                     roundMoney(item.totalPrice), // Item Total
                     "", // Is Billable
-                    "", // VAT Treatment
-                    val(invoice.location), // Place Of Supply
-                    val(invoice.trn), // Tax Registration Number
+                    val(invoice.supplierTaxTreatment), // VAT Treatment
+                    val(placeOfSupply), // Place Of Supply
+                    val(vendorTrn), // Tax Registration Number
                     roundMoney(item.unitPrice), // Rate
                     "", // Discount Type
                     "", // Is Discount Before Tax
@@ -283,7 +300,7 @@ class ExportFormatsService {
                     "", // Item Discount Account
                     "", // Item Discount Account Code
                     "", // Is Landed Cost
-                    "", // Customer Name
+                    val(customerName), // Customer Name
                     "", // Project Name
                 ]);
             }
@@ -386,6 +403,13 @@ class ExportFormatsService {
         const val = (v) =>
             v === null || v === undefined || v === "" ? "" : v;
 
+        const first = (...values) => {
+            for (const v of values) {
+                if (v !== null && v !== undefined && v !== "") return v;
+            }
+            return "";
+        };
+
         const rows = [];
 
         for (const invoice of invoices) {
@@ -393,18 +417,24 @@ class ExportFormatsService {
                 ? invoice.lineItems
                 : [{}];
 
+            const vendorName = first(invoice.supplierCompanyName, invoice.clientName);
+            const vendorTrn = first(invoice.trn, invoice.supplierTrn);
+            const currencyCode = first(invoice.currency, invoice.supplierCurrency, invoice.customerCurrency);
+            const placeOfSupply = first(invoice.location, invoice.supplierPlaceOfSupply, invoice.supplierBillingCity, invoice.customerPlaceOfSupply);
+            const customerName = first(invoice.customerCompanyName, invoice.clientName);
+
             for (const item of items) {
                 rows.push([
                     val(formatDate(invoice.invoiceDate)),
                     val(formatDate(invoice.dueDate)),
                     "",
-                    val(invoice.supplierCompanyName || invoice.clientName),
+                    val(vendorName),
                     "",
                     "",
-                    val(invoice.supplierPaymentTerms), // Payment Terms Label
+                    val(first(invoice.supplierPaymentTerms, invoice.customerPaymentTerms)), // Payment Terms Label
                     val(invoice.invoiceNo),
                     "",
-                    val(invoice.currency),
+                    val(currencyCode),
                     "",
                     formatMoney(invoice.subtotal),
                     formatMoney(invoice.totalAmount),
@@ -423,9 +453,9 @@ class ExportFormatsService {
                     "",
                     "",
                     "",
-                    val(invoice.trn),
+                    val(vendorTrn),
                     "",
-                    "",
+                    val(vendorName),
                     "",
                     val(item.description),
                     "",
@@ -435,9 +465,9 @@ class ExportFormatsService {
                     "",
                     formatMoney(item.totalPrice),
                     "",
-                    "",
-                    val(invoice.location),
-                    val(invoice.trn),
+                    val(invoice.supplierTaxTreatment),
+                    val(placeOfSupply),
+                    val(vendorTrn),
                     formatMoney(item.unitPrice),
                     "",
                     "",
@@ -460,9 +490,9 @@ class ExportFormatsService {
                     "",
                     "",
                     "",
-                    "",
-                    "",
-                    "",
+                    "", // Is Landed Cost
+                    val(customerName), // Customer Name
+                    "", // Project Name
                 ]);
             }
         }

@@ -1,31 +1,45 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import supplierApi from "../../services/supplierApi.js";
 import toast from "react-hot-toast";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import {
     AlertCircle,
+    ChevronLeft,
+    ChevronRight,
+    Eye,
+    FileText,
     Loader2,
     Pencil,
     Power,
     PowerOff,
     Trash2,
 } from "lucide-react";
+import { deleteInvoices, getInvoicesBySupplier } from "../../services/invoiceApi";
+import { formatDateDisplay } from "../../utils/formatDate";
+import { documentTypeLabel, documentTypeBadgeClass } from "../../utils/documentTypes";
 import { isPartyActive, partyStatusLabel, partyStatusBadgeClass } from "../../utils/clientStatus";
+
+const ROWS_PER_PAGE = 10;
 
 export default function SupplierDetail() {
 
     const { id } = useParams();
 
     const [supplier, setSupplier] = useState(null);
+    const [bills, setBills] = useState([]);
+    const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [deleting, setDeleting] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const [deleteBillTarget, setDeleteBillTarget] = useState(null);
+    const [deletingBill, setDeletingBill] = useState(false);
     const [togglingStatus, setTogglingStatus] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
+        setPage(1);
         load();
     }, [id]);
 
@@ -37,11 +51,15 @@ export default function SupplierDetail() {
         try {
 
             const res = await supplierApi.get(id);
+            const billsRes = await getInvoicesBySupplier(id);
+
             setSupplier(res.supplier);
+            setBills(billsRes?.data?.invoices || []);
 
         } catch (err) {
 
             setSupplier(null);
+            setBills([]);
             setError(
                 err.response?.data?.error ||
                     "Could not load this supplier. Please try again."
@@ -54,6 +72,33 @@ export default function SupplierDetail() {
         }
 
     }
+
+    async function confirmDeleteBill() {
+        if (!deleteBillTarget) return;
+
+        try {
+            setDeletingBill(true);
+            await deleteInvoices(deleteBillTarget.id);
+            await load();
+            toast.success("Bill deleted.");
+        } catch (err) {
+            toast.error(
+                err.response?.data?.error ||
+                    "Could not delete bill. Please try again."
+            );
+        } finally {
+            setDeletingBill(false);
+            setDeleteBillTarget(null);
+        }
+    }
+
+    const totalPages = Math.max(1, Math.ceil(bills.length / ROWS_PER_PAGE));
+    const safePage = Math.min(page, totalPages);
+
+    const paginatedBills = useMemo(() => {
+        const start = (safePage - 1) * ROWS_PER_PAGE;
+        return bills.slice(start, start + ROWS_PER_PAGE);
+    }, [bills, safePage]);
 
     async function handleDelete() {
         try {
@@ -292,6 +337,219 @@ export default function SupplierDetail() {
 
             </div>
 
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+
+                <div className="px-6 py-5 border-b">
+                    <h2 className="text-xl font-semibold text-slate-900">
+                        Supplier Bills
+                    </h2>
+                </div>
+
+                {bills.length === 0 ? (
+                    <div className="py-20 text-center">
+                        <FileText
+                            size={60}
+                            className="mx-auto text-slate-300"
+                        />
+                        <h3 className="mt-5 text-xl font-semibold text-slate-700">
+                            No documents found
+                        </h3>
+                        <p className="mt-2 text-slate-500">
+                            No bills for this supplier yet.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full">
+                            <thead className="bg-slate-50 border-b">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                       Sr. #
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Document No.
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Document Date
+                                    </th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
+                                       Amount Excl. VAT
+                                    </th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
+                                        Amount Incl. VAT
+                                    </th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-600">
+                                        VAT Amount
+                                    </th>
+                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
+                                        VAT Rate
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Party Name
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Document Type
+                                    </th>
+                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
+                                        Currency
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-600">
+                                        Document Uploaded Date
+                                    </th>
+                                    <th className="px-6 py-4 text-center text-sm font-semibold text-slate-600">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedBills.map((bill, index) => (
+                                    <tr
+                                        key={bill.id}
+                                        className="border-b hover:bg-slate-50 transition"
+                                    >
+                                        <td className="px-6 py-5 text-slate-500">
+                                            {(safePage - 1) * ROWS_PER_PAGE + index + 1}
+                                        </td>
+                                        <td className="px-6 py-5 font-semibold text-slate-900">
+                                            {bill.invoiceNo}
+                                        </td>
+                                        <td className="px-6 py-5 text-slate-900">
+                                            {formatDateDisplay(bill.invoiceDate)}
+                                        </td>
+                                        <td className="px-6 py-5 text-right text-slate-900">
+                                            {Number(
+                                                bill.subtotal || 0
+                                            ).toLocaleString(undefined, {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            })}
+                                        </td>
+                                        <td className="px-6 py-5 text-right font-semibold text-slate-900">
+                                            {Number(
+                                                bill.totalAmount
+                                            ).toLocaleString(undefined, {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            })}
+                                        </td>
+                                        <td className="px-6 py-5 text-right text-slate-900">
+                                            {Number(
+                                                bill.vatAmount || 0
+                                            ).toLocaleString(undefined, {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            })}
+                                        </td>
+                                        <td className="px-6 py-5 text-center text-slate-900">
+                                            {bill.vatRate ? `${bill.vatRate}%` : "-"}
+                                        </td>
+                                        <td className="px-6 py-5 text-slate-900">
+                                            {bill.clientName}
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${documentTypeBadgeClass(bill.documentType)}`}>
+                                                {documentTypeLabel(bill.documentType)}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-5 text-center">
+                                            <span className="inline-flex px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 text-xs font-semibold">
+                                                {bill.currency}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-5 text-slate-900">
+                                            {formatDateDisplay(bill.updatedAt)}
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <div className="flex justify-center gap-2">
+                                                <button
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/dashboard/invoices/${bill.id}`,
+                                                            {
+                                                                state: {
+                                                                    invoiceIds: bills.map(
+                                                                        (b) => b.id
+                                                                    ),
+                                                                },
+                                                            }
+                                                        )
+                                                    }
+                                                    className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-indigo-100 text-indigo-600 flex items-center justify-center transition"
+                                                >
+                                                    <Eye size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/dashboard/invoices/${bill.id}/edit`
+                                                        )
+                                                    }
+                                                    className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-amber-100 text-amber-600 flex items-center justify-center transition"
+                                                >
+                                                    <Pencil size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={() =>
+                                                        setDeleteBillTarget(bill)
+                                                    }
+                                                    className="w-10 h-10 rounded-lg bg-slate-100 hover:bg-red-100 text-red-600 flex items-center justify-center transition"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t bg-slate-50">
+                            <p className="text-sm text-slate-600">
+                                Showing{" "}
+                                {(safePage - 1) * ROWS_PER_PAGE + 1}–
+                                {Math.min(
+                                    safePage * ROWS_PER_PAGE,
+                                    bills.length
+                                )}{" "}
+                                of {bills.length} bills
+                            </p>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setPage((p) => Math.max(1, p - 1))
+                                    }
+                                    disabled={safePage <= 1}
+                                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition"
+                                >
+                                    <ChevronLeft size={18} />
+                                    Previous
+                                </button>
+
+                                <span className="text-sm text-slate-600 px-2">
+                                    Page {safePage} of {totalPages}
+                                </span>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setPage((p) =>
+                                            Math.min(totalPages, p + 1)
+                                        )
+                                    }
+                                    disabled={safePage >= totalPages}
+                                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition"
+                                >
+                                    Next
+                                    <ChevronRight size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+            </div>
+
             <ConfirmDialog
                 open={confirmOpen}
                 title="Delete this supplier?"
@@ -303,6 +561,19 @@ export default function SupplierDetail() {
                 loading={deleting}
                 onConfirm={handleDelete}
                 onCancel={() => setConfirmOpen(false)}
+            />
+
+            <ConfirmDialog
+                open={Boolean(deleteBillTarget)}
+                title="Delete this bill?"
+                message={
+                    deleteBillTarget
+                        ? `Bill ${deleteBillTarget.invoiceNo || ""} will be permanently deleted. This cannot be undone.`
+                        : ""
+                }
+                loading={deletingBill}
+                onConfirm={confirmDeleteBill}
+                onCancel={() => setDeleteBillTarget(null)}
             />
 
         </div>

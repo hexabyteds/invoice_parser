@@ -30,6 +30,14 @@ class InvoiceNormalizer {
 
             buyerName: (invoice.buyerName || "").trim(),
 
+            buyerTrn: (invoice.buyerTrn || "").trim(),
+
+            buyerPhone: (invoice.buyerPhone || "").trim(),
+
+            buyerEmail: (invoice.buyerEmail || "").trim(),
+
+            buyerAddress: (invoice.buyerAddress || "").trim(),
+
             phoneNumber: (invoice.phoneNumber || "").trim(),
 
             location: (invoice.location || "").trim(),
