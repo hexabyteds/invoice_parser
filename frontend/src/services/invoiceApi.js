@@ -94,3 +94,17 @@ export const getInvoicesByClient = (clientId, documentType, from, to) =>
       ...(to ? { to } : {}),
     },
   });
+
+// ==========================
+// Get Bills By Supplier
+// ==========================
+
+export const getInvoicesBySupplier = (supplierId, documentType, from, to) =>
+  api.get("/invoices", {
+    params: {
+      supplier_id: supplierId,
+      ...(documentType ? { document_type: documentType } : {}),
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
+    },
+  });

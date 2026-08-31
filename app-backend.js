@@ -210,18 +210,6 @@ app.post(
       }
 
       // ===========================
-      // NEW: Validate client
-      // ===========================
-      const clientId = Number(req.body.client_id);
-
-      if (!clientId) {
-        return res.status(400).json({
-          success: false,
-          error: "Client is required.",
-        });
-      }
-
-      // ===========================
       // NEW: Validate document type
       // ===========================
       const documentType = req.body.document_type || null;
@@ -230,6 +218,23 @@ app.post(
         return res.status(400).json({
           success: false,
           error: `Invalid document type. Must be one of: ${ALL_DOCUMENT_TYPES.join(", ")}.`,
+        });
+      }
+
+      // ===========================
+      // Client — required for Bank Statement (no seller/buyer relationship
+      // to auto-detect a customer from); optional for Invoice/Bill, where
+      // free-invoice-agent.js auto-matches/creates the customer/supplier
+      // from the parsed document instead (services/partyResolutionService.js).
+      // An explicit client_id (e.g. the "Upload" button on a Customer/
+      // Supplier Detail page) still always wins.
+      // ===========================
+      const clientId = req.body.client_id ? Number(req.body.client_id) : null;
+
+      if (isBankStatementType(documentType) && !clientId) {
+        return res.status(400).json({
+          success: false,
+          error: "Client is required.",
         });
       }
 
@@ -251,11 +256,15 @@ app.post(
       // ===========================
       // A Bill's party is a vendor (suppliers table), everything else
       // (Invoice, Bank Statement) uses the customers table — matches how
-      // invoiceRepository.create() decides which FK to populate.
-      if (documentType === DOCUMENT_TYPES.BILL) {
-        await supplierService.assertActive(clientId, req.company.id);
-      } else {
-        await customerService.assertActive(clientId, req.company.id);
+      // invoiceRepository.create() decides which FK to populate. Only
+      // applies when a client was explicitly selected — an auto-resolved
+      // customer/supplier is always freshly matched/created as ACTIVE.
+      if (clientId) {
+        if (documentType === DOCUMENT_TYPES.BILL) {
+          await supplierService.assertActive(clientId, req.company.id);
+        } else {
+          await customerService.assertActive(clientId, req.company.id);
+        }
       }
 
       // Reserves the bytes atomically — under concurrent uploads, the old
@@ -436,10 +445,20 @@ app.post(
           }
         } catch (logErr) {}
 
+        // Each invoice carries its own auto-resolution outcome (see
+        // free-invoice-agent.js's resolveClientId) — a multi-invoice PDF
+        // can match/create a different customer per invoice, so this is
+        // per-item rather than one PDF-level value. Absent (null) when an
+        // explicit client_id was passed in, since nothing was resolved.
+        const invoicesWithResolution = result.invoices.map((inv) => {
+          const { _resolution, ...rest } = inv;
+          return { ...rest, customerResolution: _resolution || null };
+        });
+
         return res.json({
           success: true,
           totalInvoices: result.totalInvoices,
-          invoices: result.invoices,
+          invoices: invoicesWithResolution,
           message: `${result.totalInvoices} invoice(s) processed successfully.`,
         });
 
@@ -456,7 +475,7 @@ app.post(
         await auditLogRepository.create({
           userId: req.user.id,
           companyId: req.company.id,
-          customerId: clientId,
+          customerId: invoice.client_id,
           action: "invoice_uploaded",
           module: "Invoice",
           status: "SUCCESS",
@@ -467,7 +486,7 @@ app.post(
         await auditLogRepository.create({
           userId: req.user.id,
           companyId: req.company.id,
-          customerId: clientId,
+          customerId: invoice.client_id,
           action: "invoice_processed",
           module: "Invoice",
           status: "SUCCESS",
@@ -499,6 +518,11 @@ app.post(
           lineItems: invoice.lineItems || [],
           trn: invoice.trn,
         },
+
+        // Null when an explicit client_id was passed in (nothing to
+        // resolve). Otherwise set by free-invoice-agent.js's
+        // resolveClientId — see services/partyResolutionService.js.
+        customerResolution: invoice._resolution || null,
 
         validation: {
           isValid: validation.isValid,
@@ -649,6 +673,8 @@ app.get(
       });
     }
 
+    const supplierId = req.query.supplier_id;
+
     let result;
 
     if (clientId) {
@@ -664,6 +690,21 @@ app.get(
       result = await agent.getInvoicesByClient(
         req.company.id,
         parsedClientId,
+        { limit, offset, documentType, from, to }
+      );
+    } else if (supplierId) {
+      const parsedSupplierId = Number(supplierId);
+
+      if (!Number.isSafeInteger(parsedSupplierId) || parsedSupplierId < 1) {
+        return res.status(400).json({
+          success: false,
+          error: "supplier_id must be a positive integer",
+        });
+      }
+
+      result = await agent.getInvoicesBySupplier(
+        req.company.id,
+        parsedSupplierId,
         { limit, offset, documentType, from, to }
       );
     } else {

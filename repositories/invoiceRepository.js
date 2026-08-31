@@ -191,6 +191,15 @@ class InvoiceRepository {
     // Update invoice
     async update(id, companyId, invoice) {
 
+        // Same isBill branching as create() — client_id is the generic
+        // "selected party" id, document_type decides which FK it belongs
+        // in. Only touched when the caller explicitly passes client_id
+        // (see FreeInvoiceAgent.updateInvoice, which defaults it to the
+        // row's existing customer_id/supplier_id otherwise) — a normal
+        // field-only edit never unlinks a customer/supplier.
+        const documentType = invoice.document_type || null;
+        const isBill = documentType === "bill";
+
         const sql = `
             UPDATE invoices SET
                 invoice_no = ?,
@@ -206,7 +215,9 @@ class InvoiceRepository {
                 total_amount = ?,
                 currency = ?,
                 trn = ?,
-                document_type = ?
+                document_type = ?,
+                customer_id = ?,
+                supplier_id = ?
             WHERE id = ?
             AND company_id = ?
         `;
@@ -225,7 +236,9 @@ class InvoiceRepository {
             invoice.total_amount ?? 0,
             invoice.currency ?? null,
             invoice.trn ?? null,
-            invoice.document_type || null,
+            documentType,
+            isBill ? null : invoice.client_id ?? null,
+            isBill ? invoice.client_id ?? null : null,
             id,
             companyId
         ];
@@ -355,6 +368,63 @@ class InvoiceRepository {
 
         let sql = `SELECT COUNT(*) AS total FROM invoices WHERE company_id = ? AND customer_id = ?`;
         const params = [companyId, clientId];
+
+        if (documentType) {
+            sql += ` AND document_type = ?`;
+            params.push(documentType);
+        }
+
+        if (from) {
+            sql += ` AND invoice_date >= ?`;
+            params.push(formatDate(from) || from);
+        }
+
+        if (to) {
+            sql += ` AND invoice_date <= ?`;
+            params.push(formatDate(to) || to);
+        }
+
+        const [rows] = await db.execute(sql, params);
+
+        return Number(rows[0]?.total || 0);
+    }
+
+    // Mirrors findByClient/countByClient above, but for a Bill's
+    // counterparty (supplier_id) instead of an Invoice's (customer_id) —
+    // powers the Supplier Detail page's Bill History, same as
+    // findByClient powers Customer Detail's Invoice History.
+    async findBySupplier(companyId, supplierId, { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}) {
+
+        let sql = `SELECT * FROM invoices WHERE company_id = ? AND supplier_id = ?`;
+        const params = [companyId, supplierId];
+
+        if (documentType) {
+            sql += ` AND document_type = ?`;
+            params.push(documentType);
+        }
+
+        if (from) {
+            sql += ` AND invoice_date >= ?`;
+            params.push(formatDate(from) || from);
+        }
+
+        if (to) {
+            sql += ` AND invoice_date <= ?`;
+            params.push(formatDate(to) || to);
+        }
+
+        sql += ` ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`;
+        params.push(limit, offset);
+
+        const [rows] = await db.query(sql, params);
+
+        return await this.mapInvoices(rows);
+    }
+
+    async countBySupplier(companyId, supplierId, { documentType = null, from = null, to = null } = {}) {
+
+        let sql = `SELECT COUNT(*) AS total FROM invoices WHERE company_id = ? AND supplier_id = ?`;
+        const params = [companyId, supplierId];
 
         if (documentType) {
             sql += ` AND document_type = ?`;

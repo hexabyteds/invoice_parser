@@ -8,6 +8,7 @@ const pdfService = require("./services/pdfService");
 const customerService = require("./services/customerService");
 const supplierService = require("./services/supplierService");
 const partyNameService = require("./services/partyNameService");
+const partyResolutionService = require("./services/partyResolutionService");
 
 const invoiceRepository = require("./repositories/invoiceRepository");
 const invoiceItemRepository = require("./repositories/invoiceItemRepository");
@@ -72,6 +73,45 @@ class FreeInvoiceAgent {
             selectedClient,
             fallback: invoice.clientName,
         });
+    }
+
+    // =========================
+    // AUTOMATIC PARTY RESOLUTION
+    // =========================
+
+    // When the upload didn't pin a specific customer/supplier (clientId is
+    // falsy), match the invoice's extracted counterparty against existing
+    // customers/suppliers (TRN, then normalized name) or auto-create one —
+    // see services/partyResolutionService.js. Mutates invoice.client_id
+    // (and invoice.clientName, so the displayed Party Name matches
+    // whatever got linked/created) and attaches invoice._resolution for
+    // the upload route to surface in the API response. When clientId WAS
+    // provided, this is a no-op beyond setting client_id — identical to
+    // this feature's pre-existing behavior.
+    async resolveClientId(invoice, companyId, userId, documentType, clientId) {
+        if (clientId) {
+            invoice.client_id = clientId;
+            return;
+        }
+
+        const resolution = await partyResolutionService.resolveParty({
+            companyId,
+            userId,
+            documentType,
+            invoice,
+        });
+
+        invoice.client_id = resolution.id ?? null;
+
+        if (resolution.entity?.company_name) {
+            invoice.clientName = resolution.entity.company_name;
+        }
+
+        invoice._resolution = {
+            status: resolution.status,
+            id: resolution.id ?? null,
+            name: resolution.entity?.company_name || invoice.clientName || "",
+        };
     }
 
     async saveSourceForInvoices(
@@ -179,19 +219,24 @@ class FreeInvoiceAgent {
 
         result.invoice.user_id = userId;
         result.invoice.company_id = companyId;
-        result.invoice.client_id = clientId;
         result.invoice.document_type = documentType;
 
-        const selectedClient = await this.loadClientForPartyName(
-            companyId,
-            clientId,
-            documentType
-        );
+        const selectedClient = clientId
+            ? await this.loadClientForPartyName(companyId, clientId, documentType)
+            : null;
 
         this.applyPartyName(
             result.invoice,
             documentType,
             selectedClient
+        );
+
+        await this.resolveClientId(
+            result.invoice,
+            companyId,
+            userId,
+            documentType,
+            clientId
         );
 
         const stored = this.persistSourceOnInvoice(
@@ -344,12 +389,13 @@ class FreeInvoiceAgent {
         const savedInvoices = [];
 
         // clientId/documentType are the same for every invoice in this
-        // PDF, so the selected client only needs to be loaded once.
-        const selectedClient = await this.loadClientForPartyName(
-            companyId,
-            clientId,
-            documentType
-        );
+        // PDF, so the explicitly-selected client only needs to be loaded
+        // once. When no clientId was given, each invoice is resolved
+        // independently below — different invoices within the same PDF
+        // can have different buyers/sellers.
+        const selectedClient = clientId
+            ? await this.loadClientForPartyName(companyId, clientId, documentType)
+            : null;
 
         for (
             let i = 0;
@@ -367,13 +413,20 @@ class FreeInvoiceAgent {
 
             invoice.user_id = userId;
             invoice.company_id = companyId;
-            invoice.client_id = clientId;
             invoice.document_type = documentType;
 
             this.applyPartyName(
                 invoice,
                 documentType,
                 selectedClient
+            );
+
+            await this.resolveClientId(
+                invoice,
+                companyId,
+                userId,
+                documentType,
+                clientId
             );
 
             const stored =
@@ -725,6 +778,48 @@ class FreeInvoiceAgent {
             });
         }
 
+        // Only touched when the caller explicitly passes client_id (used to
+        // link a "needs review" invoice — one FreeInvoiceAgent saved with
+        // no confident customer/supplier match — to one after the fact, or
+        // to relink it). Verify it's a real, company-scoped row before
+        // accepting it — invoiceRepository.update() writes it straight to
+        // customer_id/supplier_id with no ownership check of its own, and
+        // this is user-supplied input, so an unverified id could point at
+        // another company's customer. Reuses customerService.get/
+        // supplierService.get, which already do the company-scoped lookup
+        // and not-found error.
+        //
+        // When client_id ISN'T passed, default to keeping today's link —
+        // but only if document_type isn't also changing sides. A
+        // customer_id from an Invoice is not a valid supplier_id if this
+        // same edit flips it to a Bill (and vice versa); carrying it over
+        // would either violate the supplier_id/customer_id foreign key or
+        // silently point at an unrelated row, so an edit that changes
+        // sides with no new party unlinks instead.
+        let resolvedClientId = documentTypeChanged
+            ? null
+            : (existing.customer_id ?? existing.supplier_id ?? null);
+
+        if (data.client_id !== undefined) {
+            const numericClientId = Number(data.client_id) || null;
+
+            if (numericClientId) {
+                const targetDocumentType = data.document_type ?? existing.document_type;
+
+                try {
+                    if (targetDocumentType === "bill") {
+                        await supplierService.get(numericClientId, companyId);
+                    } else {
+                        await customerService.get(numericClientId, companyId);
+                    }
+                } catch (err) {
+                    throw new Error(`Invalid value for client_id: ${err.message}`);
+                }
+            }
+
+            resolvedClientId = numericClientId;
+        }
+
         const merged = {
             invoice_no: data.invoice_no ?? existing.invoice_no,
             client_name: clientName,
@@ -740,6 +835,7 @@ class FreeInvoiceAgent {
             currency: data.currency ?? existing.currency,
             trn: data.trn ?? existing.trn,
             document_type: data.document_type ?? existing.document_type,
+            client_id: resolvedClientId,
         };
 
         await invoiceRepository.update(
@@ -1040,6 +1136,38 @@ class FreeInvoiceAgent {
                 invoiceRepository.countByClient(
                     companyId,
                     clientId,
+                    { documentType, from, to }
+                )
+            ]);
+
+        return {
+            invoices,
+            total
+        };
+    }
+
+    async getInvoicesBySupplier(
+        companyId,
+        supplierId,
+        { limit = 20, offset = 0, documentType = null, from = null, to = null } = {}
+    ) {
+        const [invoices, total] =
+            await Promise.all([
+                invoiceRepository.findBySupplier(
+                    companyId,
+                    supplierId,
+                    {
+                        limit,
+                        offset,
+                        documentType,
+                        from,
+                        to
+                    }
+                ),
+
+                invoiceRepository.countBySupplier(
+                    companyId,
+                    supplierId,
                     { documentType, from, to }
                 )
             ]);

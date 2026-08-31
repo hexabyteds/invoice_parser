@@ -80,9 +80,19 @@ class SupplierService {
 
     // A supplier belongs to the company (companyId) — userId is only kept
     // for attribution (create), matching customerService's pattern.
-    async create(companyId, userId, data) {
+    //
+    // requireAllFields=false relaxes REQUIRED_FIELDS down to just
+    // company_name — used only by partyResolutionService when
+    // auto-creating a supplier from an extracted Bill, where billing
+    // country/city aren't available (Gemini extracts one free-text vendor
+    // address, not separately parsed fields) and email/phone/trn may be
+    // blank. Every human-facing caller (supplierController) keeps the
+    // strict default.
+    async create(companyId, userId, data, { requireAllFields = true } = {}) {
 
-        for (const field of REQUIRED_FIELDS) {
+        const fieldsToRequire = requireAllFields ? REQUIRED_FIELDS : ["company_name"];
+
+        for (const field of fieldsToRequire) {
             const value = data[field];
             if (!value || !String(value).trim()) {
                 throw new Error(`${field.replace(/_/g, " ")} is required.`);
@@ -112,12 +122,13 @@ class SupplierService {
                 user_id: userId,
                 company_id: companyId,
                 company_name: data.company_name,
-                email: data.email,
-                phone: data.phone,
-                billing_country: data.billing_country,
-                billing_city: data.billing_city,
-                trn: data.trn,
+                email: data.email || "",
+                phone: data.phone || "",
+                billing_country: data.billing_country || "",
+                billing_city: data.billing_city || "",
+                trn: data.trn || "",
                 notes: data.notes || "",
+                source: data.source === "auto" ? "auto" : "manual",
                 ...pickOptionalFields(data)
             });
         } catch (err) {

@@ -24,6 +24,10 @@ function mapGeminiInvoice(g) {
         clientName: g.vendorName || "",
         sellerName: g.vendorName || "",
         buyerName: g.buyerName || "",
+        buyerTrn: g.buyerTrn || "",
+        buyerPhone: g.buyerPhone || "",
+        buyerEmail: g.buyerEmail || "",
+        buyerAddress: g.buyerAddress || "",
         invoiceNo: g.invoiceNumber || "",
         invoiceDate: g.invoiceDate || "",
         dueDate: g.dueDate || "",
@@ -117,6 +121,7 @@ function mergeContinuationFragment(previous, fragment) {
     const fillIfBlank = [
         "vendorName", "buyerName", "invoiceDate", "dueDate", "trn",
         "phone", "email", "address", "currency",
+        "buyerTrn", "buyerPhone", "buyerEmail", "buyerAddress",
     ];
 
     for (const field of fillIfBlank) {

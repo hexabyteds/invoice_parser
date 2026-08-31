@@ -126,6 +126,26 @@ class GeminiService {
                     description: "Vendor address"
                 },
 
+                buyerTrn: {
+                    type: Type.STRING,
+                    description: "Buyer/customer Tax Registration Number, from the same 'Bill To'/'Sold To'/'Customer' section as buyerName. Return \"\" if not visible."
+                },
+
+                buyerPhone: {
+                    type: Type.STRING,
+                    description: "Buyer/customer phone number, from the same section as buyerName. Return \"\" if not visible."
+                },
+
+                buyerEmail: {
+                    type: Type.STRING,
+                    description: "Buyer/customer email address, from the same section as buyerName. Return \"\" if not visible."
+                },
+
+                buyerAddress: {
+                    type: Type.STRING,
+                    description: "Buyer/customer address, from the same section as buyerName. Return \"\" if not visible."
+                },
+
                 currency: {
                     type: Type.STRING,
                     description: "Invoice currency, for example AED"
@@ -201,6 +221,10 @@ class GeminiService {
                 "phone",
                 "email",
                 "address",
+                "buyerTrn",
+                "buyerPhone",
+                "buyerEmail",
+                "buyerAddress",
                 "currency",
                 "subtotal",
                 "vatRate",
@@ -463,6 +487,9 @@ PAY SPECIAL ATTENTION TO:
   "Sold To", "Customer", "Client", "Party", "Recipient", "Invoice To", or
   similar wording. Extract it separately from the vendor/seller. Leave it
   empty ("") only if no such section is visible anywhere on the document.
+- Buyer TRN, buyer phone, buyer email, buyer address — from that same
+  buyer/customer section, kept separate from the vendor's own TRN/phone/
+  email/address above. Leave each empty ("") if not visible.
 - Currency
 - Subtotal
 - VAT rate

@@ -80,13 +80,12 @@ export default function Dashboard() {
       return;
     }
 
-    if (!clientId) {
-      setUploadError("Please select a customer.");
-      return;
-    }
-
+    // Customer is optional here — when left blank, the backend
+    // matches/creates the customer automatically from the parsed document
+    // (see services/partyResolutionService.js). Only validated when the
+    // user explicitly picked one.
     const selectedClient = clients.find((c) => String(c.id) === String(clientId));
-    if (selectedClient && !isPartyActive(selectedClient.status)) {
+    if (clientId && selectedClient && !isPartyActive(selectedClient.status)) {
       setUploadError(
         "This customer is inactive. Please activate the customer before adding documents."
       );
@@ -100,7 +99,9 @@ export default function Dashboard() {
 
       const formData = new FormData();
       formData.append("image", file);
-      formData.append("client_id", clientId);
+      if (clientId) {
+        formData.append("client_id", clientId);
+      }
 
       const res = await uploadInvoice(formData);
 
@@ -109,8 +110,18 @@ export default function Dashboard() {
           `${res.data.totalInvoices} invoice(s) imported successfully.`
         );
       } else {
+        const resolution = res.data?.customerResolution;
+        const resolutionNote =
+          resolution?.status === "created"
+            ? ` New customer created: ${resolution.name}.`
+            : resolution?.status === "matched"
+            ? ` Matched to existing customer: ${resolution.name}.`
+            : resolution?.status === "needs_review"
+            ? " Customer could not be confidently identified — open the invoice to link one."
+            : "";
+
         setUploadMsg(
-          `Invoice ${res.data?.invoice?.invoiceNo || ""} uploaded successfully.`
+          `Invoice ${res.data?.invoice?.invoiceNo || ""} uploaded successfully.${resolutionNote}`
         );
       }
 
@@ -237,14 +248,14 @@ export default function Dashboard() {
 
             <div className="mb-4">
               <label className="block text-sm font-semibold text-slate-900 mb-2">
-                Select Customer
+                Customer (optional)
               </label>
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                <option value="">Select Customer</option>
+                <option value="">Auto-detect from document</option>
                 {clients.map((client) => (
                   <option
                     key={client.id}
