@@ -456,9 +456,20 @@ class InvoiceRepository {
             SELECT invoices.*,
                 suppliers.company_name AS supplier_company_name,
                 suppliers.payment_terms AS supplier_payment_terms,
-                suppliers.trn AS supplier_trn
+                suppliers.trn AS supplier_trn,
+                suppliers.currency AS supplier_currency,
+                suppliers.tax_treatment AS supplier_tax_treatment,
+                suppliers.place_of_supply AS supplier_place_of_supply,
+                suppliers.billing_country AS supplier_billing_country,
+                suppliers.billing_city AS supplier_billing_city,
+                customers.company_name AS customer_company_name,
+                customers.trn AS customer_trn,
+                customers.currency AS customer_currency,
+                customers.payment_terms AS customer_payment_terms,
+                customers.place_of_supply AS customer_place_of_supply
             FROM invoices
             LEFT JOIN suppliers ON suppliers.id = invoices.supplier_id
+            LEFT JOIN customers ON customers.id = invoices.customer_id
             WHERE invoices.company_id = ?
         `;
 
@@ -542,6 +553,17 @@ class InvoiceRepository {
                 supplierCompanyName: row.supplier_company_name ?? null,
                 supplierPaymentTerms: row.supplier_payment_terms ?? null,
                 supplierTrn: row.supplier_trn ?? null,
+                supplierCurrency: row.supplier_currency ?? null,
+                supplierTaxTreatment: row.supplier_tax_treatment ?? null,
+                supplierPlaceOfSupply: row.supplier_place_of_supply ?? null,
+                supplierBillingCountry: row.supplier_billing_country ?? null,
+                supplierBillingCity: row.supplier_billing_city ?? null,
+
+                customerCompanyName: row.customer_company_name ?? null,
+                customerTrn: row.customer_trn ?? null,
+                customerCurrency: row.customer_currency ?? null,
+                customerPaymentTerms: row.customer_payment_terms ?? null,
+                customerPlaceOfSupply: row.customer_place_of_supply ?? null,
 
                 invoiceType: row.invoice_type,
                 documentType: row.document_type,

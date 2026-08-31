@@ -29,8 +29,18 @@ export default function PartyForm({
 }) {
   const sections = PARTY_FIELD_CONFIG[entityType] || [];
 
+  // Fields flagged `primary` render in the always-visible card at the top
+  // of the form (mirrors the Zoho-style "New Customer" header block); the
+  // rest of each section renders inside its own tab below. A section that
+  // is entirely primary fields (e.g. Basic Info) simply produces no tab.
+  const primaryFields = sections.flatMap((s) => s.fields).filter((f) => f.primary);
+  const tabSections = sections
+    .map((s) => ({ ...s, fields: s.fields.filter((f) => !f.primary) }))
+    .filter((s) => s.fields.length > 0);
+
   const [form, setForm] = useState(() => mergeValues(entityType, initialValues));
   const [errors, setErrors] = useState({});
+  const [activeTab, setActiveTab] = useState(tabSections[0]?.title);
 
   // Re-sync when the parent hands us freshly-loaded initial values (edit
   // mode: the record loads asynchronously after first render).
@@ -38,6 +48,13 @@ export default function PartyForm({
     setForm(mergeValues(entityType, initialValues));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialValues, entityType]);
+
+  // Entity type changes (customer vs supplier use different tab sets) —
+  // fall back to that entity's first tab rather than keeping a stale title.
+  useEffect(() => {
+    setActiveTab(tabSections[0]?.title);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entityType]);
 
   function handleChange(name, value) {
     setForm((prev) => {
@@ -97,20 +114,66 @@ export default function PartyForm({
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
+
+      // The first invalid field may be sitting in a tab that isn't
+      // currently open — jump there so the error is actually visible
+      // instead of silently blocking submission.
+      const erroredTab = tabSections.find((section) =>
+        section.fields.some((field) => nextErrors[field.name])
+      );
+      if (erroredTab) setActiveTab(erroredTab.title);
+
       return;
     }
 
     onSubmit(form);
   }
 
-  return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-8">
-      {sections.map((section) => (
-        <div key={section.title} className="bg-white rounded-3xl shadow border p-8">
-          <h2 className="text-xl font-semibold text-slate-900 mb-6">{section.title}</h2>
+  const activeSection = tabSections.find((s) => s.title === activeTab) || tabSections[0];
 
-          <div className="grid md:grid-cols-2 gap-5">
-            {section.fields.map((field) => (
+  return (
+    <form onSubmit={handleSubmit} noValidate className="space-y-6">
+      <div className="bg-white rounded-3xl shadow border p-8">
+        <div className="grid md:grid-cols-2 gap-5">
+          {primaryFields.map((field) => (
+            <Field
+              key={field.name}
+              field={field}
+              value={form[field.name]}
+              countryValue={field.countryField ? form[field.countryField] : undefined}
+              error={errors[field.name]}
+              onChange={(value) => handleChange(field.name, value)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {tabSections.length > 0 && (
+        <div className="bg-white rounded-3xl shadow border overflow-hidden">
+          <div className="flex flex-wrap gap-1 px-8 pt-5 border-b border-slate-200">
+            {tabSections.map((section) => {
+              const hasError = section.fields.some((field) => errors[field.name]);
+              const isActive = section.title === activeSection?.title;
+
+              return (
+                <button
+                  key={section.title}
+                  type="button"
+                  onClick={() => setActiveTab(section.title)}
+                  className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition ${
+                    isActive
+                      ? "border-indigo-600 text-indigo-600"
+                      : "border-transparent text-slate-500 hover:text-slate-800"
+                  } ${hasError && !isActive ? "text-red-500" : ""}`}
+                >
+                  {section.title}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="p-8 grid md:grid-cols-2 gap-5">
+            {activeSection?.fields.map((field) => (
               <Field
                 key={field.name}
                 field={field}
@@ -122,7 +185,7 @@ export default function PartyForm({
             ))}
           </div>
         </div>
-      ))}
+      )}
 
       <div className="flex justify-end gap-4">
         <button
@@ -153,6 +216,32 @@ function Field({ field, value, countryValue, error, onChange }) {
         <label htmlFor={field.name} className="text-sm font-semibold text-slate-900">
           {field.label}
         </label>
+      </div>
+    );
+  }
+
+  if (field.type === "radio") {
+    return (
+      <div className={`flex items-center gap-6 ${wrapperClass}`}>
+        <span className="text-sm font-semibold text-slate-900 w-32 shrink-0">
+          {field.label}
+          {field.required && " *"}
+        </span>
+        <div className="flex items-center gap-6">
+          {(field.options || []).map((option) => (
+            <label key={option} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name={field.name}
+                checked={value === option}
+                onChange={() => onChange(option)}
+                className="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-2 focus:ring-indigo-500"
+              />
+              <span className="text-sm text-slate-700">{option}</span>
+            </label>
+          ))}
+        </div>
+        {error && <p className="mt-1.5 text-sm text-red-500">{error}</p>}
       </div>
     );
   }
