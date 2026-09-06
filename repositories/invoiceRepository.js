@@ -80,20 +80,6 @@ class InvoiceRepository {
         );
     }
 
-    // Get all invoices
-    async findAll() {
-
-        const [rows] = await db.execute(`
-            SELECT *
-            FROM invoices
-            ORDER BY created_at DESC
-        `);
-
-  return await this.mapInvoices(rows);
-
-
-    }
-
     // Get invoice by ID
 
     // Get invoices belonging to one company — every member with access to
@@ -257,15 +243,6 @@ class InvoiceRepository {
         );
 
         return result.affectedRows;
-    }
-
-    // Delete invoice (legacy — prefer deleteById)
-    async delete(id) {
-
-        await db.execute(
-            `DELETE FROM invoices WHERE id = ?`,
-            [id]
-        );
     }
 
     // Delete all invoices of one company

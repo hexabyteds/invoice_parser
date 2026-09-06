@@ -50,14 +50,30 @@ class InvoiceNormalizer {
 
                 const quantity = this.toNumber(item.quantity);
                 const unitPrice = this.toNumber(item.unitPrice);
-            
+
+                // Gemini's own extraction schema names this field `amount`
+                // (services/geminiService.js), never `totalPrice` — checking
+                // only `item.totalPrice` meant it was never populated and
+                // this silently discarded Gemini's real extracted line
+                // total on every upload, always recomputing qty*unitPrice
+                // instead (wrong whenever a line's real total legitimately
+                // differs, e.g. a per-line discount or lump-sum pricing).
+                // `totalPrice` is still checked first for any caller that
+                // already provides it directly (e.g. a manual edit).
+                // Presence, not truthiness, decides the fallback — a
+                // genuinely zero-value line item (a free/waived item) must
+                // stay 0, not get silently replaced by a recomputed total.
+                const extractedTotal = item.totalPrice ?? item.amount;
+                const hasExtractedTotal =
+                    extractedTotal !== undefined && extractedTotal !== null && extractedTotal !== "";
+
                 return {
                     description: (item.description || "").trim(),
                     quantity,
                     unitPrice,
-                    totalPrice: this.toNumber(item.totalPrice) || (quantity * unitPrice)
+                    totalPrice: hasExtractedTotal ? this.toNumber(extractedTotal) : quantity * unitPrice
                 };
-            
+
             })
         };
 

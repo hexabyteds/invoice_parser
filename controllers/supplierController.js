@@ -152,7 +152,13 @@ class SupplierController {
 
         } catch (err) {
 
-            const status = err.message === "Supplier not found." ? 404 : 500;
+            // A not-found/not-owned supplier is a 404; the supplier having
+            // linked bills is a 400 (a rejected business rule, not a server
+            // failure) — only anything else is a genuine 500.
+            const status =
+                err.message === "Supplier not found." ? 404 :
+                err.message.startsWith("Cannot delete") ? 400 :
+                500;
 
             res.status(status).json({
                 success: false,

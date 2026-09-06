@@ -164,6 +164,38 @@ describe("Invoice upload + parsing (Gemini mocked)", () => {
     expect(customers.body.customers).toHaveLength(1);
   });
 
+  // Regression test for QA audit BUG-03: partyResolutionService used to do
+  // a SELECT (findMatch) then a separate INSERT with no locking and no DB
+  // constraint backing it, so near-simultaneous uploads for the same
+  // brand-new customer could each pass the pre-check and both insert —
+  // confirmed to produce duplicate customer rows under concurrency.
+  it("does not create duplicate customers when the same new buyer is uploaded concurrently (BUG-03)", async () => {
+    const { token } = await registerAndLogin();
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { buyerName: "Acme Global FZE", buyerTrn: "123456789012345" },
+    });
+
+    const CONCURRENCY = 5;
+    await Promise.allSettled(
+      Array.from({ length: CONCURRENCY }, (_, i) =>
+        request(app)
+          .post("/api/upload")
+          .set(authed(token))
+          .field("document_type", "supplier_invoice")
+          .attach("image", samplePngBuffer(), `invoice${i}.png`)
+      )
+    );
+
+    const customers = await request(app)
+      .get("/api/customers")
+      .set(authed(token));
+
+    const matches = customers.body.customers.filter(
+      (c) => c.trn === "123456789012345"
+    );
+    expect(matches).toHaveLength(1);
+  });
+
   it("flags the invoice for review (not a 400) when no client_id is given and the buyer can't be identified", async () => {
     const { token } = await registerAndLogin();
     // Default fixture has no buyerName/sellerName at all.
@@ -274,6 +306,153 @@ describe("Invoice upload + parsing (Gemini mocked)", () => {
     expect(suppliers.body.suppliers).toHaveLength(1);
   });
 
+  // Regression test for QA audit BUG-02: partyResolutionService's
+  // fallback name matching used to be a bare substring test, which
+  // silently attached a bill to an unrelated existing supplier whenever
+  // one name was a linguistic substring of another (e.g. "national" is a
+  // substring of "international") — with zero indication to the user. A
+  // differing TRN on both sides is strong counter-evidence and must
+  // create a new supplier, not silently merge into the wrong one.
+  it("does not silently merge a bill into an unrelated supplier whose name happens to share a substring (BUG-02)", async () => {
+    const { token } = await registerAndLogin();
+    mockSuccessfulExtract(invoiceService, {
+      invoice: {
+        sellerName: "International Trading Company",
+        trn: "100000000000001",
+      },
+    });
+
+    const first = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "bill")
+      .attach("image", samplePngBuffer(), "bill1.png");
+
+    expect(first.body.customerResolution.status).toBe("created");
+
+    mockSuccessfulExtract(invoiceService, {
+      invoice: {
+        sellerName: "National Trading Company",
+        trn: "999999999999999",
+      },
+    });
+
+    const second = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "bill")
+      .attach("image", samplePngBuffer(), "bill2.png");
+
+    expect(second.status).toBe(200);
+    expect(second.body.customerResolution.status).not.toBe("matched");
+    expect(second.body.customerResolution.id).not.toBe(first.body.customerResolution.id);
+
+    const suppliers = await request(app)
+      .get("/api/suppliers")
+      .set(authed(token));
+
+    expect(suppliers.body.suppliers).toHaveLength(2);
+  });
+
+  // A fuzzy name match with no TRN on either side (very common on real
+  // invoices) is too weak to trust blindly — must be flagged for a human
+  // to confirm, not silently auto-attached.
+  it("flags a fuzzy (non-exact) name-only match for review instead of auto-linking it", async () => {
+    const { token } = await registerAndLogin();
+    // trn: null on both uploads — the default fixture's trn is otherwise
+    // identical across calls, which would match via TRN and mask the name
+    // matching path this test is isolating.
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { sellerName: "ABC Trading", trn: null },
+    });
+
+    const first = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "bill")
+      .attach("image", samplePngBuffer(), "bill1.png");
+
+    expect(first.body.customerResolution.status).toBe("created");
+
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { sellerName: "ABC Trading Middle East LLC", trn: null },
+    });
+
+    const second = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "bill")
+      .attach("image", samplePngBuffer(), "bill2.png");
+
+    expect(second.body.customerResolution.status).toBe("needs_review");
+    expect(second.body.invoice.client_id).toBeNull();
+  });
+
+  // An exact match (same name, after normalization) with no TRN on either
+  // side — the common repeat-vendor case — should still auto-link, not
+  // force a review every time.
+  it("still auto-links a repeat vendor with no TRN when the name matches exactly", async () => {
+    const { token } = await registerAndLogin();
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { sellerName: "ABC Trading", trn: null },
+    });
+
+    const first = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "bill")
+      .attach("image", samplePngBuffer(), "bill1.png");
+
+    expect(first.body.customerResolution.status).toBe("created");
+
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { sellerName: "ABC Trading", trn: null },
+    });
+
+    const second = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "bill")
+      .attach("image", samplePngBuffer(), "bill2.png");
+
+    expect(second.body.customerResolution.status).toBe("matched");
+    expect(second.body.customerResolution.id).toBe(first.body.customerResolution.id);
+  });
+
+  // Regression test for QA audit BUG-QA-02: the "exact-name" auto-link tier
+  // used to compare names through the SAME legal-suffix-stripping
+  // normalization the fuzzy tier uses, so two distinct companies whose
+  // names differ only by suffix ("LLC" vs "Group" — both stripped, and
+  // "holdings" is itself a stripped suffix) collapsed to the identical
+  // string "abc" and were silently auto-linked with no review, exactly the
+  // failure mode BUG-02 was meant to close.
+  it("does not treat two distinct companies differing only by legal suffix as an exact match (BUG-QA-02)", async () => {
+    const { token } = await registerAndLogin();
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { buyerName: "ABC Holdings LLC", buyerTrn: null },
+    });
+
+    const first = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "supplier_invoice")
+      .attach("image", samplePngBuffer(), "invoice1.png");
+
+    expect(first.body.customerResolution.status).toBe("created");
+
+    mockSuccessfulExtract(invoiceService, {
+      invoice: { buyerName: "ABC Holdings Group", buyerTrn: null },
+    });
+
+    const second = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("document_type", "supplier_invoice")
+      .attach("image", samplePngBuffer(), "invoice2.png");
+
+    expect(second.body.customerResolution.status).not.toBe("matched");
+  });
+
   it("rejects unsupported file types with a clean JSON error", async () => {
     const { token } = await registerAndLogin();
     const clientId = await createClient(token);
@@ -287,6 +466,48 @@ describe("Invoice upload + parsing (Gemini mocked)", () => {
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.error).toMatch(/pdf|jpg|png/i);
+  });
+
+  // Regression test for QA audit BUG-QA-03: multer's fileFilter only
+  // checked the client-supplied multipart Content-Type header, which a
+  // spoofed request can set to anything regardless of the file's real
+  // bytes — a renamed executable claiming "image/png" uploaded successfully.
+  it("rejects a file whose content doesn't match its claimed Content-Type, even though the header alone would pass multer's filter (BUG-QA-03)", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+
+    // A Windows PE header ("MZ...") wearing a spoofed image/png Content-Type.
+    const fakePng = Buffer.from("MZ\x90\x00\x03\x00\x00\x00not actually a png");
+
+    const res = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("client_id", String(clientId))
+      .attach("image", fakePng, {
+        filename: "resume.png",
+        contentType: "image/png",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toMatch(/content/i);
+  });
+
+  it("rejects a 0-byte upload", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+
+    const res = await request(app)
+      .post("/api/upload")
+      .set(authed(token))
+      .field("client_id", String(clientId))
+      .attach("image", Buffer.alloc(0), {
+        filename: "empty.png",
+        contentType: "image/png",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/empty/i);
   });
 
   it("rejects files over the server-side size limit with a clean 413, not a hang or an HTML error page", async () => {
@@ -539,6 +760,36 @@ describe("Invoice management", () => {
     expect(res.body.lineItems).toHaveLength(2);
   });
 
+  // Regression test for QA audit BUG-06: Gemini's real extraction schema
+  // names a line item's total "amount" (services/geminiService.js), never
+  // "totalPrice" — invoiceNormalizer.js used to check only `totalPrice`,
+  // which was never populated, so it silently discarded the real extracted
+  // amount and always recomputed quantity * unitPrice instead. Invisible
+  // in the default test fixture only because its amount happens to equal
+  // quantity * unitPrice; this test uses a discounted line (amount below
+  // qty*unitPrice) to actually exercise the divergence.
+  it("persists a line item's real extracted amount, not a recomputed quantity * unitPrice (BUG-06)", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+
+    mockSuccessfulExtract(invoiceService, {
+      invoice: {
+        lineItems: [
+          { description: "Discounted item", quantity: 10, unitPrice: 10, amount: 90 },
+        ],
+      },
+    });
+
+    const res = await uploadImage(token, clientId);
+
+    expect(res.status).toBe(200);
+    const detail = await request(app)
+      .get(`/api/invoices/${res.body.invoice.id}`)
+      .set(authed(token));
+
+    expect(Number(detail.body.lineItems[0].total_price)).toBe(90);
+  });
+
   it("edits an invoice's fields", async () => {
     const { token } = await registerAndLogin();
     const clientId = await createClient(token);
@@ -574,6 +825,28 @@ describe("Invoice management", () => {
     expect(res.body.lineItems.map((i) => i.description)).toContain(
       "Manually added item"
     );
+  });
+
+  // Regression test for QA audit BUG-07: a line item edit that sends
+  // quantity/unit_price but omits total_price used to silently save
+  // total_price as 0 instead of falling back to quantity * unit_price
+  // (the same fallback the upload-time normalizer already applies).
+  it("falls back to quantity * unit_price when a line item edit omits total_price", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    const invoice = await uploadOne(token, clientId);
+
+    const res = await request(app)
+      .put(`/api/invoices/${invoice.id}`)
+      .set(authed(token))
+      .send({
+        lineItems: [
+          { description: "Missing total item", quantity: 5, unit_price: 10 },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(Number(res.body.lineItems[0].total_price)).toBe(50);
   });
 
   it("removes a line item via edit (fewer items than before)", async () => {
@@ -701,6 +974,48 @@ describe("Invoice management", () => {
       .set(authed(token));
 
     expect(get.status).toBe(404);
+  });
+
+  // Regression test for QA audit BUG-QA-01: invoices.customer_id/supplier_id
+  // are ON DELETE CASCADE, so deleting a customer/supplier used to silently
+  // destroy every invoice/bill ever issued against them, with no warning.
+  it("blocks deleting a customer that still has invoices, instead of silently cascading them away (BUG-QA-01)", async () => {
+    const { token } = await registerAndLogin();
+    const clientId = await createClient(token);
+    await uploadOne(token, clientId);
+
+    const del = await request(app)
+      .delete(`/api/customers/${clientId}`)
+      .set(authed(token));
+
+    expect(del.status).toBe(400);
+    expect(del.body.error).toMatch(/invoice/i);
+
+    // The customer and its invoice are both still there, untouched.
+    const get = await request(app)
+      .get(`/api/customers/${clientId}`)
+      .set(authed(token));
+    expect(get.status).toBe(200);
+  });
+
+  it("blocks deleting a supplier that still has bills, instead of silently cascading them away (BUG-QA-01)", async () => {
+    const { token } = await registerAndLogin();
+    const supplierId = await createSupplier(token);
+
+    mockSuccessfulExtract(invoiceService, { invoice: { sellerName: "Test Supplier" } });
+    await uploadImage(token, supplierId, "bill.png", "bill");
+
+    const del = await request(app)
+      .delete(`/api/suppliers/${supplierId}`)
+      .set(authed(token));
+
+    expect(del.status).toBe(400);
+    expect(del.body.error).toMatch(/bill/i);
+
+    const get = await request(app)
+      .get(`/api/suppliers/${supplierId}`)
+      .set(authed(token));
+    expect(get.status).toBe(200);
   });
 
   it("releases storage quota and deletes the source file when an invoice is deleted (BUG-USAGE-002)", async () => {

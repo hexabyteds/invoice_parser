@@ -1,8 +1,24 @@
 const dashboardService = require("../services/dashboardService");
+const customerRepository = require("../repositories/customerRepository");
 const { isValidInvoiceDocumentType } = require("../utils/documentTypes");
 
-function clientIdFrom(req) {
-    return req.query.client_id ? Number(req.query.client_id) : null;
+// A client_id that doesn't resolve to a real customer in this company (a
+// typo, a stale bookmark, another company's id) used to silently produce
+// all-zero stats across every dashboard widget instead of a clear error —
+// the WHERE customer_id = ? filter just matches nothing (QA audit finding).
+async function clientIdFrom(req) {
+    if (!req.query.client_id) return null;
+
+    const id = Number(req.query.client_id);
+    const customer = await customerRepository.findById(id, req.company.id);
+
+    if (!customer) {
+        const err = new Error("Customer not found.");
+        err.status = 404;
+        throw err;
+    }
+
+    return id;
 }
 
 function documentTypeFrom(req) {
@@ -24,21 +40,21 @@ class DashboardController {
 
             const summary = await dashboardService.getSummary(
                 req.company.id,
-                clientIdFrom(req),
+                await clientIdFrom(req),
                 documentType
             );
             res.json({ success: true, summary });
         } catch (err) {
-            res.status(500).json({ success: false, error: err.message });
+            res.status(err.status || 500).json({ success: false, error: err.message });
         }
     }
 
     async getMonthly(req, res) {
         try {
-            const monthly = await dashboardService.getMonthly(req.company.id, clientIdFrom(req));
+            const monthly = await dashboardService.getMonthly(req.company.id, await clientIdFrom(req));
             res.json({ success: true, monthly });
         } catch (err) {
-            res.status(500).json({ success: false, error: err.message });
+            res.status(err.status || 500).json({ success: false, error: err.message });
         }
     }
 
@@ -55,20 +71,20 @@ class DashboardController {
         try {
             const distribution = await dashboardService.getConfidenceDistribution(
                 req.company.id,
-                clientIdFrom(req)
+                await clientIdFrom(req)
             );
             res.json({ success: true, distribution });
         } catch (err) {
-            res.status(500).json({ success: false, error: err.message });
+            res.status(err.status || 500).json({ success: false, error: err.message });
         }
     }
 
     async getQuality(req, res) {
         try {
-            const quality = await dashboardService.getQuality(req.company.id, clientIdFrom(req));
+            const quality = await dashboardService.getQuality(req.company.id, await clientIdFrom(req));
             res.json({ success: true, ...quality });
         } catch (err) {
-            res.status(500).json({ success: false, error: err.message });
+            res.status(err.status || 500).json({ success: false, error: err.message });
         }
     }
 
@@ -94,11 +110,11 @@ class DashboardController {
         try {
             const counts = await dashboardService.getDocumentTypeCounts(
                 req.company.id,
-                clientIdFrom(req)
+                await clientIdFrom(req)
             );
             res.json({ success: true, counts });
         } catch (err) {
-            res.status(500).json({ success: false, error: err.message });
+            res.status(err.status || 500).json({ success: false, error: err.message });
         }
     }
 }

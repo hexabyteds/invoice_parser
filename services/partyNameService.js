@@ -21,7 +21,39 @@ class PartyNameService {
             .trim();
     }
 
+    // Like normalizeForCompare, but never strips legal-suffix words — used
+    // for the "exact-name" auto-link tier (partyResolutionService.findMatch),
+    // where a suffix difference is real information that two names are NOT
+    // actually the same, not noise to discard. Stripping "llc"/"group"/
+    // "holdings"/etc. there let two distinct companies collapse to an
+    // identical (often very short) string and get silently auto-linked
+    // with no human review — e.g. "ABC Holdings LLC" and "ABC Holdings
+    // Group" both reduce to "abc" once "holdings" (itself a listed suffix)
+    // and the trailing suffix are stripped from each (QA audit BUG-QA-02).
+    // Only casing/punctuation/whitespace are normalized away here, so two
+    // spellings of the true same name (case, whitespace, "LLC" vs "L.L.C.",
+    // a trailing comma) still match, but a genuine suffix difference does not.
+    normalizeForExactCompare(value) {
+        return String(value || "")
+            .toLowerCase()
+            .replace(/[.,]/g, "")
+            .replace(/[^a-z0-9]+/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
     namesLikelyMatch(a, b) {
+        // A name composed entirely of legal-suffix words (e.g. "Trading
+        // LLC") normalizes to an empty string below, which used to make
+        // this always report "no match" — even against a byte-for-byte
+        // repeat of the exact same name (QA audit follow-up finding).
+        // Checked first so a genuinely identical name (case/punctuation/
+        // whitespace aside) is always recognized, regardless of how
+        // generic it is.
+        const exactA = this.normalizeForExactCompare(a);
+        const exactB = this.normalizeForExactCompare(b);
+        if (exactA && exactA === exactB) return true;
+
         const na = this.normalizeForCompare(a);
         const nb = this.normalizeForCompare(b);
 

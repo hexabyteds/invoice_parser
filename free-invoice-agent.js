@@ -707,12 +707,28 @@ class FreeInvoiceAgent {
 
         if (Array.isArray(data.lineItems)) {
 
-            items = data.lineItems.map(item => ({
-                description: item.description || "",
-                quantity: item.quantity ?? 0,
-                unitPrice: item.unit_price ?? item.unitPrice ?? 0,
-                totalPrice: item.total_price ?? item.totalPrice ?? 0
-            }));
+            items = data.lineItems.map(item => {
+                const quantity = item.quantity ?? 0;
+                const unitPrice = item.unit_price ?? item.unitPrice ?? 0;
+
+                // A payload that sends quantity/unit_price but omits the
+                // total (any client other than today's EditInvoice.jsx,
+                // which always recomputes it client-side first) used to
+                // silently save total_price as 0 rather than the line's
+                // actual value — same root cause as invoiceNormalizer.js's
+                // upload-time fallback (BUG-06/07). Presence, not
+                // truthiness, decides the fallback so an explicit 0 total
+                // (a free/waived line item) is preserved as-is.
+                const rawTotal = item.total_price ?? item.totalPrice;
+                const hasTotal = rawTotal !== undefined && rawTotal !== null && rawTotal !== "";
+
+                return {
+                    description: item.description || "",
+                    quantity,
+                    unitPrice,
+                    totalPrice: hasTotal ? rawTotal : Number(quantity) * Number(unitPrice)
+                };
+            });
 
             // Bounds match invoice_items' actual DECIMAL(precision,scale).
             const lineItemNumericFields = {

@@ -153,8 +153,13 @@ class CustomerController {
         } catch (err) {
 
             // Mirrors update()/updateStatus() above — a not-found/not-owned
-            // customer is a 404, not a genuine server failure.
-            const status = err.message === "Customer not found." ? 404 : 500;
+            // customer is a 404; the customer having linked invoices is a
+            // 400 (a rejected business rule, not a server failure) — only
+            // anything else is a genuine 500.
+            const status =
+                err.message === "Customer not found." ? 404 :
+                err.message.startsWith("Cannot delete") ? 400 :
+                500;
 
             res.status(status).json({
                 success: false,

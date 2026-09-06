@@ -1,4 +1,5 @@
 const customerRepository = require("../repositories/customerRepository");
+const invoiceRepository = require("../repositories/invoiceRepository");
 const usageService = require("./usageService");
 const auditLogRepository = require("../repositories/auditLogRepository");
 
@@ -260,6 +261,20 @@ class CustomerService {
 
         if (!customer) {
             throw new Error("Customer not found.");
+        }
+
+        // invoices.customer_id is ON DELETE CASCADE (db/schema.sql) — a
+        // straight delete here silently destroys every invoice ever issued
+        // to this customer along with it (QA audit BUG-QA-01). Block it
+        // instead; the user can deactivate the customer (status ACTIVE ->
+        // INACTIVE) to hide them from active use without losing history,
+        // or reassign/delete those invoices first if they truly want both gone.
+        const invoiceCount = await invoiceRepository.countByClient(companyId, id);
+
+        if (invoiceCount > 0) {
+            throw new Error(
+                `Cannot delete "${customer.company_name}": ${invoiceCount} invoice(s) are linked to this customer. Deactivate the customer instead, or remove those invoices first.`
+            );
         }
 
         await customerRepository.delete(id, companyId);

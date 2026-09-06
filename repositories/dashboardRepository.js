@@ -44,6 +44,20 @@ function lastMonths(count) {
 
 class DashboardRepository {
 
+    // BUG-04 fix: when no document_type filter is given, the frontend's
+    // "Total Invoices"/"Total Expenses" cards (Analytics.jsx) used to read
+    // totalInvoices/totalExpenses computed by blending Supplier Invoices
+    // (revenue you issued) and Bills (real expenses you owe) into one
+    // COUNT(*)/SUM(total_amount) — e.g. a $1,000 invoice + a $500 bill
+    // showed as "$1,500 Total Expenses". totalInvoices/totalExpenses are
+    // now genuinely scoped (invoices-only count, bills-only value) by
+    // default; the separate all-types blended figures the Dashboard page's
+    // "Total Documents"/"Total Value" cards actually want are preserved
+    // under their own totalDocuments/totalValue fields instead. When a
+    // document_type filter IS explicitly given (e.g. Analytics.jsx's
+    // dropdown), that's a deliberate single-category view, not blending —
+    // totalInvoices/totalExpenses simply mirror the filtered totalDocuments/
+    // totalValue, same as before this fix.
     async getSummary(companyId, clientId = null, documentType = null) {
 
         const invoiceParams = [companyId];
@@ -59,39 +73,72 @@ class DashboardRepository {
             invoiceParams.push(documentType);
         }
 
+        // Builds one SELECT column: a plain aggregate over every matched
+        // row, or (period/type given) the same aggregate restricted to a
+        // created_at window and/or a document_type — but only when
+        // `documentType` wasn't already passed in as an explicit filter,
+        // since the WHERE clause above already scopes every row to it in
+        // that case, and re-scoping here would zero out the type-scoped
+        // columns whenever a *different* type was explicitly selected.
+        const periodCondition = {
+            month: "YEAR(created_at) = YEAR(CURDATE()) AND MONTH(created_at) = MONTH(CURDATE())",
+            prevMonth:
+                "YEAR(created_at) = YEAR(CURDATE() - INTERVAL 1 MONTH) AND MONTH(created_at) = MONTH(CURDATE() - INTERVAL 1 MONTH)",
+        };
+
+        // "supplier_invoice" is treated as "anything that isn't a bill"
+        // (including a NULL document_type) rather than a strict equality —
+        // invoices predating the Invoice/Bill split (migration 0005) were
+        // never backfilled with a type and still need to count as revenue,
+        // not silently disappear from both totals. "bill" stays an exact
+        // match since it's never ambiguous — it didn't exist before that
+        // migration, so nothing legacy could already be one.
+        const typeCondition = {
+            supplier_invoice: "(document_type != 'bill' OR document_type IS NULL)",
+            bill: "document_type = 'bill'",
+        };
+
+        function scopedAggregate(fn, column, alias, { period, type } = {}) {
+            const conditions = [
+                period ? periodCondition[period] : null,
+                type && !documentType ? typeCondition[type] : null,
+            ].filter(Boolean);
+
+            if (!conditions.length) {
+                return `${fn}(${column}) AS ${alias}`;
+            }
+
+            const when = `CASE WHEN ${conditions.join(" AND ")} THEN ${column} END`;
+            return fn === "COUNT" ? `COUNT(${when}) AS ${alias}` : `COALESCE(${fn}(${when}), 0) AS ${alias}`;
+        }
+
+        const countSql = (alias, opts) => scopedAggregate("COUNT", "1", alias, opts);
+        const sumSql = (column, alias, opts) => scopedAggregate("SUM", column, alias, opts);
+        const avgSql = (column, alias, opts) => scopedAggregate("AVG", column, alias, opts);
+
         const [[invoiceRow]] = await db.execute(
             `
             SELECT
-                COUNT(*) AS totalInvoices,
-                COALESCE(SUM(total_amount), 0) AS totalExpenses,
-                COALESCE(SUM(vat_amount), 0) AS totalVAT,
-                COALESCE(AVG(total_amount), 0) AS avgInvoiceValue,
+                ${countSql("totalDocuments")},
+                ${sumSql("total_amount", "totalValue")},
+                ${sumSql("vat_amount", "totalVAT")},
+                ${avgSql("total_amount", "avgInvoiceValue")},
+                ${countSql("totalInvoices", { type: "supplier_invoice" })},
+                ${sumSql("total_amount", "totalExpenses", { type: "bill" })},
 
-                COUNT(CASE WHEN YEAR(created_at) = YEAR(CURDATE())
-                            AND MONTH(created_at) = MONTH(CURDATE())
-                           THEN 1 END) AS monthlyInvoices,
-                COALESCE(SUM(CASE WHEN YEAR(created_at) = YEAR(CURDATE())
-                                   AND MONTH(created_at) = MONTH(CURDATE())
-                                  THEN total_amount END), 0) AS monthlyExpenses,
-                COALESCE(SUM(CASE WHEN YEAR(created_at) = YEAR(CURDATE())
-                                   AND MONTH(created_at) = MONTH(CURDATE())
-                                  THEN vat_amount END), 0) AS monthlyVAT,
-                COALESCE(AVG(CASE WHEN YEAR(created_at) = YEAR(CURDATE())
-                                  AND MONTH(created_at) = MONTH(CURDATE())
-                                  THEN total_amount END), 0) AS monthlyAvgInvoiceValue,
+                ${countSql("monthlyDocuments", { period: "month" })},
+                ${sumSql("total_amount", "monthlyValue", { period: "month" })},
+                ${sumSql("vat_amount", "monthlyVAT", { period: "month" })},
+                ${avgSql("total_amount", "monthlyAvgInvoiceValue", { period: "month" })},
+                ${countSql("monthlyInvoices", { period: "month", type: "supplier_invoice" })},
+                ${sumSql("total_amount", "monthlyExpenses", { period: "month", type: "bill" })},
 
-                COUNT(CASE WHEN YEAR(created_at) = YEAR(CURDATE() - INTERVAL 1 MONTH)
-                            AND MONTH(created_at) = MONTH(CURDATE() - INTERVAL 1 MONTH)
-                           THEN 1 END) AS prevMonthInvoices,
-                COALESCE(SUM(CASE WHEN YEAR(created_at) = YEAR(CURDATE() - INTERVAL 1 MONTH)
-                                   AND MONTH(created_at) = MONTH(CURDATE() - INTERVAL 1 MONTH)
-                                  THEN total_amount END), 0) AS prevMonthExpenses,
-                COALESCE(SUM(CASE WHEN YEAR(created_at) = YEAR(CURDATE() - INTERVAL 1 MONTH)
-                                   AND MONTH(created_at) = MONTH(CURDATE() - INTERVAL 1 MONTH)
-                                  THEN vat_amount END), 0) AS prevMonthVAT,
-                COALESCE(AVG(CASE WHEN YEAR(created_at) = YEAR(CURDATE() - INTERVAL 1 MONTH)
-                                  AND MONTH(created_at) = MONTH(CURDATE() - INTERVAL 1 MONTH)
-                                  THEN total_amount END), 0) AS prevMonthAvgInvoiceValue
+                ${countSql("prevMonthDocuments", { period: "prevMonth" })},
+                ${sumSql("total_amount", "prevMonthValue", { period: "prevMonth" })},
+                ${sumSql("vat_amount", "prevMonthVAT", { period: "prevMonth" })},
+                ${avgSql("total_amount", "prevMonthAvgInvoiceValue", { period: "prevMonth" })},
+                ${countSql("prevMonthInvoices", { period: "prevMonth", type: "supplier_invoice" })},
+                ${sumSql("total_amount", "prevMonthExpenses", { period: "prevMonth", type: "bill" })}
             FROM invoices
             WHERE company_id = ? ${clientFilter}
             `,

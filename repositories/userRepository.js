@@ -17,6 +17,7 @@ function formatUser(row) {
     account_type: row.account_type || null,
     created_at: row.created_at,
     deleted_at: row.deleted_at || null,
+    email_verified: row.email_verified,
   };
 }
 
@@ -72,7 +73,8 @@ class UserRepository {
         status,
         account_type,
         created_at,
-        deleted_at
+        deleted_at,
+        email_verified
       FROM users
       WHERE id = ?
       `,
@@ -201,6 +203,55 @@ class UserRepository {
       `
       UPDATE users
       SET reset_token_hash = NULL, reset_token_expires = NULL
+      WHERE id = ?
+      `,
+      [userId]
+    );
+  }
+
+  async setEmailVerifyToken(userId, tokenHash, expiresAt) {
+    await db.execute(
+      `
+      UPDATE users
+      SET email_verify_token_hash = ?, email_verify_token_expires = ?
+      WHERE id = ?
+      `,
+      [tokenHash, expiresAt, userId]
+    );
+  }
+
+  async findByEmailVerifyTokenHash(tokenHash) {
+    const [rows] = await db.execute(
+      `
+      SELECT *
+      FROM users
+      WHERE email_verify_token_hash = ?
+        AND email_verify_token_expires > NOW()
+        AND deleted_at IS NULL
+      LIMIT 1
+      `,
+      [tokenHash]
+    );
+
+    return rows[0] || null;
+  }
+
+  async markEmailVerified(userId) {
+    await db.execute(
+      `
+      UPDATE users
+      SET email_verified = 1, email_verify_token_hash = NULL, email_verify_token_expires = NULL
+      WHERE id = ?
+      `,
+      [userId]
+    );
+  }
+
+  async clearEmailVerifyToken(userId) {
+    await db.execute(
+      `
+      UPDATE users
+      SET email_verify_token_hash = NULL, email_verify_token_expires = NULL
       WHERE id = ?
       `,
       [userId]

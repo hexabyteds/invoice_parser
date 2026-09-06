@@ -10,6 +10,8 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
+import AcceptInvite from "./pages/auth/AcceptInvite";
+import VerifyEmail from "./pages/auth/VerifyEmail";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AdminRoute from "./routes/AdminRoute";
 import CustomerLayout from "./layouts/CustomerLayout";
@@ -69,6 +71,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/invite/:token" element={<AcceptInvite />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/price" element={<Price />} />
         <Route path="/features" element={<Features />} />
         <Route path="/contact" element={<Contact />} />

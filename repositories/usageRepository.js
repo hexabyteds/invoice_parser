@@ -348,14 +348,31 @@ async getByUserIdAccountLevel(userId) {
 
 async createAccountLevel(userId) {
 
-    const [result] = await db.execute(`
-        INSERT INTO usage_stats
-        (user_id, company_id, invoices_used, bank_statements_used, customers_used,
-         suppliers_used, companies_used, ocr_pages_used, storage_used, api_calls_used, team_members_used)
-        VALUES (?, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 1)
-    `,[userId]);
+    // uq_usage_stats_account_scope_key (migration 0029) makes "one
+    // account-level row per user" DB-enforced — under concurrent callers
+    // that both saw no existing row, only one INSERT wins; the other hits
+    // ER_DUP_ENTRY here and is treated as a no-op rather than an error,
+    // since the row it was trying to create now exists either way.
+    try {
 
-    return result.insertId;
+        const [result] = await db.execute(`
+            INSERT INTO usage_stats
+            (user_id, company_id, invoices_used, bank_statements_used, customers_used,
+             suppliers_used, companies_used, ocr_pages_used, storage_used, api_calls_used, team_members_used)
+            VALUES (?, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 1)
+        `,[userId]);
+
+        return result.insertId;
+
+    } catch (error) {
+
+        if (error.code === "ER_DUP_ENTRY") {
+            return null;
+        }
+
+        throw error;
+
+    }
 
 }
 // Same atomic check-and-increment pattern as incrementInvoicesIfUnderLimit,

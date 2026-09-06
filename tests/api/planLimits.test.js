@@ -17,7 +17,14 @@ async function createCustomer(token, companyId, name) {
   return res;
 }
 
+// A distinct trn per call — several tests below create multiple suppliers
+// in the same company, and uq_suppliers_company_trn (migration 0030) now
+// rejects two suppliers in one company sharing a real TRN.
+let supplierTrnCounter = 0;
+
 async function createSupplier(token, companyId, name) {
+  supplierTrnCounter += 1;
+
   const res = await request(app)
     .post("/api/suppliers")
     .set(withCompany(token, companyId))
@@ -27,7 +34,7 @@ async function createSupplier(token, companyId, name) {
       phone: "1234567890",
       billing_country: "AE",
       billing_city: "Dubai",
-      trn: "100000000000000",
+      trn: `10000000000${String(supplierTrnCounter).padStart(4, "0")}`,
     });
   return res;
 }
@@ -123,6 +130,37 @@ describe("Freelancer account — company limit", () => {
       [user.id]
     );
     expect(row.companies_used).toBe(2);
+
+    const [[countRow]] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM companies WHERE owner_user_id = ?`,
+      [user.id]
+    );
+    expect(countRow.total).toBe(2);
+  });
+
+  // Regression test for the account-level usage_stats race (QA audit
+  // BUG-01, fixed by migration 0029): usage_stats.company_id's UNIQUE KEY
+  // never constrained the account-level row (company_id IS NULL — MySQL
+  // doesn't enforce uniqueness across NULLs), so concurrent requests that
+  // all saw "no account-level row yet" could each insert their own copy.
+  // A heavier burst than the test above (8 concurrent, limit 2) to make
+  // sure the fix holds well past the original failure's observed window.
+  it("firing a large burst of concurrent company creations never creates more than one account-level usage_stats row", async () => {
+    const { token, user } = await registerAndLogin({ account_type: "FREELANCER" });
+
+    const CONCURRENCY = 40; // limit is 2
+    await Promise.allSettled(
+      Array.from({ length: CONCURRENCY }, (_, i) =>
+        createFreelancerCompany(token, `Burst Co ${i}`)
+      )
+    );
+
+    const [rows] = await pool.execute(
+      `SELECT companies_used FROM usage_stats WHERE user_id = ? AND company_id IS NULL`,
+      [user.id]
+    );
+    expect(rows.length).toBe(1);
+    expect(rows[0].companies_used).toBe(2);
 
     const [[countRow]] = await pool.execute(
       `SELECT COUNT(*) AS total FROM companies WHERE owner_user_id = ?`,

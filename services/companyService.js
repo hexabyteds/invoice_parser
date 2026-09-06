@@ -1,8 +1,27 @@
 const companyRepository = require("../repositories/companyRepository");
 const userRepository = require("../repositories/userRepository");
+const companyInvitationRepository = require("../repositories/companyInvitationRepository");
 const subscriptionService = require("./subscriptionService");
 const usageService = require("./usageService");
 const auditLogRepository = require("../repositories/auditLogRepository");
+const emailService = require("./emailService");
+const { generateInviteToken, hashInviteToken } = require("../utils/inviteToken");
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function toPublicInvitation(row) {
+    return {
+        id: row.id,
+        companyId: row.company_id,
+        invitedEmail: row.invited_email,
+        role: row.role,
+        permissions: row.permissions || null,
+        status: row.effective_status || row.status,
+        expiresAt: row.expires_at,
+        acceptedAt: row.accepted_at || null,
+        createdAt: row.created_at,
+    };
+}
 
 function toPublicCompany(row) {
     return {
@@ -159,93 +178,79 @@ class CompanyService {
     // AuthContext (via authService.me) with everything the frontend needs
     // to render "My Companies" / the workspace switcher / a pending-invite
     // banner, without a separate round trip.
-    async getMembershipsForUser(userId) {
+    // `userEmail` is required to find this user's pending invitations —
+    // those live in company_invitations keyed by email (an invitation can
+    // exist before the invitee even has an account), not by user_id.
+    async getMembershipsForUser(userId, userEmail) {
         const rows = await companyRepository.findMembershipsForUser(userId);
+        const invitationRows = userEmail
+            ? await companyInvitationRepository.findPendingByEmail(userEmail.trim().toLowerCase())
+            : [];
 
         return {
             companies: rows
                 .filter(r => r.status === "ACTIVE")
                 .map(toPublicMembership),
-            invitations: rows
-                .filter(r => r.status === "INVITED")
-                .map(toPublicMembership),
+            invitations: invitationRows.map((row) => ({
+                id: row.id,
+                companyId: row.company_id,
+                companyName: row.company_name,
+                companyStatus: row.company_status,
+                role: row.role,
+                status: "INVITED",
+                permissions: row.permissions || null,
+                invitedAt: row.created_at,
+                acceptedAt: null,
+            })),
         };
     }
 
-    async acceptInvitation(membershipId, userId) {
-        const membership = await companyRepository.findMembershipForUser(membershipId, userId);
-
-        if (!membership) {
-            throw new Error("Invitation not found.");
-        }
-
-        if (membership.status !== "INVITED") {
-            throw new Error("This invitation is no longer pending.");
-        }
-
-        await companyRepository.updateMembershipStatus(membershipId, "ACTIVE", { acceptedAt: true });
-    }
-
-    // Declining before ever accepting never became a real membership, so
-    // the row is deleted outright rather than kept as e.g. a "DECLINED"
-    // status — there's no relationship history worth preserving yet (unlike
-    // removal, which does keep a REMOVED row — see removeMember).
-    async declineInvitation(membershipId, userId) {
-        const membership = await companyRepository.findMembershipForUser(membershipId, userId);
-
-        if (!membership) {
-            throw new Error("Invitation not found.");
-        }
-
-        if (membership.status !== "INVITED") {
-            throw new Error("This invitation is no longer pending.");
-        }
-
-        await companyRepository.deleteMembership(membershipId);
-    }
-
-    // Only an existing FREELANCER account can be invited — a COMPANY
-    // account owns its own workspace and was never meant to also operate
-    // inside someone else's (see the architecture's Company-vs-Freelancer
-    // split). Requiring the account to already exist (rather than inviting
-    // a bare email) is a deliberate v1 scope cut: no pending-invite-by-email
-    // token/email-send flow yet, just an in-app pending list for the invited
-    // user to see once they sign in.
+    // Sends a real, token-secured invitation email to any address — the
+    // invitee does NOT need an account yet (deliberate change from the old
+    // v1 scope cut: this now covers "invite someone who hasn't signed up",
+    // not just an in-app pending list for an existing Freelancer). Where an
+    // account *does* already exist, the existing Company-vs-Freelancer
+    // guard still applies — a Company account owns its own workspace and
+    // was never meant to also operate inside someone else's.
     async inviteFreelancer(companyId, invitedByUserId, email, permissions = null) {
         const trimmedEmail = (email || "").trim().toLowerCase();
 
-        if (!trimmedEmail) {
-            throw new Error("Email is required.");
+        if (!trimmedEmail || !EMAIL_REGEX.test(trimmedEmail)) {
+            throw new Error("Please enter a valid email address.");
         }
 
-        const user = await userRepository.findByEmail(trimmedEmail);
+        const existingUser = await userRepository.findByEmail(trimmedEmail);
 
-        if (!user) {
-            throw new Error("No account found with that email. They need to sign up as a Freelancer first.");
+        if (existingUser) {
+            if (existingUser.account_type !== "FREELANCER") {
+                throw new Error("This email belongs to a Company account, not a Freelancer account.");
+            }
+
+            const existingMembership = await companyRepository.findMembershipByCompanyAndUser(companyId, existingUser.id);
+
+            if (existingMembership && existingMembership.status !== "REMOVED") {
+                throw new Error("This freelancer already has access to this company.");
+            }
         }
 
-        if (user.account_type !== "FREELANCER") {
-            throw new Error("This email belongs to a Company account, not a Freelancer account.");
+        const existingInvitation = await companyInvitationRepository.findPendingByCompanyAndEmail(companyId, trimmedEmail);
+
+        if (existingInvitation) {
+            throw new Error("An invitation is already pending for this email. Use Resend instead of sending another.");
         }
 
-        const existing = await companyRepository.findMembershipByCompanyAndUser(companyId, user.id);
+        const { token, tokenHash, expiresAt } = generateInviteToken();
 
-        if (existing) {
-            throw new Error(
-                existing.status === "REMOVED"
-                    ? "This freelancer was previously removed. Reactivate them instead of re-inviting."
-                    : "This freelancer is already invited or active on this company."
-            );
-        }
-
-        const membershipId = await companyRepository.createMembership({
+        const invitationId = await companyInvitationRepository.create({
             companyId,
-            userId: user.id,
-            role: "FREELANCER",
-            status: "INVITED",
+            invitedEmail: trimmedEmail,
             invitedBy: invitedByUserId,
             permissions,
+            tokenHash,
+            expiresAt,
         });
+
+        await this._sendInvitationEmail(companyId, invitedByUserId, trimmedEmail, token, expiresAt);
 
         try {
             await auditLogRepository.create({
@@ -258,7 +263,228 @@ class CompanyService {
             });
         } catch (logErr) {}
 
-        return membershipId;
+        return invitationId;
+    }
+
+    // Best-effort — SMTP isn't configured in every environment (e.g. local
+    // dev), and a send failure must not roll back the invitation itself:
+    // the row (and its token) still exists, so Resend recovers once email
+    // is working. Never blocks invite creation from the caller's
+    // perspective; errors are swallowed here on purpose.
+    async _sendInvitationEmail(companyId, invitedByUserId, toEmail, token, expiresAt) {
+        try {
+            const company = await companyRepository.findById(companyId);
+            const inviter = await userRepository.findById(invitedByUserId);
+            const acceptUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/invite/${token}`;
+            const expiresInDays = Math.max(1, Math.round((new Date(expiresAt) - Date.now()) / (24 * 60 * 60 * 1000)));
+
+            await emailService.sendCompanyInvitationEmail(toEmail, {
+                companyName: company?.name || "your company",
+                inviterName: inviter?.name || null,
+                acceptUrl,
+                expiresInDays,
+            });
+        } catch (err) {
+            console.error("Failed to send invitation email:", err.message);
+        }
+    }
+
+    async listInvitations(companyId) {
+        const rows = await companyInvitationRepository.findByCompany(companyId);
+        return rows.map(toPublicInvitation);
+    }
+
+    // Regenerates the token+expiry (invalidating any previously-sent link)
+    // and re-sends the email — the only recovery path once "Resend instead
+    // of sending another" blocks a second invite, and also how an EXPIRED
+    // invitation is revived without creating a duplicate row.
+    async resendInvitation(companyId, invitationId) {
+        const invitation = await companyInvitationRepository.findByCompanyAndId(companyId, invitationId);
+
+        if (!invitation) {
+            throw new Error("Invitation not found.");
+        }
+
+        if (invitation.status !== "PENDING") {
+            throw new Error("Only a pending or expired invitation can be resent.");
+        }
+
+        const { token, tokenHash, expiresAt } = generateInviteToken();
+        await companyInvitationRepository.regenerateToken(invitationId, tokenHash, expiresAt);
+        await this._sendInvitationEmail(companyId, invitation.invited_by, invitation.invited_email, token, expiresAt);
+    }
+
+    async revokeInvitation(companyId, invitationId) {
+        const invitation = await companyInvitationRepository.findByCompanyAndId(companyId, invitationId);
+
+        if (!invitation) {
+            throw new Error("Invitation not found.");
+        }
+
+        const revoked = await companyInvitationRepository.markRevoked(invitationId);
+
+        if (!revoked) {
+            throw new Error("Only a pending invitation can be revoked.");
+        }
+    }
+
+    // Public-safe preview for the invitation-acceptance screen — deliberately
+    // excludes anything about the company beyond its name (no address, TRN,
+    // etc.) since this is reachable by anyone holding the link, before any
+    // authentication.
+    async validateInvitationToken(token) {
+        const tokenHash = hashInviteToken(token);
+        const invitation = await companyInvitationRepository.findByTokenHash(tokenHash);
+
+        if (!invitation) {
+            return { valid: false };
+        }
+
+        const company = await companyRepository.findById(invitation.company_id);
+        const inviter = await userRepository.findById(invitation.invited_by);
+        const accountExists = Boolean(await userRepository.findByEmail(invitation.invited_email));
+
+        return {
+            valid: true,
+            // Not secrets — an invitation id/company id grants nothing on
+            // its own (every mutating endpoint re-checks the token or the
+            // caller's authenticated email server-side); exposed purely so
+            // the frontend can call the in-app decline action without a
+            // second lookup.
+            id: invitation.id,
+            companyId: invitation.company_id,
+            companyName: company?.name || null,
+            inviterName: inviter?.name || null,
+            role: invitation.role,
+            permissions: invitation.permissions || null,
+            invitedEmail: invitation.invited_email,
+            expiresAt: invitation.expires_at,
+            accountExists,
+        };
+    }
+
+    // Shared by both acceptance paths (emailed token, and in-app for a
+    // logged-in freelancer whose email matches) — the accept UPDATE is
+    // conditional on status='PENDING' (see companyInvitationRepository
+    // .markAccepted) so a race between the two paths, or a double-click,
+    // can only ever succeed once.
+    async _finalizeAcceptance(invitation, userId) {
+        const accepted = await companyInvitationRepository.markAccepted(invitation.id, userId);
+
+        if (!accepted) {
+            throw new Error("This invitation is no longer valid.");
+        }
+
+        const existingMembership = await companyRepository.findMembershipByCompanyAndUser(invitation.company_id, userId);
+
+        if (!existingMembership || existingMembership.status !== "ACTIVE") {
+            if (existingMembership) {
+                await companyRepository.updateMemberStatusForCompany(existingMembership.id, invitation.company_id, "ACTIVE");
+            } else {
+                await companyRepository.createMembership({
+                    companyId: invitation.company_id,
+                    userId,
+                    role: invitation.role,
+                    status: "ACTIVE",
+                    invitedBy: invitation.invited_by,
+                    permissions: invitation.permissions,
+                });
+            }
+        }
+
+        // Whether an invited company counts toward the Freelancer's own
+        // company-quota is a business-rule call, not an architectural one —
+        // gated behind one env flag reusing the exact same counter
+        // independent company creation already uses (usageService
+        // .reserveCompanySlot), so flipping it on/off never needs a code
+        // change. Best-effort: a quota failure here must not undo an
+        // already-granted, real company relationship.
+        if (process.env.COUNT_INVITED_COMPANIES_TOWARD_QUOTA === "true") {
+            try {
+                await usageService.reserveCompanySlot(userId);
+            } catch (err) {}
+        }
+
+        try {
+            const [company, freelancer, inviter] = await Promise.all([
+                companyRepository.findById(invitation.company_id),
+                userRepository.findById(userId),
+                invitation.invited_by ? userRepository.findById(invitation.invited_by) : null,
+            ]);
+
+            if (freelancer) {
+                await emailService.sendInvitationAcceptedEmailToFreelancer(freelancer.email, {
+                    companyName: company?.name || "the company",
+                });
+            }
+
+            if (inviter) {
+                await emailService.sendInvitationAcceptedEmailToInviter(inviter.email, {
+                    freelancerName: freelancer?.name || "The freelancer",
+                    companyName: company?.name || "your company",
+                });
+            }
+        } catch (err) {}
+
+        try {
+            await auditLogRepository.create({
+                userId,
+                companyId: invitation.company_id,
+                action: "freelancer_access_granted",
+                module: "Freelancer",
+                status: "SUCCESS",
+                description: `Invitation accepted (#${invitation.id})`,
+            });
+        } catch (logErr) {}
+    }
+
+    // Case A/B from the invitation link: requires the caller to already be
+    // authenticated as the invited email (frontend routes a not-logged-in
+    // visitor through signup/login first, preserving the token).
+    async acceptInvitationByToken(token, userId, userEmail) {
+        const tokenHash = hashInviteToken(token);
+        const invitation = await companyInvitationRepository.findByTokenHash(tokenHash);
+
+        if (!invitation) {
+            throw new Error("This invitation is no longer valid.");
+        }
+
+        if (invitation.invited_email !== (userEmail || "").trim().toLowerCase()) {
+            throw new Error("This invitation was sent to another email address. Please log in with the invited email address to accept this invitation.");
+        }
+
+        await this._finalizeAcceptance(invitation, userId);
+    }
+
+    // Case C: a logged-in Freelancer accepting from their own pending-
+    // invitations list, with no raw token in hand — safe because the
+    // authenticated session itself is the proof of email ownership here.
+    async acceptInvitationInApp(invitationId, userId, userEmail) {
+        const invitation = await companyInvitationRepository.findById(invitationId);
+
+        if (!invitation || invitation.effective_status !== "PENDING") {
+            throw new Error("This invitation is no longer valid.");
+        }
+
+        if (invitation.invited_email !== (userEmail || "").trim().toLowerCase()) {
+            throw new Error("This invitation was sent to another email address.");
+        }
+
+        await this._finalizeAcceptance(invitation, userId);
+    }
+
+    async declineInvitationInApp(invitationId, userId, userEmail) {
+        const invitation = await companyInvitationRepository.findById(invitationId);
+
+        if (!invitation || invitation.effective_status !== "PENDING") {
+            throw new Error("This invitation is no longer valid.");
+        }
+
+        if (invitation.invited_email !== (userEmail || "").trim().toLowerCase()) {
+            throw new Error("This invitation was sent to another email address.");
+        }
+
+        await companyInvitationRepository.markRevoked(invitationId);
     }
 
     async listMembers(companyId) {

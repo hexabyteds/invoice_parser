@@ -29,9 +29,13 @@ class CompanyController {
         }
     }
 
+    // In-app acceptance/decline (Case C: a logged-in Freelancer acting on
+    // their own pending-invitations list, no token in hand — see
+    // companyService.acceptInvitationInApp). The emailed-link path is
+    // controllers/invitationController.js instead.
     async acceptInvitation(req, res) {
         try {
-            await companyService.acceptInvitation(req.params.membershipId, req.user.id);
+            await companyService.acceptInvitationInApp(req.params.invitationId, req.user.id, req.user.email);
             res.json({ success: true, message: "Invitation accepted." });
         } catch (err) {
             res.status(400).json({ success: false, error: err.message });
@@ -40,7 +44,7 @@ class CompanyController {
 
     async declineInvitation(req, res) {
         try {
-            await companyService.declineInvitation(req.params.membershipId, req.user.id);
+            await companyService.declineInvitationInApp(req.params.invitationId, req.user.id, req.user.email);
             res.json({ success: true, message: "Invitation declined." });
         } catch (err) {
             res.status(400).json({ success: false, error: err.message });
@@ -56,6 +60,33 @@ class CompanyController {
                 req.body.permissions || null
             );
             res.status(201).json({ success: true, message: "Invitation sent." });
+        } catch (err) {
+            res.status(400).json({ success: false, error: err.message });
+        }
+    }
+
+    async listInvitations(req, res) {
+        try {
+            const invitations = await companyService.listInvitations(req.company.id);
+            res.json({ success: true, invitations });
+        } catch (err) {
+            res.status(400).json({ success: false, error: err.message });
+        }
+    }
+
+    async resendInvitation(req, res) {
+        try {
+            await companyService.resendInvitation(req.company.id, req.params.invitationId);
+            res.json({ success: true, message: "Invitation resent." });
+        } catch (err) {
+            res.status(400).json({ success: false, error: err.message });
+        }
+    }
+
+    async revokeInvitation(req, res) {
+        try {
+            await companyService.revokeInvitation(req.company.id, req.params.invitationId);
+            res.json({ success: true, message: "Invitation revoked." });
         } catch (err) {
             res.status(400).json({ success: false, error: err.message });
         }

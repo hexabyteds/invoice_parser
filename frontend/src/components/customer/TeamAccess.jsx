@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { Users, UserPlus, Trash2, Pause, Play } from "lucide-react";
+import { Users, UserPlus, Trash2, Pause, Play, Send, Ban, Mail } from "lucide-react";
 import companyApi from "../../services/companyApi";
 
 // Every module listed here has live server-side enforcement via
@@ -23,6 +23,10 @@ function StatusBadge({ status }) {
     SUSPENDED: "bg-amber-50 text-amber-700",
     INVITED: "bg-slate-100 text-slate-600",
     REMOVED: "bg-red-50 text-red-600",
+    PENDING: "bg-slate-100 text-slate-600",
+    ACCEPTED: "bg-green-50 text-green-700",
+    EXPIRED: "bg-amber-50 text-amber-700",
+    REVOKED: "bg-red-50 text-red-600",
   };
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-medium ${styles[status] || styles.INVITED}`}>
@@ -33,10 +37,12 @@ function StatusBadge({ status }) {
 
 export default function TeamAccess() {
   const [members, setMembers] = useState([]);
+  const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePermissions, setInvitePermissions] = useState(EMPTY_PERMISSIONS);
   const [inviting, setInviting] = useState(false);
+  const [invitationBusyId, setInvitationBusyId] = useState(null);
 
   function toggleInviteAction(moduleKey, action) {
     setInvitePermissions((prev) => {
@@ -55,8 +61,12 @@ export default function TeamAccess() {
   async function load() {
     try {
       setLoading(true);
-      const res = await companyApi.listTeam();
-      setMembers(res.data.members || []);
+      const [membersRes, invitationsRes] = await Promise.all([
+        companyApi.listTeam(),
+        companyApi.listInvitations(),
+      ]);
+      setMembers(membersRes.data.members || []);
+      setInvitations(invitationsRes.data.invitations || []);
     } catch (err) {
       toast.error(err.response?.data?.error || "Unable to load team.");
     } finally {
@@ -79,6 +89,32 @@ export default function TeamAccess() {
       toast.error(err.response?.data?.error || "Couldn't send invitation.");
     } finally {
       setInviting(false);
+    }
+  }
+
+  async function resend(invitation) {
+    setInvitationBusyId(invitation.id);
+    try {
+      await companyApi.resendInvitation(invitation.id);
+      toast.success(`Invitation resent to ${invitation.invitedEmail}.`);
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Couldn't resend invitation.");
+    } finally {
+      setInvitationBusyId(null);
+    }
+  }
+
+  async function revoke(invitation) {
+    setInvitationBusyId(invitation.id);
+    try {
+      await companyApi.revokeInvitation(invitation.id);
+      toast.success("Invitation revoked.");
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Couldn't revoke invitation.");
+    } finally {
+      setInvitationBusyId(null);
     }
   }
 
@@ -176,9 +212,60 @@ export default function TeamAccess() {
           </div>
         </div>
         <p className="mt-3 text-xs text-slate-400">
-          They must already have a Freelancer account.
+          They'll receive an email invite — no existing account needed.
         </p>
       </form>
+
+      {/* Sent invitations — separate from active members below, since an
+          invitation with no account yet has no user row to show in that
+          table. Only pending/expired ones are actionable; accepted/revoked
+          are shown for status visibility only. */}
+      {invitations.length > 0 && (
+        <div className="border-b border-slate-200 px-8 py-6">
+          <div className="mb-3 flex items-center gap-2">
+            <Mail size={16} className="text-slate-400" />
+            <p className="text-sm font-medium text-slate-700">Invitations</p>
+          </div>
+          <div className="space-y-2">
+            {invitations.map((inv) => (
+              <div
+                key={inv.id}
+                className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
+              >
+                <div>
+                  <p className="text-sm font-medium text-slate-800">{inv.invitedEmail}</p>
+                  <p className="text-xs text-slate-400">
+                    Invited {new Date(inv.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <StatusBadge status={inv.status} />
+                  {(inv.status === "PENDING" || inv.status === "EXPIRED") && (
+                    <>
+                      <button
+                        onClick={() => resend(inv)}
+                        disabled={invitationBusyId === inv.id}
+                        title="Resend invitation"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 disabled:opacity-60"
+                      >
+                        <Send size={15} />
+                      </button>
+                      <button
+                        onClick={() => revoke(inv)}
+                        disabled={invitationBusyId === inv.id}
+                        title="Revoke invitation"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 text-red-500 transition hover:bg-red-50 disabled:opacity-60"
+                      >
+                        <Ban size={15} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Member list */}
       <div className="overflow-x-auto">

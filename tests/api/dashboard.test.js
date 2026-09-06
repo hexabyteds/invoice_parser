@@ -100,7 +100,11 @@ describe("Dashboard analytics endpoints", () => {
     expect(summaryRes.status).toBe(200);
     expect(summaryRes.body.summary.totalInvoices.value).toBe(1);
     expect(summaryRes.body.summary.totalClients.value).toBe(2);
-    expect(summaryRes.body.summary.totalExpenses.value).toBeGreaterThan(0);
+    // No Bill was uploaded in this test, so totalExpenses (Bills only,
+    // post-BUG-04) is correctly 0 — the uploaded document's amount shows
+    // up in the all-types totalValue instead.
+    expect(summaryRes.body.summary.totalExpenses.value).toBe(0);
+    expect(summaryRes.body.summary.totalValue.value).toBeGreaterThan(0);
 
     // ---- monthly (12 months, current month reflects this run) ----
     const monthlyRes = await request(app)
@@ -242,6 +246,31 @@ describe("Dashboard analytics endpoints", () => {
     expect(currentMonthA.processed).toBe(1);
     expect(currentMonthA.failed).toBe(0);
   });
+
+  // Regression test for a QA audit finding: a client_id that doesn't
+  // resolve to a real customer in this company (a typo, a stale bookmark,
+  // another company's id) used to silently return all-zero stats instead
+  // of a clear error — the underlying WHERE customer_id = ? filter just
+  // matched nothing.
+  it("rejects a client_id that doesn't belong to this company instead of silently returning all-zero stats", async () => {
+    const { token: tokenA } = await registerAndLogin();
+    const { token: tokenB } = await registerAndLogin();
+    const clientOfB = await createClient(tokenB, "Client of Company B");
+
+    const res = await request(app)
+      .get("/api/dashboard/summary")
+      .query({ client_id: clientOfB })
+      .set(authed(tokenA));
+
+    expect(res.status).toBe(404);
+
+    const nonExistent = await request(app)
+      .get("/api/dashboard/summary")
+      .query({ client_id: 999999 })
+      .set(authed(tokenA));
+
+    expect(nonExistent.status).toBe(404);
+  });
 });
 
 describe("Dashboard document-type breakdown", () => {
@@ -377,7 +406,16 @@ describe("Dashboard summary filtered by document_type", () => {
       .get("/api/dashboard/summary")
       .set(authed(token));
 
-    expect(allRes.body.summary.totalInvoices.value).toBe(2);
+    // Regression test for QA audit BUG-04: totalInvoices/totalExpenses
+    // used to blend Supplier Invoices and Bills together (a $100 invoice +
+    // a $250 bill showed as "$350 Total Expenses"). Unfiltered, they now
+    // stay scoped to their own document type — Supplier Invoices only /
+    // Bills only — while totalDocuments/totalValue carry the all-types
+    // blended figures instead.
+    expect(allRes.body.summary.totalInvoices.value).toBe(1);
+    expect(allRes.body.summary.totalExpenses.value).toBe(250);
+    expect(allRes.body.summary.totalDocuments.value).toBe(2);
+    expect(allRes.body.summary.totalValue.value).toBe(350);
   });
 
   it("rejects an invalid document_type on the summary endpoint", async () => {

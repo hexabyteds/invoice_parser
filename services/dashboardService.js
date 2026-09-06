@@ -19,6 +19,19 @@ class DashboardService {
         const s = await dashboardRepository.getSummary(companyId, clientId, documentType);
 
         const summary = {
+            // All document types blended — what the Dashboard page's "Total
+            // Documents"/"Total Value" cards actually mean to show.
+            totalDocuments: {
+                value: Number(s.totalDocuments),
+                ...calcDelta(s.monthlyDocuments, s.prevMonthDocuments),
+            },
+            totalValue: {
+                value: Number(s.totalValue),
+                ...calcDelta(s.monthlyValue, s.prevMonthValue),
+            },
+            // Supplier Invoices only (revenue) / Bills only (expenses) when
+            // no document_type filter was requested — see dashboardRepository.
+            // getSummary for why (BUG-04: these used to blend both).
             totalInvoices: {
                 value: Number(s.totalInvoices),
                 ...calcDelta(s.monthlyInvoices, s.prevMonthInvoices),

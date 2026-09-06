@@ -64,6 +64,48 @@ describe("Auth", () => {
       expect(res.body.success).toBe(false);
     });
 
+    // Regression test for QA audit BUG-QA-04: a whitespace-only name
+    // (unlike a fully missing one) used to pass through uncaught and get
+    // persisted as an empty string.
+    it("rejects a whitespace-only name (BUG-QA-04)", async () => {
+      const res = await request(app).post("/api/auth/register").send({
+        name: "   ",
+        email: uniqueEmail(),
+        password: "Password123!",
+        account_type: "COMPANY",
+        company_name: "Whitespace Name Co",
+        country: "Pakistan",
+        country_code: "+92",
+        mobile_number: uniqueMobileNumber(),
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/name/i);
+    });
+
+    // Regression test for QA audit BUG-QA-05: the duplicate-email
+    // pre-check compared the raw (untrimmed) email while the actual INSERT
+    // wrote the trimmed/lowercased value, so a whitespace-padded duplicate
+    // slipped past the clean check and failed at INSERT time with a raw
+    // MySQL constraint error instead of "Email already exists."
+    it("rejects a whitespace-padded duplicate email with a clean message, not a raw DB error (BUG-QA-05)", async () => {
+      const { email } = await registerAndLogin();
+
+      const res = await request(app).post("/api/auth/register").send({
+        name: "Padded Duplicate",
+        email: `  ${email.toUpperCase()}  `,
+        password: "Password123!",
+        account_type: "COMPANY",
+        company_name: "Padded Duplicate Co",
+        country: "Pakistan",
+        country_code: "+92",
+        mobile_number: uniqueMobileNumber(),
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("Email already exists.");
+    });
+
     it("does not leak the password hash in the response", async () => {
       const res = await request(app).post("/api/auth/register").send({
         name: "No Leak",

@@ -13,7 +13,9 @@ class AuthController {
                 message: "User registered successfully.",
                 user: result.user,
                 subscription: result.subscription,
-                token: result.token
+                token: result.token,
+                emailVerificationSent: result.emailVerificationSent,
+                invitationAccepted: result.invitationAccepted
             });
 
         } catch (err) {
@@ -185,6 +187,50 @@ class AuthController {
             res.json({
                 success: true,
                 message: "Password reset successfully. You can now log in."
+            });
+
+        } catch (err) {
+
+            res.status(400).json({
+                success: false,
+                error: err.message
+            });
+
+        }
+
+    }
+
+    async verifyEmail(req, res) {
+
+        try {
+
+            await authService.verifyEmail(req.params.token);
+
+            res.json({
+                success: true,
+                message: "Email verified."
+            });
+
+        } catch (err) {
+
+            res.status(400).json({
+                success: false,
+                error: err.message
+            });
+
+        }
+
+    }
+
+    async resendVerification(req, res) {
+
+        try {
+
+            await authService.resendVerificationEmail(req.user.id);
+
+            res.json({
+                success: true,
+                message: "If your email isn't verified yet, we've sent a new verification link."
             });
 
         } catch (err) {

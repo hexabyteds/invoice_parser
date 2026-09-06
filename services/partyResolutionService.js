@@ -36,24 +36,66 @@ class PartyResolutionService {
         };
     }
 
-    // TRN match first (exact, company-scoped), then normalized-name match
-    // against every customer/supplier in the company. Company customer/
-    // supplier lists are SMB-scale, so an in-memory pass over
-    // findByCompany() is the same assumption customerRepository.
+    // TRN match first (exact, company-scoped) — trusted enough to auto-link
+    // outright, same as an exact normalized-name match (a repeat vendor with
+    // no TRN captured, uploaded under the identical name each time — the
+    // common case for small vendors/individuals). Falling back further to a
+    // *fuzzy* name match (namesLikelyMatch's legal-suffix-stripped substring
+    // test — by design, to support abbreviated names like "Vibrant" matching
+    // "Vibrant Design & Printing") is materially weaker: it can also
+    // coincidentally match two genuinely different businesses, e.g.
+    // "National Trading Company" against an existing "International Trading
+    // Company" (found in a production QA audit, BUG-02 — every false-merge
+    // case there was a fuzzy, non-exact match). So a fuzzy-only match is
+    // never treated as confident enough to auto-link — see resolveParty,
+    // which routes it to needs_review instead. A candidate is excluded
+    // entirely (not even offered for review) when both sides have a TRN and
+    // they disagree — a known TRN mismatch is stronger counter-evidence than
+    // a name similarity is evidence, and re-checking it here (not just via
+    // findByTrn above) matters because findByTrn only searches BY the
+    // extracted TRN; it doesn't stop a name match from separately surfacing
+    // a candidate whose own TRN happens to differ.
+    //
+    // Company customer/supplier lists are SMB-scale, so an in-memory pass
+    // over findByCompany() is the same assumption customerRepository.
     // findByCompanyName already makes for the manual Add Customer flow.
+    //
+    // Returns { entity, confidence: "trn" | "exact-name" | "fuzzy-name" } or null.
     async findMatch(repository, companyId, name, trn) {
         const cleanTrn = String(trn || "").trim();
 
         if (cleanTrn) {
             const byTrn = await repository.findByTrn(companyId, cleanTrn);
-            if (byTrn) return byTrn;
+            if (byTrn) return { entity: byTrn, confidence: "trn" };
         }
 
         const all = await repository.findByCompany(companyId);
-        return (
-            all.find((row) => partyNameService.namesLikelyMatch(row.company_name, name)) ||
-            null
-        );
+        const normalizedName = partyNameService.normalizeForExactCompare(name);
+
+        const nameMatch = all.find((row) => {
+            if (!partyNameService.namesLikelyMatch(row.company_name, name)) {
+                return false;
+            }
+
+            const rowTrn = String(row.trn || "").trim();
+            if (cleanTrn && rowTrn && rowTrn !== cleanTrn) {
+                return false;
+            }
+
+            return true;
+        });
+
+        if (!nameMatch) return null;
+
+        // Deliberately normalizeForExactCompare here, not normalizeForCompare
+        // — see that method's comment (BUG-QA-02): a legal-suffix difference
+        // must never be treated as "exact" just because both names also
+        // happen to collapse to the same string once suffixes are stripped.
+        const isExact =
+            normalizedName &&
+            normalizedName === partyNameService.normalizeForExactCompare(nameMatch.company_name);
+
+        return { entity: nameMatch, confidence: isExact ? "exact-name" : "fuzzy-name" };
     }
 
     // companyId/userId: scope + attribution for a newly created row.
@@ -73,10 +115,18 @@ class PartyResolutionService {
         }
 
         if (party.table === "supplier") {
-            const existing = await this.findMatch(supplierRepository, companyId, name, party.trn);
+            const match = await this.findMatch(supplierRepository, companyId, name, party.trn);
 
-            if (existing) {
-                return { status: "matched", table: "supplier", id: existing.id, entity: existing };
+            if (match?.confidence === "trn" || match?.confidence === "exact-name") {
+                return { status: "matched", table: "supplier", id: match.entity.id, entity: match.entity };
+            }
+
+            // A fuzzy (substring-only) name match is too weak to trust
+            // blindly — surface it for a human to confirm via the existing
+            // "needs review" picker rather than silently attaching this
+            // bill to the wrong supplier's ledger (BUG-02).
+            if (match?.confidence === "fuzzy-name") {
+                return { status: "needs_review", extracted: party };
             }
 
             try {
@@ -101,14 +151,22 @@ class PartyResolutionService {
 
                 return { status: "created", table: "supplier", id: created.id, entity: created };
             } catch (err) {
+                const recovered = await this.recoverFromRaceLoss(supplierRepository, companyId, name, party.trn, err);
+                if (recovered) {
+                    return { status: "matched", table: "supplier", id: recovered.id, entity: recovered };
+                }
                 return { status: "needs_review", extracted: party };
             }
         }
 
-        const existing = await this.findMatch(customerRepository, companyId, name, party.trn);
+        const match = await this.findMatch(customerRepository, companyId, name, party.trn);
 
-        if (existing) {
-            return { status: "matched", table: "customer", id: existing.id, entity: existing };
+        if (match?.confidence === "trn" || match?.confidence === "exact-name") {
+            return { status: "matched", table: "customer", id: match.entity.id, entity: match.entity };
+        }
+
+        if (match?.confidence === "fuzzy-name") {
+            return { status: "needs_review", extracted: party };
         }
 
         try {
@@ -124,8 +182,35 @@ class PartyResolutionService {
 
             return { status: "created", table: "customer", id: created.id, entity: created };
         } catch (err) {
+            const recovered = await this.recoverFromRaceLoss(customerRepository, companyId, name, party.trn, err);
+            if (recovered) {
+                return { status: "matched", table: "customer", id: recovered.id, entity: recovered };
+            }
             return { status: "needs_review", extracted: party };
         }
+    }
+
+    // A concurrent upload for the same brand-new party can win the create
+    // race first, and this side then fails one of two ways depending on
+    // exactly when it lost the race (BUG-03):
+    //   - uq_*_company_trn / uq_*_company_name (migration 0030) reject the
+    //     INSERT itself with ER_DUP_ENTRY, if the winner committed between
+    //     this side's own pre-check and its INSERT; or
+    //   - customerService/supplierService.create's own findByCompanyName
+    //     pre-check already sees the winner's row and throws its normal
+    //     "already exists" Error, if the winner committed even earlier.
+    // Either way a matching row now genuinely exists — rather than
+    // stranding the loser in needs_review, re-run the match now that it's
+    // committed and link to it. Anything else (e.g. a plan limit) isn't
+    // this race and is left for the caller's generic needs_review fallback.
+    async recoverFromRaceLoss(repository, companyId, name, trn, err) {
+        const isRaceLoss =
+            err.code === "ER_DUP_ENTRY" || /already exists/i.test(err.message || "");
+
+        if (!isRaceLoss) return null;
+
+        const match = await this.findMatch(repository, companyId, name, trn);
+        return match?.entity || null;
     }
 }
 

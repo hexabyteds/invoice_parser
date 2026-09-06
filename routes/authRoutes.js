@@ -90,4 +90,13 @@ router.post("/reset-password",
     (req, res) => authController.resetPassword(req, res)
 );
 
+router.get("/verify-email/:token",
+    (req, res) => authController.verifyEmail(req, res)
+);
+
+router.post("/resend-verification",
+    authMiddleware,
+    (req, res) => authController.resendVerification(req, res)
+);
+
 module.exports = router;

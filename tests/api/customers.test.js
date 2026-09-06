@@ -40,8 +40,10 @@ describe("Customers", () => {
 
     it("lists only the requesting user's customers", async () => {
       const { token } = await registerAndLogin();
-      await createClient(token, { company_name: "Alpha" });
-      await createClient(token, { company_name: "Beta" });
+      // Distinct trn per customer — uq_customers_company_trn (migration
+      // 0030) rejects two customers in one company sharing a real TRN.
+      await createClient(token, { company_name: "Alpha", trn: "TRN-A" });
+      await createClient(token, { company_name: "Beta", trn: "TRN-B" });
 
       const res = await request(app).get("/api/customers").set(authed(token));
 
@@ -177,9 +179,11 @@ describe("Customers", () => {
       // Seeded Free plan has customer_limit: 2 (tests/setup/globalSetup.js)
       const { token } = await registerAndLogin();
 
-      const first = await createClient(token, { company_name: "One" });
-      const second = await createClient(token, { company_name: "Two" });
-      const third = await createClient(token, { company_name: "Three" });
+      // Distinct trn per customer — uq_customers_company_trn (migration
+      // 0030) rejects two customers in one company sharing a real TRN.
+      const first = await createClient(token, { company_name: "One", trn: "TRN-ONE" });
+      const second = await createClient(token, { company_name: "Two", trn: "TRN-TWO" });
+      const third = await createClient(token, { company_name: "Three", trn: "TRN-THREE" });
 
       expect(first.status).toBe(201);
       expect(second.status).toBe(201);

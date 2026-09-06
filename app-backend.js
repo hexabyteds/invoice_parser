@@ -38,6 +38,7 @@ const {
   isBankStatementType,
 } = require("./utils/documentTypes");
 const bankStatementService = require("./services/bankStatementService");
+const { hasValidFileSignature } = require("./utils/fileSignature");
 
 const app = express();
 const UPLOADS_DIR = path.join(__dirname, "uploads");
@@ -73,6 +74,7 @@ app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/usage", require("./routes/usageRoutes"));
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/companies", require("./routes/companyRoutes"));
+app.use("/api/invitations", require("./routes/invitationRoutes"));
 app.use("/api/bank-statements", require("./routes/bankStatementRoutes"));
 app.use("/api/documents", require("./routes/documentsRoutes"));
 app.use("/api/contact", require("./routes/contactRoutes"));
@@ -206,6 +208,32 @@ app.post(
         return res.status(400).json({
           success: false,
           error: "No file uploaded",
+        });
+      }
+
+      // ===========================
+      // NEW: Reject empty and content-spoofed files
+      // ===========================
+      // multer's fileFilter only checked the client-supplied multipart
+      // Content-Type header, which is trivially spoofable — a file's
+      // actual bytes were never inspected (QA audit BUG-QA-03). Checked
+      // here (post-upload, once the bytes are actually on disk — diskStorage's
+      // fileFilter runs before any content is available to inspect) rather
+      // than reserving storage/OCR quota against a file that isn't a real
+      // PDF/JPG/PNG at all.
+      if (req.file.size === 0) {
+        await fs.promises.unlink(req.file.path).catch(() => {});
+        return res.status(400).json({
+          success: false,
+          error: "The uploaded file is empty.",
+        });
+      }
+
+      if (!(await hasValidFileSignature(req.file.path, req.file.mimetype))) {
+        await fs.promises.unlink(req.file.path).catch(() => {});
+        return res.status(400).json({
+          success: false,
+          error: "The uploaded file's content doesn't match a valid PDF, JPG, or PNG.",
         });
       }
 

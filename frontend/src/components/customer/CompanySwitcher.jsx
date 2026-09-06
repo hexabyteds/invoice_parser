@@ -101,7 +101,7 @@ export default function CompanySwitcher() {
               <span className="flex flex-col">
                 <span className="font-medium">{c.companyName}</span>
                 <span className="text-xs text-slate-400">
-                  {c.role === "OWNER" ? "Owner" : "Freelancer"}
+                  {c.role === "OWNER" ? "Added by you" : "Invited access"}
                 </span>
               </span>
               {c.companyId === currentCompany?.companyId && (

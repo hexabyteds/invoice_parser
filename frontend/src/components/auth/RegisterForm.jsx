@@ -20,6 +20,8 @@ import api from "../../services/api";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { COUNTRIES, getCountryByName } from "../../constants/countries";
+import { useAuth } from "../../context/AuthContext";
+import { getPostLoginPath } from "../../utils/roles";
 
 const registerSchema = z
   .object({
@@ -80,10 +82,18 @@ const registerSchema = z
     }
   );
 
-export default function RegisterForm() {
+// `invitationToken`/`invitedEmail`/`companyName` are passed by
+// AcceptInvite.jsx when this form is reached via a Company's invite link
+// (Case A: the invited email has no account yet) — they lock the account
+// type to Freelancer and the email to the invited address, and carry the
+// token through to POST /auth/register so the backend can auto-accept the
+// invitation as part of the same signup call.
+export default function RegisterForm({ invitationToken, invitedEmail, companyName } = {}) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
+  const isInvited = Boolean(invitationToken);
   const {
     register,
     handleSubmit,
@@ -92,7 +102,10 @@ export default function RegisterForm() {
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(registerSchema),
-    defaultValues: { accountType: "COMPANY" },
+    defaultValues: {
+      accountType: isInvited ? "FREELANCER" : "COMPANY",
+      email: invitedEmail || "",
+    },
   });
 
   const password = watch("password") || "";
@@ -129,12 +142,25 @@ export default function RegisterForm() {
         country: data.country,
         country_code: country?.dialCode || "",
         mobile_number: data.mobileNumber,
+        invitation_token: invitationToken || undefined,
       });
- 
+
       if (response.data.success) {
-        toast.success("Account Created Successfully");
-  
-        navigate("/login");
+        const { user, token } = response.data;
+
+        // Already have a session token from register() itself — no reason
+        // to bounce through a second login form, especially for the
+        // invited-freelancer path, which needs to land straight on the
+        // dashboard already connected to the inviting company.
+        login(user, token);
+
+        if (isInvited && response.data.invitationAccepted === false) {
+          toast.error("Account created, but the invitation could no longer be applied automatically. Ask the company to resend it.");
+        } else {
+          toast.success("Account Created Successfully");
+        }
+
+        navigate(getPostLoginPath(user));
       }
     } catch (error) {
 
@@ -148,6 +174,12 @@ export default function RegisterForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+
+      {isInvited && (
+        <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-200">
+          Invited by <span className="font-medium">{companyName || "a company"}</span> to manage their books as a Freelancer.
+        </div>
+      )}
 
       {/* Account Type */}
 
@@ -348,10 +380,17 @@ export default function RegisterForm() {
             type="email"
             {...register("email")}
             placeholder="john@example.com"
-            className="w-full bg-transparent px-4 py-4 outline-none"
+            readOnly={isInvited}
+            className={`w-full bg-transparent px-4 py-4 outline-none ${isInvited ? "cursor-not-allowed text-slate-400" : ""}`}
           />
 
         </div>
+
+        {isInvited && (
+          <p className="mt-2 text-xs text-slate-500">
+            Locked to the invited email address.
+          </p>
+        )}
 
         {errors.email && (
           <p className="mt-2 text-sm text-red-400">

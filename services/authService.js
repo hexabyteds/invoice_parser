@@ -10,6 +10,7 @@ const { hashPassword, comparePassword } = require("../utils/password");
 const { generateToken } = require("../utils/jwt");
 const { fromDbStatus, isAccountActive } = require("../utils/userStatus");
 const { generateResetToken, hashResetToken } = require("../utils/resetToken");
+const { generateVerifyEmailToken, hashVerifyEmailToken } = require("../utils/verifyEmailToken");
 const { validateCountryAndCode } = require("../utils/countries");
 const { normalizeMobileNumber } = require("../utils/phone");
 const { parseUserAgent } = require("../utils/userAgent");
@@ -61,6 +62,7 @@ function toPublicUser(user) {
         plan: user.plan || "free",
         status: fromDbStatus(user.status, user.deleted_at),
         account_type: user.account_type || null,
+        email_verified: Boolean(user.email_verified),
     };
 }
 
@@ -95,6 +97,10 @@ class AuthService {
             validatePasswordPolicy(data.password);
             validateAccountType(data.account_type);
 
+            if (!data.name?.trim()) {
+                throw new Error("Name is required.");
+            }
+
             if (data.account_type === "COMPANY" && !data.company_name?.trim()) {
                 throw new Error("Company name is required.");
             }
@@ -111,7 +117,15 @@ class AuthService {
                 data.mobile_number
             );
 
-            const existingUser = await userRepository.findByEmail(data.email);
+            // Trimmed/lowercased — matching what's actually persisted below
+            // (userRepository.create writes data.email?.trim().toLowerCase()).
+            // Checking the raw value here let a whitespace-padded duplicate
+            // ("  test@example.test  ") slip past this check and fail at
+            // INSERT time instead, surfacing a raw MySQL constraint error
+            // to the client rather than this clean message (QA audit BUG-QA-05).
+            const existingUser = await userRepository.findByEmail(
+                data.email?.trim().toLowerCase()
+            );
             console.log("Existing user:", existingUser);
 
             if (existingUser) {
@@ -175,13 +189,68 @@ class AuthService {
                 throw subscriptionError;
             }
 
+            // Freelancer Independent Signup + Company-to-Freelancer
+            // Invitation, Case A: completing signup via an invite link
+            // auto-accepts it, so the new freelancer lands on their
+            // dashboard already connected to the inviting company — no
+            // manual "add company" step. Re-validated here server-side
+            // even though the frontend already checked the token when the
+            // page loaded (never rely only on frontend checks) — best
+            // effort: the token could theoretically be consumed by someone
+            // else in the moments between page-load and form-submit, and
+            // that race must never fail the signup itself, just skip the
+            // auto-connect.
+            let invitationAccepted = true;
+
+            if (data.account_type === "FREELANCER" && data.invitation_token) {
+                try {
+                    await companyService.acceptInvitationByToken(
+                        data.invitation_token,
+                        id,
+                        data.email?.trim().toLowerCase()
+                    );
+                } catch (invitationError) {
+                    console.error("Auto-accept invitation on signup failed:", invitationError.message);
+                    invitationAccepted = false;
+                }
+            }
+
+            // Best-effort, same reasoning as invitation emails — SMTP may
+            // not be configured in every environment, and that must never
+            // fail signup itself. Verification stays available via
+            // "resend" once email works.
+            let emailVerificationSent = false;
+
+            try {
+                const { token: verifyToken, tokenHash, expiresAt } = generateVerifyEmailToken();
+                await userRepository.setEmailVerifyToken(id, tokenHash, expiresAt);
+
+                const verifyUrl = `${
+                    process.env.FRONTEND_URL || "http://localhost:5173"
+                }/verify-email?token=${verifyToken}`;
+
+                await emailService.sendVerificationEmail(data.email?.trim().toLowerCase(), verifyUrl);
+                emailVerificationSent = true;
+            } catch (verifyErr) {
+                console.error("Failed to send verification email:", verifyErr.message);
+            }
+
             const user = await userRepository.findById(id);
             const token = generateToken(user);
 
+            // Same enrichment as login()/me() — RegisterForm.jsx logs the
+            // caller in immediately from this response (no follow-up
+            // GET /auth/me), so a Freelancer who just signed up via an
+            // invite link must see the now-accepted company here, not only
+            // after a later refresh.
+            const { companies, invitations } = await companyService.getMembershipsForUser(id, user.email);
+
             return {
-                user: toPublicUser(user),
+                user: { ...toPublicUser(user), companies, invitations },
                 subscription: toPublicSubscription(subscription),
                 token,
+                emailVerificationSent,
+                invitationAccepted: data.invitation_token ? invitationAccepted : null,
             };
         } catch (err) {
             console.error("Register Error:", err);
@@ -261,7 +330,7 @@ class AuthService {
         // this response directly (not a follow-up GET /auth/me), so the
         // workspace switcher and pending-invitations state must be correct
         // from the first response, not just after a later refresh.
-        const { companies, invitations } = await companyService.getMembershipsForUser(user.id);
+        const { companies, invitations } = await companyService.getMembershipsForUser(user.id, user.email);
 
         return {
             token,
@@ -293,7 +362,7 @@ class AuthService {
             throw new Error("User not found.");
         }
 
-        const { companies, invitations } = await companyService.getMembershipsForUser(id);
+        const { companies, invitations } = await companyService.getMembershipsForUser(id, user.email);
 
         return {
             ...toPublicUser(user),
@@ -392,6 +461,40 @@ class AuthService {
 
         await userRepository.updatePassword(user.id, password);
         await userRepository.clearResetToken(user.id);
+    }
+
+    async verifyEmail(token) {
+        const user = token
+            ? await userRepository.findByEmailVerifyTokenHash(hashVerifyEmailToken(token))
+            : null;
+
+        if (!user) {
+            throw new Error("This verification link is invalid or has expired.");
+        }
+
+        await userRepository.markEmailVerified(user.id);
+    }
+
+    // Deliberately silent on "already verified" / "no such user" — same
+    // non-revealing pattern as forgotPassword. A signed-in caller only
+    // reaches this from their own account, so there's no enumeration risk
+    // to weigh against usability here, but staying quiet keeps the
+    // behavior consistent and simple.
+    async resendVerificationEmail(userId) {
+        const user = await userRepository.findById(userId);
+
+        if (!user || user.email_verified) {
+            return;
+        }
+
+        const { token, tokenHash, expiresAt } = generateVerifyEmailToken();
+        await userRepository.setEmailVerifyToken(userId, tokenHash, expiresAt);
+
+        const verifyUrl = `${
+            process.env.FRONTEND_URL || "http://localhost:5173"
+        }/verify-email?token=${token}`;
+
+        await emailService.sendVerificationEmail(user.email, verifyUrl);
     }
 }
 

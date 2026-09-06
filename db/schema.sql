@@ -122,6 +122,33 @@ CREATE TABLE `companies` (
   CONSTRAINT `fk_company_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `company_invitations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `company_invitations` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `company_id` int NOT NULL,
+  `invited_email` varchar(255) NOT NULL,
+  `invited_by` int DEFAULT NULL,
+  `role` enum('FREELANCER') NOT NULL DEFAULT 'FREELANCER',
+  `permissions` json DEFAULT NULL,
+  `token_hash` varchar(64) NOT NULL,
+  `status` enum('PENDING','ACCEPTED','REVOKED') NOT NULL DEFAULT 'PENDING',
+  `expires_at` datetime NOT NULL,
+  `accepted_at` datetime DEFAULT NULL,
+  `accepted_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_company_invitations_token_hash` (`token_hash`),
+  KEY `idx_company_invitations_company_email_status` (`company_id`,`invited_email`,`status`),
+  KEY `fk_company_invitations_invited_by` (`invited_by`),
+  KEY `fk_company_invitations_accepted_by` (`accepted_by`),
+  CONSTRAINT `fk_company_invitations_accepted_by` FOREIGN KEY (`accepted_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_company_invitations_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_company_invitations_invited_by` FOREIGN KEY (`invited_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `company_memberships`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -160,6 +187,7 @@ CREATE TABLE `customers` (
   `email` varchar(255) DEFAULT NULL,
   `phone` varchar(30) DEFAULT NULL,
   `trn` varchar(100) DEFAULT NULL,
+  `trn_dedup_key` varchar(100) GENERATED ALWAYS AS (nullif(`trn`,_utf8mb4'')) STORED,
   `address` text,
   `country` varchar(100) DEFAULT NULL,
   `city` varchar(100) DEFAULT NULL,
@@ -209,6 +237,8 @@ CREATE TABLE `customers` (
   `account_manager` varchar(150) DEFAULT NULL,
   `cost_centre` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_customers_company_name` (`company_id`,`company_name`),
+  UNIQUE KEY `uq_customers_company_trn` (`company_id`,`trn_dedup_key`),
   KEY `fk_customer_user` (`user_id`),
   KEY `fk_customers_company` (`company_id`),
   CONSTRAINT `fk_customer_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
@@ -380,7 +410,6 @@ CREATE TABLE `subscriptions` (
   `cancel_at_period_end` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_subscriptions_stripe_subscription_id` (`stripe_subscription_id`),
-  KEY `user_id` (`user_id`),
   KEY `plan_id` (`plan_id`),
   KEY `fk_subscriptions_company` (`company_id`),
   KEY `idx_subscriptions_user_company_status` (`user_id`,`company_id`,`status`),
@@ -410,6 +439,7 @@ CREATE TABLE `suppliers` (
   `designation` varchar(150) DEFAULT NULL,
   `tax_treatment` varchar(50) DEFAULT NULL,
   `trn` varchar(100) DEFAULT NULL,
+  `trn_dedup_key` varchar(100) GENERATED ALWAYS AS (nullif(`trn`,_utf8mb4'')) STORED,
   `place_of_supply` varchar(100) DEFAULT NULL,
   `currency` varchar(20) DEFAULT NULL,
   `payment_terms` varchar(50) DEFAULT NULL,
@@ -441,6 +471,8 @@ CREATE TABLE `suppliers` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_suppliers_company_name` (`company_id`,`company_name`),
+  UNIQUE KEY `uq_suppliers_company_trn` (`company_id`,`trn_dedup_key`),
   KEY `fk_supplier_user` (`user_id`),
   KEY `fk_suppliers_company` (`company_id`),
   CONSTRAINT `fk_supplier_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
@@ -454,6 +486,7 @@ CREATE TABLE `usage_stats` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
   `company_id` int DEFAULT NULL,
+  `account_level_flag` tinyint GENERATED ALWAYS AS (if((`company_id` is null),1,NULL)) STORED,
   `invoices_used` int DEFAULT '0',
   `bank_statements_used` int DEFAULT '0',
   `customers_used` int DEFAULT '0',
@@ -466,6 +499,7 @@ CREATE TABLE `usage_stats` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_usage_stats_company_id` (`company_id`),
+  UNIQUE KEY `uq_usage_stats_one_account_row` (`user_id`,`account_level_flag`),
   KEY `fk_usage_stats_company` (`company_id`),
   KEY `idx_usage_stats_user_id` (`user_id`),
   CONSTRAINT `fk_usage_stats_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`),
@@ -501,12 +535,15 @@ CREATE TABLE `users` (
   `reset_token_hash` varchar(64) DEFAULT NULL,
   `reset_token_expires` datetime DEFAULT NULL,
   `stripe_customer_id` varchar(255) DEFAULT NULL,
+  `email_verify_token_hash` varchar(64) DEFAULT NULL,
+  `email_verify_token_expires` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
   UNIQUE KEY `uq_users_stripe_customer_id` (`stripe_customer_id`),
   UNIQUE KEY `uq_users_country_code_mobile` (`country_code`,`mobile_number`),
   KEY `fk_user_plan` (`plan_id`),
   KEY `idx_users_reset_token_hash` (`reset_token_hash`),
+  KEY `idx_users_email_verify_token_hash` (`email_verify_token_hash`),
   CONSTRAINT `fk_user_plan` FOREIGN KEY (`plan_id`) REFERENCES `plans` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

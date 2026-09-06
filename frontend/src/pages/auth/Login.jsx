@@ -7,7 +7,7 @@ import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
 import api from "../../services/api";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { getPostLoginPath } from "../../utils/roles";
 import AuthLayout from "../../layouts/AuthLayout";
@@ -29,6 +29,13 @@ export default function Login() {
     const [rememberMe, setRememberMe] = useState(true);
     const navigate = useNavigate();
     const { login } = useAuth();
+    const [searchParams] = useSearchParams();
+    // Only ever an in-app path (e.g. `/invite/:token`, from AcceptInvite.jsx
+    // routing an existing account through login before showing the
+    // acceptance screen) — never an absolute/external URL, so this can't
+    // be turned into an open redirect.
+    const next = searchParams.get("next");
+    const isSafeNext = next && next.startsWith("/") && !next.startsWith("//");
 
     const {
         register,
@@ -56,7 +63,7 @@ export default function Login() {
 
                 toast.success("Welcome back!");
 
-                navigate(getPostLoginPath(user));
+                navigate(isSafeNext ? next : getPostLoginPath(user));
             }
         } catch (error) {
             toast.error(

@@ -1,4 +1,5 @@
 const supplierRepository = require("../repositories/supplierRepository");
+const invoiceRepository = require("../repositories/invoiceRepository");
 const usageService = require("./usageService");
 const auditLogRepository = require("../repositories/auditLogRepository");
 
@@ -257,6 +258,20 @@ class SupplierService {
 
         if (!supplier) {
             throw new Error("Supplier not found.");
+        }
+
+        // invoices.supplier_id is ON DELETE CASCADE (db/schema.sql) — a
+        // straight delete here silently destroys every bill ever received
+        // from this supplier along with it (QA audit BUG-QA-01). Block it
+        // instead; the user can deactivate the supplier (status ACTIVE ->
+        // INACTIVE) to hide them from active use without losing history,
+        // or reassign/delete those bills first if they truly want both gone.
+        const billCount = await invoiceRepository.countBySupplier(companyId, id);
+
+        if (billCount > 0) {
+            throw new Error(
+                `Cannot delete "${supplier.company_name}": ${billCount} bill(s) are linked to this supplier. Deactivate the supplier instead, or remove those bills first.`
+            );
         }
 
         await supplierRepository.delete(id, companyId);

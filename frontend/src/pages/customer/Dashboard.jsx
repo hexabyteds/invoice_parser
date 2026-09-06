@@ -188,20 +188,20 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         <KpiCard
           title="Total Documents"
-          value={summary?.totalInvoices.value.toLocaleString()}
+          value={summary?.totalDocuments.value.toLocaleString()}
           icon={<FileText size={20} />}
           color="indigo"
-          trend={summary?.totalInvoices.trend}
-          percent={summary?.totalInvoices.percent}
+          trend={summary?.totalDocuments.trend}
+          percent={summary?.totalDocuments.percent}
           sparkline={last6(invoiceSeries, "uploaded")}
         />
         <KpiCard
           title="Total Value"
-          value={formatCurrency(summary?.totalExpenses.value)}
+          value={formatCurrency(summary?.totalValue.value)}
           icon={<DollarSign size={20} />}
           color="green"
-          trend={summary?.totalExpenses.trend}
-          percent={summary?.totalExpenses.percent}
+          trend={summary?.totalValue.trend}
+          percent={summary?.totalValue.percent}
           sparkline={last6(invoiceSeries, "totalAmount")}
         />
         <KpiCard
