@@ -75,7 +75,8 @@ export default function Topbar({
         sticky
         top-0
         z-30
-        h-20
+        min-h-20
+        py-3
         bg-white/90
         backdrop-blur-xl
         border-b
@@ -148,11 +149,11 @@ export default function Topbar({
 
                 <div className="hidden md:block">
 
-                    <h2 className="text-2xl font-bold text-slate-800 font-display tracking-tight">
+                    <h2 className="text-2xl font-bold text-slate-800 font-display tracking-tight whitespace-nowrap">
                         {greeting}, {user.name?.split(" ")[0]}
                     </h2>
 
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-slate-500 whitespace-nowrap">
                         Here's what's happening today.
                     </p>
 

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -78,6 +79,23 @@ export default function Sidebar({
   closeSidebar,
 }) {
   const { user, logout } = useAuth();
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationsRef = useRef(null);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(e.target)
+      ) {
+        setNotificationsOpen(false);
+      }
+    }
+
+    window.addEventListener("click", handleClick);
+
+    return () => window.removeEventListener("click", handleClick);
+  }, []);
 
   const sidebarWidth = collapsed ? "w-24" : "w-72";
 
@@ -308,55 +326,95 @@ export default function Sidebar({
 
           {!collapsed && (
 
-            <button
-              className="
-                w-full
-                flex
-                items-center
-                justify-between
-                rounded-xl
-                bg-white/5
-                hover:bg-white/10
-                border
-                border-white/5
-                px-4
-                py-3
-                transition
-              "
-            >
+            <div className="relative" ref={notificationsRef}>
 
-              <div className="flex items-center gap-3">
-
-                <Bell
-                  size={20}
-                  className="text-indigo-400"
-                />
-
-                <span className="text-slate-300">
-                  Notifications
-                </span>
-
-              </div>
-
-              <span
+              <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                aria-label="View notifications"
+                aria-expanded={notificationsOpen}
                 className="
-                  w-6
-                  h-6
-                  rounded-full
-                  bg-gradient-to-r
-                  from-indigo-500
-                  to-violet-500
-                  text-white
-                  text-xs
+                  w-full
                   flex
                   items-center
-                  justify-center
+                  justify-between
+                  rounded-xl
+                  bg-white/5
+                  hover:bg-white/10
+                  border
+                  border-white/5
+                  px-4
+                  py-3
+                  transition
                 "
               >
-                3
-              </span>
 
-            </button>
+                <div className="flex items-center gap-3">
+
+                  <Bell
+                    size={20}
+                    className="text-indigo-400"
+                  />
+
+                  <span className="text-slate-300">
+                    Notifications
+                  </span>
+
+                </div>
+
+                <span
+                  className="
+                    w-6
+                    h-6
+                    rounded-full
+                    bg-gradient-to-r
+                    from-indigo-500
+                    to-violet-500
+                    text-white
+                    text-xs
+                    flex
+                    items-center
+                    justify-center
+                  "
+                >
+                  3
+                </span>
+
+              </button>
+
+              {notificationsOpen && (
+
+                <div
+                  className="
+                    absolute
+                    bottom-full
+                    left-0
+                    right-0
+                    mb-2
+                    rounded-2xl
+                    bg-[#0a0e1c]
+                    border
+                    border-white/10
+                    shadow-2xl
+                    overflow-hidden
+                    z-10
+                  "
+                >
+
+                  <div className="px-5 py-4 border-b border-white/5">
+                    <h4 className="font-semibold text-white">
+                      Notifications
+                    </h4>
+                  </div>
+
+                  <div className="px-5 py-8 text-center text-sm text-slate-400">
+                    You're all caught up — no new notifications.
+                  </div>
+
+                </div>
+
+              )}
+
+            </div>
 
           )}
 
