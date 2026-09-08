@@ -21,6 +21,18 @@ function StatusBadge({ status }) {
   );
 }
 
+function EmailVerifiedBadge({ verified }) {
+  const styles = verified
+    ? "bg-emerald-100 text-emerald-700"
+    : "bg-amber-100 text-amber-700";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-medium ${styles}`}>
+      {verified ? "Verified" : "Not Verified"}
+    </span>
+  );
+}
+
 export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
@@ -70,6 +82,7 @@ export default function Customers() {
                 <th className="px-6 py-4 font-medium">Company</th>
                 <th className="px-6 py-4 font-medium">Plan</th>
                 <th className="px-6 py-4 font-medium">Status</th>
+                <th className="px-6 py-4 font-medium">Email Verified</th>
                 <th className="px-6 py-4 font-medium">Total Clients</th>
                 <th className="px-6 py-4 font-medium">Invoices</th>
                 <th className="px-6 py-4 font-medium">Joined</th>
@@ -79,13 +92,13 @@ export default function Customers() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-10 text-center text-slate-500">
                     Loading customers...
                   </td>
                 </tr>
               ) : customers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-10 text-center text-slate-500">
                     No customers found.
                   </td>
                 </tr>
@@ -112,6 +125,9 @@ export default function Customers() {
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={customer.status} />
+                    </td>
+                    <td className="px-6 py-4">
+                      <EmailVerifiedBadge verified={customer.email_verified} />
                     </td>
                     <td className="px-6 py-4 text-slate-700">
                       {customer.total_clients ?? customer.client_count ?? 0}

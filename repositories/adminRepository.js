@@ -111,6 +111,7 @@ class AdminRepository {
         u.plan,
         u.status,
         u.created_at,
+        u.email_verified,
         COALESCE(client_counts.client_count, 0) AS client_count,
         COALESCE(invoice_stats.invoice_count, 0) AS invoice_count,
         COALESCE(invoice_stats.invoice_total, 0) AS invoice_total
