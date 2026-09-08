@@ -1,5 +1,5 @@
 const express = require("express");
-const rateLimit = require("express-rate-limit");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 
 const router = express.Router();
 
@@ -51,12 +51,60 @@ const loginRateLimiter = rateLimit({
     },
 });
 
-router.post("/register", (req, res) =>
-    authController.register(req, res)
+// Closes the gap the IP-keyed limiter above leaves open: a tool that
+// rotates its source IP (confirmed live in the Sept 2026 audit-log
+// investigation — bursts of 3 failed logins against the same bot-created
+// account, ~5s apart, a different IP every burst) never accumulates
+// enough hits on one IP to trip it. This one is keyed on the target
+// account instead, so it locks based on who's being attacked, not where
+// from. Only failed attempts count (skipSuccessfulRequests) — a real
+// user who mistypes their password a couple of times before succeeding
+// shouldn't get locked out by their own successful login.
+const loginEmailRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    skip: () => process.env.NODE_ENV === "test",
+    keyGenerator: (req, res) => {
+        const email = String(req.body?.email || "").trim().toLowerCase();
+        return email || ipKeyGenerator(req, res);
+    },
+    handler: (req, res) => {
+        res.status(429).json({
+            success: false,
+            error: "Too many failed login attempts for this account. Please try again later.",
+        });
+    },
+});
+
+// Registration had no rate limiting at all — the same Sept 2026
+// investigation found a scripted tool creating dozens of accounts this
+// way. Keyed on IP, same rationale as forgot-password: no authenticated
+// user exists yet at this point to key on instead.
+const registerRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === "test",
+    handler: (req, res) => {
+        res.status(429).json({
+            success: false,
+            error: "Too many registration attempts from this network. Please try again later.",
+        });
+    },
+});
+
+router.post("/register",
+    registerRateLimiter,
+    (req, res) => authController.register(req, res)
 );
 
 router.post("/login",
     loginRateLimiter,
+    loginEmailRateLimiter,
     (req, res) => authController.login(req, res)
 );
 
