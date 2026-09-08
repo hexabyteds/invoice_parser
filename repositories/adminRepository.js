@@ -154,6 +154,8 @@ class AdminRepository {
         u.account_type,
         u.phone,
         u.country,
+        u.country_code,
+        u.mobile_number,
         u.plan,
         u.status,
         u.role,
@@ -232,27 +234,44 @@ class AdminRepository {
   }
 
   async updateCustomer(id, customer) {
+    // country/country_code/mobile_number are only included in the SET
+    // clause when the caller explicitly touched them (see
+    // adminService.updateCustomer) — same "leave untouched unless
+    // provided" pattern as userRepository.update.
+    const fields = ["name = ?", "email = ?", "company_name = ?", "phone = ?"];
+    const params = [
+      customer.name,
+      customer.email,
+      customer.company_name,
+      customer.phone || null,
+    ];
+
+    if (customer.country !== undefined) {
+      fields.push("country = ?");
+      params.push(customer.country);
+    }
+
+    if (customer.country_code !== undefined) {
+      fields.push("country_code = ?");
+      params.push(customer.country_code);
+    }
+
+    if (customer.mobile_number !== undefined) {
+      fields.push("mobile_number = ?");
+      params.push(customer.mobile_number);
+    }
+
+    params.push(Number(id));
+
     await db.execute(
       `
       UPDATE users
-      SET
-        name = ?,
-        email = ?,
-        company_name = ?,
-        phone = ?,
-        country = ?
+      SET ${fields.join(", ")}
       WHERE id = ?
         AND role = 'customer'
         AND deleted_at IS NULL
       `,
-      [
-        customer.name,
-        customer.email,
-        customer.company_name,
-        customer.phone || null,
-        customer.country || null,
-        Number(id),
-      ]
+      params
     );
   }
 

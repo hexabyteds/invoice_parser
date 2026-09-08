@@ -11,6 +11,9 @@ const subscriptionService = require("./subscriptionService");
 const subscriptionRepository = require("../repositories/subscriptionRepository");
 const companyRepository = require("../repositories/companyRepository");
 const auditLogRepository = require("../repositories/auditLogRepository");
+const userRepository = require("../repositories/userRepository");
+const { validateCountryAndCode } = require("../utils/countries");
+const { normalizeMobileNumber } = require("../utils/phone");
 class AdminService {
   async getDashboardStats() {
     const platform = await adminRepository.getPlatformStats();
@@ -132,7 +135,6 @@ class AdminService {
     const email = String(data.email || "").trim().toLowerCase();
     const company_name = String(data.company_name || "").trim();
     const phone = String(data.phone || "").trim();
-    const country = String(data.country || "").trim();
 
     if (!name || !email || !company_name) {
       throw new Error("Name, email, and company are required.");
@@ -144,13 +146,40 @@ class AdminService {
       throw new Error("Email already exists.");
     }
 
-    await adminRepository.updateCustomer(id, {
-      name,
-      email,
-      company_name,
-      phone,
-      country,
-    });
+    const update = { name, email, company_name, phone };
+
+    // country/country_code/mobile_number are optional here (same as the
+    // customer's own profile edit) — only validate/write them when the
+    // caller actually touched one, so an admin editing just the name
+    // doesn't need to resend a customer's existing phone details.
+    const touchesContactFields =
+      data.country !== undefined ||
+      data.country_code !== undefined ||
+      data.mobile_number !== undefined;
+
+    if (touchesContactFields) {
+      const { country, countryCode } = validateCountryAndCode(
+        data.country,
+        data.country_code
+      );
+      const mobileNumber = normalizeMobileNumber(countryCode, data.mobile_number);
+
+      const existingMobile = await userRepository.findByCountryCodeAndMobile(
+        countryCode,
+        mobileNumber,
+        id
+      );
+
+      if (existingMobile) {
+        throw new Error("An account with this mobile number already exists.");
+      }
+
+      update.country = country;
+      update.country_code = countryCode;
+      update.mobile_number = mobileNumber;
+    }
+
+    await adminRepository.updateCustomer(id, update);
 
     return formatCustomer(await adminRepository.getCustomerById(id));
   }
@@ -288,6 +317,8 @@ function formatCustomer(row) {
     account_type: row.account_type,
     phone: row.phone || "",
     country: row.country || "",
+    country_code: row.country_code || "",
+    mobile_number: row.mobile_number || "",
     plan: row.plan || "starter",
     status: fromDbStatus(row.status, row.deleted_at),
     created_at: row.created_at,

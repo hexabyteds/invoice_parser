@@ -127,7 +127,9 @@ export default function CustomerDetails() {
           <div>
             <dt className="text-sm text-slate-500">Phone</dt>
             <dd className="font-medium text-slate-900">
-              {customer.phone || "—"}
+              {customer.mobile_number
+                ? `${customer.country_code || ""} ${customer.mobile_number}`.trim()
+                : customer.phone || "—"}
             </dd>
           </div>
           <div>

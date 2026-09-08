@@ -11,12 +11,7 @@ import {
 } from "lucide-react";
 import adminApi from "../../services/adminApi";
 import ChangePlanForm from "./ChangePlanForm";
-
-const COUNTRY_OPTIONS = [
-  { value: "Pakistan", label: "Pakistan" },
-  { value: "Saudi Arabia", label: "Saudi Arabia" },
-  { value: "UAE", label: "UAE" },
-];
+import { COUNTRIES, getCountryByName } from "../../constants/countries";
 
 export default function CustomerManagePanel({ customer, onUpdated }) {
   const navigate = useNavigate();
@@ -24,8 +19,8 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
     name: customer.name || "",
     email: customer.email || "",
     company_name: customer.company_name || "",
-    phone: customer.phone || "",
     country: customer.country || "",
+    mobile_number: customer.mobile_number || "",
   });
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState("");
@@ -35,10 +30,12 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
       name: customer.name || "",
       email: customer.email || "",
       company_name: customer.company_name || "",
-      phone: customer.phone || "",
       country: customer.country || "",
+      mobile_number: customer.mobile_number || "",
     });
   }, [customer]);
+
+  const selectedCountry = getCountryByName(form.country);
 
   const isActive = String(customer.status || "").toLowerCase() === "active";
 
@@ -58,7 +55,15 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
   const handleSaveProfile = () =>
     runAction(
       "profile",
-      () => adminApi.updateCustomer(customer.id, form),
+      () =>
+        adminApi.updateCustomer(customer.id, {
+          name: form.name,
+          email: form.email,
+          company_name: form.company_name,
+          country: form.country,
+          country_code: selectedCountry?.dialCode || "",
+          mobile_number: form.mobile_number,
+        }),
       "Customer updated successfully"
     );
 
@@ -146,17 +151,6 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
           </label>
 
           <label className="block">
-            <span className="text-sm text-slate-500">Phone number</span>
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              placeholder="+971 50 123 4567"
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-            />
-          </label>
-
-          <label className="block">
             <span className="text-sm text-slate-500">Country</span>
             <select
               value={form.country}
@@ -164,12 +158,30 @@ export default function CustomerManagePanel({ customer, onUpdated }) {
               className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">Select country</option>
-              {COUNTRY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {COUNTRIES.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="block">
+            <span className="text-sm text-slate-500">Phone number</span>
+            <div className="mt-1 flex items-center rounded-xl border border-slate-200 bg-white focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500">
+              <span className="pl-4 pr-1 text-slate-500">
+                {selectedCountry?.dialCode || "+--"}
+              </span>
+              <input
+                type="tel"
+                value={form.mobile_number}
+                onChange={(e) =>
+                  setForm({ ...form, mobile_number: e.target.value })
+                }
+                placeholder="50 123 4567"
+                className="w-full rounded-xl px-2 py-3 text-slate-900 placeholder:text-slate-400 outline-none"
+              />
+            </div>
           </label>
 
           <button
