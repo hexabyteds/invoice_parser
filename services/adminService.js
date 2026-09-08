@@ -319,6 +319,7 @@ function formatCustomer(row) {
     country: row.country || "",
     country_code: row.country_code || "",
     mobile_number: row.mobile_number || "",
+    email_verified: Boolean(row.email_verified),
     plan: row.plan || "starter",
     status: fromDbStatus(row.status, row.deleted_at),
     created_at: row.created_at,

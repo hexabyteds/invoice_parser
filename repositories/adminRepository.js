@@ -156,6 +156,7 @@ class AdminRepository {
         u.country,
         u.country_code,
         u.mobile_number,
+        u.email_verified,
         u.plan,
         u.status,
         u.role,

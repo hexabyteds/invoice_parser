@@ -147,6 +147,20 @@ export default function CustomerDetails() {
             </dd>
           </div>
           <div>
+            <dt className="text-sm text-slate-500">Email Verified</dt>
+            <dd className="mt-1">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  customer.email_verified
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {customer.email_verified ? "Verified" : "Not Verified"}
+              </span>
+            </dd>
+          </div>
+          <div>
             <dt className="text-sm text-slate-500">Invoice Volume</dt>
             <dd className="font-medium text-slate-900">
               ${Number(customer.invoice_total || 0).toLocaleString(undefined, {
