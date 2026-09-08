@@ -89,7 +89,7 @@ function toPublicSubscription(subscription) {
 }
 
 class AuthService {
-    async register(data) {
+    async register(data, requestMeta = {}) {
         try {
             console.log("Incoming data:", { ...data, password: "[redacted]" });
 
@@ -245,6 +245,22 @@ class AuthService {
             // after a later refresh.
             const { companies, invitations } = await companyService.getMembershipsForUser(id, user.email);
 
+            // Best-effort — never blocks a successful registration, same
+            // "try/catch and swallow" pattern login() uses for its own
+            // audit_logs write. Registration previously logged nothing at
+            // all (no IP, no audit trail), which left every signup
+            // unforensicable after the fact.
+            try {
+                await auditLogRepository.create({
+                    userId: user.id,
+                    action: "register",
+                    module: "Authentication",
+                    status: "SUCCESS",
+                    description: `${user.name} registered a new ${user.account_type || ""} account`.trim(),
+                    ipAddress: requestMeta.ipAddress || null,
+                });
+            } catch (logErr) {}
+
             return {
                 user: { ...toPublicUser(user), companies, invitations },
                 subscription: toPublicSubscription(subscription),
@@ -254,6 +270,18 @@ class AuthService {
             };
         } catch (err) {
             console.error("Register Error:", err);
+
+            try {
+                await auditLogRepository.create({
+                    userId: null,
+                    action: "register_failed",
+                    module: "Authentication",
+                    status: "FAILED",
+                    description: `Failed registration attempt for ${data.email || "unknown email"}: ${err.message}`,
+                    ipAddress: requestMeta.ipAddress || null,
+                });
+            } catch (logErr) {}
+
             throw err;
         }
     }

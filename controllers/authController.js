@@ -6,7 +6,10 @@ class AuthController {
 
         try {
             console.log("Request body:", req.body);
-            const result = await authService.register(req.body);
+            const result = await authService.register(req.body, {
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"],
+            });
 
             res.status(201).json({
                 success: true,
