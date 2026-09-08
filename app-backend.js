@@ -41,6 +41,12 @@ const bankStatementService = require("./services/bankStatementService");
 const { hasValidFileSignature } = require("./utils/fileSignature");
 
 const app = express();
+
+// Passenger/Apache proxies every request to this app over localhost, so
+// req.ip is 127.0.0.1 unless Express is told to trust that hop and read
+// the real client IP from X-Forwarded-For instead (see audit log IPs).
+app.set("trust proxy", "loopback");
+
 const UPLOADS_DIR = path.join(__dirname, "uploads");
 
 
