@@ -142,7 +142,7 @@ export default function CustomerDetails() {
             <dt className="text-sm text-slate-500">Joined</dt>
             <dd className="font-medium text-slate-900">
               {customer.created_at
-                ? new Date(customer.created_at).toLocaleDateString()
+                ? new Date(customer.created_at).toLocaleString()
                 : "—"}
             </dd>
           </div>
