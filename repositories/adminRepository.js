@@ -11,7 +11,9 @@ class AdminRepository {
     const [[customerStats]] = await db.execute(`
       SELECT
         COUNT(*) AS total_customers,
-        SUM(CASE WHEN LOWER(status) = 'active' THEN 1 ELSE 0 END) AS active_subscriptions
+        SUM(CASE WHEN LOWER(status) = 'active' THEN 1 ELSE 0 END) AS active_subscriptions,
+        SUM(CASE WHEN email_verified = 1 THEN 1 ELSE 0 END) AS verified_accounts,
+        SUM(CASE WHEN email_verified = 0 OR email_verified IS NULL THEN 1 ELSE 0 END) AS unverified_accounts
       FROM users
       WHERE role = 'customer'
         AND deleted_at IS NULL
@@ -48,6 +50,8 @@ class AdminRepository {
     return {
       totalCustomers: Number(customerStats.total_customers || 0),
       activeSubscriptions: Number(customerStats.active_subscriptions || 0),
+      verifiedAccounts: Number(customerStats.verified_accounts || 0),
+      unverifiedAccounts: Number(customerStats.unverified_accounts || 0),
       totalInvoices: Number(invoiceStats.total_invoices || 0),
       invoiceVolume: Number(invoiceStats.invoice_volume || 0),
       monthlyRevenue: Number(revenueStats.monthly_revenue || 0),

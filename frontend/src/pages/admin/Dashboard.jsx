@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Users, FileText, CreditCard, TrendingUp } from "lucide-react";
+import { Users, FileText, CreditCard, TrendingUp, BadgeCheck, MailWarning } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminPageShell from "../../components/admin/AdminPageShell";
 import adminApi from "../../services/adminApi";
@@ -8,6 +8,8 @@ import adminApi from "../../services/adminApi";
 const statConfig = [
   { key: "totalCustomers", label: "Total Customers", icon: Users, color: "from-indigo-500 to-indigo-600" },
   { key: "activeSubscriptions", label: "Active Subscriptions", icon: CreditCard, color: "from-blue-500 to-indigo-600" },
+  { key: "verifiedAccounts", label: "Verified Accounts", icon: BadgeCheck, color: "from-emerald-500 to-green-600" },
+  { key: "unverifiedAccounts", label: "Unverified Accounts", icon: MailWarning, color: "from-amber-500 to-yellow-600" },
   { key: "totalInvoices", label: "Total Invoices", icon: FileText, color: "from-emerald-500 to-teal-600" },
   { key: "monthlyRevenue", label: "Monthly Revenue", icon: TrendingUp, color: "from-amber-500 to-orange-600", prefix: "$" },
 ];
@@ -52,7 +54,7 @@ export default function AdminDashboard() {
       title="Dashboard"
       description="Overview of all customers, subscriptions, and platform activity."
     >
-      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
         {statConfig.map((stat) => {
           const Icon = stat.icon;
           const value = stats ? formatValue(stat.key, stats[stat.key]) : "—";

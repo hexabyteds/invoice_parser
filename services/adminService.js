@@ -24,6 +24,8 @@ class AdminService {
       stats: {
         totalCustomers: platform.totalCustomers,
         activeSubscriptions: platform.activeSubscriptions,
+        verifiedAccounts: platform.verifiedAccounts,
+        unverifiedAccounts: platform.unverifiedAccounts,
         totalInvoices: platform.totalInvoices,
         monthlyRevenue: platform.monthlyRevenue,
         invoiceVolume: platform.invoiceVolume,
