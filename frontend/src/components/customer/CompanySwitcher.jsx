@@ -17,6 +17,7 @@ export default function CompanySwitcher() {
   const [name, setName] = useState("");
   const ref = useRef(null);
   const isFreelancer = user?.account_type === "FREELANCER";
+  const trialExpired = Boolean(user?.subscription?.trial?.isExpired);
 
   useEffect(() => {
     function handleClick(e) {
@@ -122,7 +123,8 @@ export default function CompanySwitcher() {
               />
               <button
                 type="submit"
-                disabled={creating || !name.trim()}
+                disabled={creating || !name.trim() || trialExpired}
+                title={trialExpired ? "Your free trial has ended. Upgrade your plan to add companies." : undefined}
                 className="flex shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
               >
                 <Plus size={14} />

@@ -549,7 +549,7 @@ export default function RegisterForm({ invitationToken, invitedEmail, companyNam
 
         <div className="flex items-center gap-2 text-green-400">
           <CheckCircle size={18} />
-          Free 14-day trial
+          Free 7-day trial
         </div>
 
         <div className="mt-2 flex items-center gap-2 text-green-400">

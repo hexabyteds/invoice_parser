@@ -15,6 +15,7 @@ import supplierApi from "../../services/supplierApi";
 import { useParams, useNavigate } from "react-router-dom";
 import { DOCUMENT_TYPES, documentTypeLabel } from "../../utils/documentTypes";
 import { isPartyActive } from "../../utils/clientStatus";
+import { useAuth } from "../../context/AuthContext";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
 const MAX_FILE_SIZE_MB = 15;
@@ -118,6 +119,8 @@ function ReviewPicker({ parties, partyNoun, linking, onLink, addHref }) {
 export default function Upload() {
   const { clientId: routeClientId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const trialExpired = Boolean(user?.subscription?.trial?.isExpired);
 
   const [file, setFile] = useState(null);
   const [dragging, setDragging] = useState(false);
@@ -487,8 +490,9 @@ export default function Upload() {
         )}
 
         <button
-          disabled={loading || (requiresManualParty && selectedClientInactive)}
+          disabled={loading || trialExpired || (requiresManualParty && selectedClientInactive)}
           onClick={upload}
+          title={trialExpired ? "Your free trial has ended. Upgrade your plan to upload documents." : undefined}
           className="mt-8 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white px-8 py-3 rounded-xl flex items-center gap-2 disabled:opacity-60"
         >
           {loading ? (

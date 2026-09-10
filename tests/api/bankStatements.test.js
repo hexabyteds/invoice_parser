@@ -575,7 +575,7 @@ describe("Bank statement plan limits", () => {
       [`BS Limit Test ${user.id}`, `bs-limit-test-${user.id}`]
     );
     await pool.execute(
-      `UPDATE subscriptions SET plan_id = ? WHERE user_id = ? AND status = 'active'`,
+      `UPDATE subscriptions SET plan_id = ? WHERE user_id = ? AND status IN ('active', 'trial')`,
       [planResult.insertId, user.id]
     );
 

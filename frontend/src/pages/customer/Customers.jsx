@@ -5,10 +5,13 @@ import toast from "react-hot-toast";
 import customerApi from "../../services/customerApi";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { isPartyActive, partyStatusLabel, partyStatusBadgeClass } from "../../utils/clientStatus";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Customers() {
 
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const trialExpired = Boolean(user?.subscription?.trial?.isExpired);
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -127,12 +130,21 @@ export default function Customers() {
 
                 </div>
 
-                <Link
-                    to="/dashboard/customers/new"
-                    className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-lg shadow-indigo-950/40 transition-all"
-                >
-                    + Add Customer
-                </Link>
+                {trialExpired ? (
+                    <span
+                        title="Your free trial has ended. Upgrade your plan to add customers."
+                        className="px-5 py-3 rounded-xl bg-slate-300 text-slate-500 cursor-not-allowed"
+                    >
+                        + Add Customer
+                    </span>
+                ) : (
+                    <Link
+                        to="/dashboard/customers/new"
+                        className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-lg shadow-indigo-950/40 transition-all"
+                    >
+                        + Add Customer
+                    </Link>
+                )}
 
             </div>
 
@@ -188,12 +200,21 @@ export default function Customers() {
                             Add your first customer to start uploading and
                             tracking their invoices.
                         </p>
-                        <Link
-                            to="/dashboard/customers/new"
-                            className="mt-5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition-all"
-                        >
-                            + Add Customer
-                        </Link>
+                        {trialExpired ? (
+                            <span
+                                title="Your free trial has ended. Upgrade your plan to add customers."
+                                className="mt-5 px-5 py-2.5 rounded-xl bg-slate-300 text-slate-500 cursor-not-allowed"
+                            >
+                                + Add Customer
+                            </span>
+                        ) : (
+                            <Link
+                                to="/dashboard/customers/new"
+                                className="mt-5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition-all"
+                            >
+                                + Add Customer
+                            </Link>
+                        )}
                     </div>
 
                 ) : filtered.length === 0 ? (

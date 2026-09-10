@@ -69,7 +69,7 @@ class SubscriptionRepository {
           ON s.plan_id = p.id
       WHERE
           s.company_id = ?
-      AND s.status = 'active'
+      AND s.status IN ('active', 'trial')
       LIMIT 1
       `,
       [companyId]
@@ -101,7 +101,7 @@ class SubscriptionRepository {
       WHERE
           s.user_id = ?
       AND s.company_id IS NULL
-      AND s.status = 'active'
+      AND s.status IN ('active', 'trial')
       LIMIT 1
       `,
       [userId]
@@ -532,14 +532,16 @@ class SubscriptionRepository {
     }
 
     // New Stripe subscription — expire any other row still marked active
-    // before inserting, so the target (a company, or a Freelancer's own
-    // account-level row) never has two active rows.
+    // or trialing before inserting, so the target (a company, or a
+    // Freelancer's own account-level row) never has two live rows. Must
+    // catch 'trial' too — upgrading straight out of a trial into a paid
+    // plan is the common case, not an edge case.
     if (data.companyId) {
       await db.execute(
         `
         UPDATE subscriptions
         SET status = 'expired', updated_at = NOW()
-        WHERE company_id = ? AND status = 'active'
+        WHERE company_id = ? AND status IN ('active', 'trial')
         `,
         [data.companyId]
       );
@@ -548,7 +550,7 @@ class SubscriptionRepository {
         `
         UPDATE subscriptions
         SET status = 'expired', updated_at = NOW()
-        WHERE user_id = ? AND company_id IS NULL AND status = 'active'
+        WHERE user_id = ? AND company_id IS NULL AND status IN ('active', 'trial')
         `,
         [data.userId]
       );

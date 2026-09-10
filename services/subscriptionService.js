@@ -40,6 +40,12 @@ class SubscriptionService {
     return d;
   }
 
+  addDays(date, days) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+
   // =====================================================
   // Create Free Subscription
   // Called immediately after user registration
@@ -47,7 +53,7 @@ class SubscriptionService {
 
   async createFreeSubscription(companyId) {
 
-    // Company already has an active subscription?
+    // Company already has an active-or-trialing subscription?
     const active =
       await subscriptionRepository.getActiveSubscription(companyId);
 
@@ -74,13 +80,20 @@ class SubscriptionService {
 
     const today = new Date();
 
+    // A brand-new Free-plan subscription starts as a 7-day trial, not
+    // permanently active — see utils/subscriptionAccess.js for how
+    // expires_at is turned into read-only-after-expiry access, enforced
+    // by middleware/requireActiveSubscription.js. expires_at doubles as
+    // trial_ends_at; starts_at already doubles as trial_started_at, so no
+    // new columns were needed (the 'trial' status value already existed
+    // in the schema, unused, before this).
     const subscription = {
 
       company_id: companyId,
 
       plan_id: freePlan.id,
 
-      status: "active",
+      status: "trial",
 
       billing_cycle: "monthly",
 
@@ -88,7 +101,7 @@ class SubscriptionService {
 
       starts_at: today,
 
-      expires_at: null,
+      expires_at: this.addDays(today, 7),
 
       next_billing: null
 
@@ -128,15 +141,18 @@ class SubscriptionService {
 
     const today = new Date();
 
+    // Same 7-day trial as createFreeSubscription above — this one row
+    // governs every company the Freelancer owns (resolveSubscriptionForCompany),
+    // so the trial is account-level, not per-company.
     await subscriptionRepository.createSubscription({
       company_id: null,
       user_id: userId,
       plan_id: freePlan.id,
-      status: "active",
+      status: "trial",
       billing_cycle: "monthly",
       price: freePlan.monthly_price,
       starts_at: today,
-      expires_at: null,
+      expires_at: this.addDays(today, 7),
       next_billing: null,
     });
 

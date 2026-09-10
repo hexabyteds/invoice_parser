@@ -14,6 +14,7 @@ const { generateVerifyEmailToken, hashVerifyEmailToken } = require("../utils/ver
 const { validateCountryAndCode } = require("../utils/countries");
 const { normalizeMobileNumber } = require("../utils/phone");
 const { parseUserAgent } = require("../utils/userAgent");
+const { getTrialInfo } = require("../utils/subscriptionAccess");
 
 // Matches the policy already enforced client-side by RegisterForm.jsx and
 // ResetPassword.jsx's zod schemas — those only stop a browser form
@@ -85,7 +86,42 @@ function toPublicSubscription(subscription) {
         billing_cycle: subscription.billing_cycle,
         starts_at: subscription.starts_at,
         expires_at: subscription.expires_at,
+        trial: getTrialInfo(subscription),
     };
+}
+
+// Shared by login() and me() — a Freelancer's plan is account-level
+// (governs every company they own uniformly), a Company account's is
+// tied to the company they own. Lazily creates a Free/trial subscription
+// on first resolution if none exists yet, same fallback
+// resolveSubscriptionForCompany/getFreelancerLimits already use — so a
+// Freelancer who hasn't created a company yet still sees accurate trial
+// info instead of none at all. Best-effort: a resolution failure (e.g. a
+// Company account with no owned company yet) must never break login/me.
+async function resolveSubscriptionForUser(user, companies) {
+    try {
+        if (user.account_type === "FREELANCER") {
+            try {
+                return await subscriptionService.getCurrentSubscriptionForUser(user.id);
+            } catch (error) {
+                if (error.message === "No active subscription found.") {
+                    return await subscriptionService.createFreeSubscriptionForUser(user.id);
+                }
+                throw error;
+            }
+        }
+
+        const ownedCompanyId = companies.find((c) => c.role === "OWNER")?.companyId;
+
+        if (!ownedCompanyId) {
+            return null;
+        }
+
+        const { subscription } = await subscriptionService.resolveSubscriptionForCompany(ownedCompanyId);
+        return subscription;
+    } catch (err) {
+        return null;
+    }
 }
 
 class AuthService {
@@ -356,13 +392,20 @@ class AuthService {
 
         // Same enrichment as me() — the frontend's AuthContext.login() uses
         // this response directly (not a follow-up GET /auth/me), so the
-        // workspace switcher and pending-invitations state must be correct
-        // from the first response, not just after a later refresh.
+        // workspace switcher, pending-invitations, and trial/subscription
+        // state must be correct from the first response, not just after a
+        // later refresh.
         const { companies, invitations } = await companyService.getMembershipsForUser(user.id, user.email);
+        const subscription = await resolveSubscriptionForUser(user, companies);
 
         return {
             token,
-            user: { ...toPublicUser(user), companies, invitations },
+            user: {
+                ...toPublicUser(user),
+                companies,
+                invitations,
+                subscription: toPublicSubscription(subscription),
+            },
         };
     }
 
@@ -391,11 +434,13 @@ class AuthService {
         }
 
         const { companies, invitations } = await companyService.getMembershipsForUser(id, user.email);
+        const subscription = await resolveSubscriptionForUser(user, companies);
 
         return {
             ...toPublicUser(user),
             companies,
             invitations,
+            subscription: toPublicSubscription(subscription),
         };
     }
 

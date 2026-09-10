@@ -5,6 +5,7 @@ const router = express.Router();
 const authMiddleware = require("../middleware/authMiddleware");
 const companyContext = require("../middleware/companyContext");
 const requireCompanyPermission = require("../middleware/requireCompanyPermission");
+const requireActiveSubscription = require("../middleware/requireActiveSubscription");
 const bankStatementController = require("../controllers/bankStatementController");
 
 router.use(authMiddleware);
@@ -22,11 +23,11 @@ router.get("/:id/transactions", requireCompanyPermission("bank_statements", "vie
     bankStatementController.getTransactions(req, res)
 );
 
-router.put("/:id", requireCompanyPermission("bank_statements", "edit"), (req, res) =>
+router.put("/:id", requireActiveSubscription, requireCompanyPermission("bank_statements", "edit"), (req, res) =>
     bankStatementController.update(req, res)
 );
 
-router.delete("/:id", requireCompanyPermission("bank_statements", "delete"), (req, res) =>
+router.delete("/:id", requireActiveSubscription, requireCompanyPermission("bank_statements", "delete"), (req, res) =>
     bankStatementController.delete(req, res)
 );
 

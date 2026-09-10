@@ -10,11 +10,11 @@ const db = require("../config/database");
 // companies in one query — looping a per-row service call wouldn't scale.
 const PLAN_JOIN = `
   LEFT JOIN subscriptions company_sub
-    ON company_sub.company_id = co.id AND company_sub.status = 'active'
+    ON company_sub.company_id = co.id AND company_sub.status IN ('active', 'trial')
   LEFT JOIN subscriptions freelancer_sub
     ON freelancer_sub.user_id = co.owner_user_id
     AND freelancer_sub.company_id IS NULL
-    AND freelancer_sub.status = 'active'
+    AND freelancer_sub.status IN ('active', 'trial')
     AND owner.account_type = 'FREELANCER'
   LEFT JOIN plans p
     ON p.id = COALESCE(freelancer_sub.plan_id, company_sub.plan_id)

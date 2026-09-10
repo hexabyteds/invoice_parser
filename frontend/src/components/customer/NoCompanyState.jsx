@@ -11,7 +11,8 @@ import { useAuth } from "../../context/AuthContext";
 // (createCompany below) — e.g. a bookkeeper setting up a client's company
 // shell before that client ever needs a login of their own.
 export default function NoCompanyState() {
-  const { invitations, refreshUser, switchCompany } = useAuth();
+  const { user, invitations, refreshUser, switchCompany } = useAuth();
+  const trialExpired = Boolean(user?.subscription?.trial?.isExpired);
   const [busyId, setBusyId] = useState(null);
   const [form, setForm] = useState({ name: "", address: "", phone: "", email: "", trn: "" });
   const [creating, setCreating] = useState(false);
@@ -160,7 +161,8 @@ export default function NoCompanyState() {
           />
           <button
             type="submit"
-            disabled={creating || !form.name.trim()}
+            disabled={creating || !form.name.trim() || trialExpired}
+            title={trialExpired ? "Your free trial has ended. Upgrade your plan to add companies." : undefined}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
           >
             <Plus size={16} />

@@ -142,7 +142,7 @@ class UsageRepository {
 
         INNER JOIN subscriptions s
             ON s.user_id = u.id
-            AND s.status = 'active'
+            AND s.status IN ('active', 'trial')
 
         INNER JOIN plans p
             ON p.id = s.plan_id
@@ -470,7 +470,7 @@ async getDashboardSummary() {
 
       INNER JOIN subscriptions s
           ON s.user_id = u.id
-          AND s.status = 'active'
+          AND s.status IN ('active', 'trial')
 
       INNER JOIN plans p
           ON p.id = s.plan_id

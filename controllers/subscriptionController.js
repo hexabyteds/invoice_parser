@@ -1,6 +1,7 @@
 const subscriptionService = require("../services/subscriptionService");
 const companyRepository = require("../repositories/companyRepository");
 const userRepository = require("../repositories/userRepository");
+const { getTrialInfo } = require("../utils/subscriptionAccess");
 
 class SubscriptionController {
 
@@ -22,7 +23,7 @@ class SubscriptionController {
 
       res.json({
         success: true,
-        subscription
+        subscription: { ...subscription, trial: getTrialInfo(subscription) }
       });
 
     } catch (err) {

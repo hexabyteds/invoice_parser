@@ -16,6 +16,8 @@ const FreeInvoiceAgent = require('./free-invoice-agent');
 const authMiddleware = require("./middleware/authMiddleware");
 const companyContext = require("./middleware/companyContext");
 const requireCompanyPermission = require("./middleware/requireCompanyPermission");
+const requireActiveSubscription = require("./middleware/requireActiveSubscription");
+const { blockedReasonCode } = require("./utils/subscriptionAccess");
 const customerRoutes = require("./routes/customerRoutes");
 const supplierRoutes = require("./routes/supplierRoutes");
 const adminRoutes = require("./routes/adminRoutes");
@@ -282,6 +284,23 @@ app.post(
         return res.status(403).json({
           success: false,
           error: `You don't have create access to ${uploadModule} in this company.`,
+        });
+      }
+
+      // Same "module isn't known until the body is parsed" constraint as
+      // the permission check above — requireActiveSubscription can't be
+      // static route-level middleware here either.
+      const subscriptionCheck = await requireActiveSubscription.check(req.company.id);
+
+      if (!subscriptionCheck.allowed) {
+        const code = blockedReasonCode(subscriptionCheck.subscription);
+        return res.status(403).json({
+          success: false,
+          error:
+            code === "TRIAL_EXPIRED"
+              ? "Your free trial has ended. Upgrade your plan to continue."
+              : "Your subscription is not active. Upgrade your plan to continue.",
+          code,
         });
       }
 
@@ -876,6 +895,7 @@ app.put(
   "/api/invoices/:id",
   authMiddleware,
   companyContext,
+  requireActiveSubscription,
   requireCompanyPermission("invoices", "edit"),
   async (req, res) => {
 
@@ -931,6 +951,7 @@ app.delete(
   "/api/invoices/:id",
   authMiddleware,
   companyContext,
+  requireActiveSubscription,
   requireCompanyPermission("invoices", "delete"),
   async (req, res) => {
     try {
@@ -1229,7 +1250,7 @@ app.get("/api/report", authMiddleware, companyContext, requireCompanyPermission(
 });
 
 // Clear all data
-app.post('/api/clear', authMiddleware, companyContext, requireCompanyPermission("invoices", "delete"), async (req, res) => {
+app.post('/api/clear', authMiddleware, companyContext, requireActiveSubscription, requireCompanyPermission("invoices", "delete"), async (req, res) => {
 
   try {
 

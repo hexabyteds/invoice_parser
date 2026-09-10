@@ -1215,7 +1215,7 @@ describe("Concurrency — usage limits cannot be exceeded by parallel requests (
       [`Concurrency Test ${user.id}`, `concurrency-test-${user.id}`]
     );
     await pool.execute(
-      `UPDATE subscriptions SET plan_id = ? WHERE user_id = ? AND status = 'active'`,
+      `UPDATE subscriptions SET plan_id = ? WHERE user_id = ? AND status IN ('active', 'trial')`,
       [planResult.insertId, user.id]
     );
 

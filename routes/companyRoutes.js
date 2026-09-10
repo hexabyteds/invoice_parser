@@ -5,6 +5,7 @@ const router = express.Router();
 const authMiddleware = require("../middleware/authMiddleware");
 const companyContext = require("../middleware/companyContext");
 const requireCompanyPermission = require("../middleware/requireCompanyPermission");
+const requireActiveSubscription = require("../middleware/requireActiveSubscription");
 const companyController = require("../controllers/companyController");
 
 router.use(authMiddleware);
@@ -12,12 +13,12 @@ router.use(authMiddleware);
 // A Freelancer's self-service "start a new workspace" — no "current
 // company" to resolve yet, since this is how one gets created in the
 // first place. Restricted to FREELANCER accounts inside the service layer.
-router.post("/", (req, res) => companyController.create(req, res));
+router.post("/", requireActiveSubscription.forUser, (req, res) => companyController.create(req, res));
 
 // The active company's own details (address/phone/email/TRN) — view for
 // any member, edit restricted to the owner inside the service layer.
 router.get("/current", companyContext, (req, res) => companyController.getCurrent(req, res));
-router.patch("/current", companyContext, (req, res) => companyController.updateCurrent(req, res));
+router.patch("/current", companyContext, requireActiveSubscription, (req, res) => companyController.updateCurrent(req, res));
 
 // Acting on the caller's OWN pending invitations (in-app accept/decline,
 // Case C — no raw token, the authenticated session itself proves email

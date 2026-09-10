@@ -5,10 +5,13 @@ import toast from "react-hot-toast";
 import supplierApi from "../../services/supplierApi";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { isPartyActive, partyStatusLabel, partyStatusBadgeClass } from "../../utils/clientStatus";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Suppliers() {
 
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const trialExpired = Boolean(user?.subscription?.trial?.isExpired);
     const [suppliers, setSuppliers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -127,12 +130,21 @@ export default function Suppliers() {
 
                 </div>
 
-                <Link
-                    to="/dashboard/suppliers/new"
-                    className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-lg shadow-indigo-950/40 transition-all"
-                >
-                    + Add Supplier
-                </Link>
+                {trialExpired ? (
+                    <span
+                        title="Your free trial has ended. Upgrade your plan to add suppliers."
+                        className="px-5 py-3 rounded-xl bg-slate-300 text-slate-500 cursor-not-allowed"
+                    >
+                        + Add Supplier
+                    </span>
+                ) : (
+                    <Link
+                        to="/dashboard/suppliers/new"
+                        className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-lg shadow-indigo-950/40 transition-all"
+                    >
+                        + Add Supplier
+                    </Link>
+                )}
 
             </div>
 
@@ -187,12 +199,21 @@ export default function Suppliers() {
                         <p className="mt-2 text-slate-500 max-w-sm">
                             Add your first supplier to start building your vendor address book.
                         </p>
-                        <Link
-                            to="/dashboard/suppliers/new"
-                            className="mt-5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition-all"
-                        >
-                            + Add Supplier
-                        </Link>
+                        {trialExpired ? (
+                            <span
+                                title="Your free trial has ended. Upgrade your plan to add suppliers."
+                                className="mt-5 px-5 py-2.5 rounded-xl bg-slate-300 text-slate-500 cursor-not-allowed"
+                            >
+                                + Add Supplier
+                            </span>
+                        ) : (
+                            <Link
+                                to="/dashboard/suppliers/new"
+                                className="mt-5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 transition-all"
+                            >
+                                + Add Supplier
+                            </Link>
+                        )}
                     </div>
 
                 ) : filtered.length === 0 ? (
