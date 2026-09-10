@@ -32,6 +32,10 @@ export default function CTASection() {
             View pricing
           </Link>
         </div>
+
+        <p className="mt-6 text-sm text-slate-500">
+          7-day free trial · No credit card required
+        </p>
       </div>
     </section>
   );

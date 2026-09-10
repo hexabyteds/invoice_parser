@@ -1,5 +1,4 @@
-# Placeholder domain — keep in sync with SITE_URL in src/utils/seo.js
-# and public/sitemap.xml once the real production domain is set.
+# Keep in sync with SITE_URL in src/utils/seo.js and public/sitemap.xml.
 User-agent: *
 Allow: /
 Disallow: /dashboard

@@ -51,6 +51,10 @@ export default function Hero() {
 
           </div>
 
+          <p className="mt-5 text-sm text-slate-500">
+            7-day free trial · No credit card required
+          </p>
+
         </motion.div>
 
         <motion.div

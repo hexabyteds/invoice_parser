@@ -8,7 +8,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-slate-800 bg-slate-950">
       <div className="mx-auto max-w-7xl px-6 py-14 sm:px-8">
-        <div className="grid grid-cols-2 gap-10 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-10 sm:grid-cols-5">
           <div className="col-span-2">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-bold text-white">
@@ -28,6 +28,15 @@ export default function Footer() {
               <li><Link to="/features" className="transition-colors hover:text-white">Features</Link></li>
               <li><Link to="/price" className="transition-colors hover:text-white">Pricing</Link></li>
               <li><Link to="/register" className="transition-colors hover:text-white">Start Free</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-white">Solutions</p>
+            <ul className="mt-4 space-y-3 text-sm text-slate-400">
+              <li><Link to="/accounting-software" className="transition-colors hover:text-white">Accounting Software</Link></li>
+              <li><Link to="/invoicing-software" className="transition-colors hover:text-white">Invoicing Software</Link></li>
+              <li><Link to="/ai-invoice-processing" className="transition-colors hover:text-white">AI Invoice Processing</Link></li>
             </ul>
           </div>
 

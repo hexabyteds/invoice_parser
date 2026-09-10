@@ -29,9 +29,9 @@ export default function Navbar() {
             </div>
 
             <div>
-              <h1 className="text-lg font-bold text-white font-display tracking-tight">
+              <span className="block text-lg font-bold text-white font-display tracking-tight">
                 EazeeBooks
-              </h1>
+              </span>
 
               <p className="text-xs text-slate-400">
                 AI Accounting Platform

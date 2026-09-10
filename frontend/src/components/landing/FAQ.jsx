@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { useJsonLd } from "../../hooks/useSeo";
 
 const faqs = [
+  {
+    q: "Is there a free trial?",
+    a: "Yes — every new account starts with a 7-day free trial with full access, no credit card required. After the trial, your account and data stay fully accessible; you'll just need to upgrade to keep creating and uploading new invoices.",
+  },
   {
     q: "What file formats can I upload?",
     a: "PDF and common image formats (JPG, PNG) — including multi-page PDFs containing more than one invoice, which are split and processed automatically.",
@@ -55,6 +60,21 @@ function FAQItem({ item, isOpen, onToggle }) {
 
 export default function FAQ() {
   const [openIndex, setOpenIndex] = useState(0);
+
+  // Built directly from the real Q&As above — no invented questions, so
+  // this genuinely qualifies as FAQPage content per Google's guidelines.
+  useJsonLd({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((item) => ({
+      "@type": "Question",
+      name: item.q,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.a,
+      },
+    })),
+  });
 
   return (
     <section className="mx-auto max-w-4xl px-6 py-24 sm:px-8">

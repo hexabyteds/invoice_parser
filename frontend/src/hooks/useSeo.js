@@ -26,7 +26,7 @@ function upsertCanonical(href) {
 // stand-in scoped to what the marketing pages actually need. If routes start
 // needing SSR or a lot more head management, that's the point to reach for
 // a real library instead of growing this further.
-export function useSeo({ title, description, path }) {
+export function useSeo({ title, description, path, image }) {
   useEffect(() => {
     const fullTitle = title ? `${title} | EazeeBooks` : "EazeeBooks";
     const url = `${SITE_URL}${path}`;
@@ -42,10 +42,19 @@ export function useSeo({ title, description, path }) {
     upsertMeta("property", "og:type", "website");
     upsertMeta("property", "og:site_name", "EazeeBooks");
 
-    upsertMeta("name", "twitter:card", "summary");
+    upsertMeta("name", "twitter:card", image ? "summary_large_image" : "summary");
     upsertMeta("name", "twitter:title", fullTitle);
     upsertMeta("name", "twitter:description", description);
-  }, [title, description, path]);
+
+    // No brand OG image exists yet (frontend/public/ has no designed
+    // social-share asset) — this stays a no-op until one is added, at
+    // which point every page picks it up by just passing `image`.
+    if (image) {
+      const imageUrl = image.startsWith("http") ? image : `${SITE_URL}${image}`;
+      upsertMeta("property", "og:image", imageUrl);
+      upsertMeta("name", "twitter:image", imageUrl);
+    }
+  }, [title, description, path, image]);
 }
 
 // Injects a single JSON-LD <script> block, scoped to the page that calls it

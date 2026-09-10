@@ -6,6 +6,9 @@ import LegalStub from "./pages/landing/LegalStub";
 import Terms from "./pages/landing/Terms";
 import NotFound from "./pages/landing/NotFound";
 import Contact from "./pages/landing/Contact";
+import AccountingSoftware from "./pages/landing/AccountingSoftware";
+import InvoicingSoftware from "./pages/landing/InvoicingSoftware";
+import AiInvoiceProcessing from "./pages/landing/AiInvoiceProcessing";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -76,6 +79,9 @@ function App() {
         <Route path="/price" element={<Price />} />
         <Route path="/features" element={<Features />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/accounting-software" element={<AccountingSoftware />} />
+        <Route path="/invoicing-software" element={<InvoicingSoftware />} />
+        <Route path="/ai-invoice-processing" element={<AiInvoiceProcessing />} />
         <Route path="/privacy" element={<LegalStub title="Privacy Policy" />} />
         <Route path="/terms" element={<Terms />} />
         <Route
