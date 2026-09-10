@@ -133,9 +133,22 @@ node scripts/migrate.js
 echo "--> Snapshotting live schema for later diffing"
 bash scripts/snapshot-schema.sh db/schema.production.sql || true
 
-echo "--> Restarting app (Passenger)"
+echo "--> Restarting app"
+# touch tmp/restart.txt is the standard Phusion Passenger convention, but
+# this host runs its Node.js app under CloudLinux's own app manager
+# (visible as an "lsnode:" process), which does NOT reliably honor it —
+# confirmed the hard way: the live process ran for 33+ hours across
+# several "successful" deploys without ever picking up new code, with no
+# error anywhere. cloudlinux-selector restart is the actual mechanism;
+# touch stays as a harmless no-op fallback in case this host config ever
+# changes back to plain Passenger.
 mkdir -p tmp
 touch tmp/restart.txt
+if command -v cloudlinux-selector >/dev/null 2>&1; then
+  cloudlinux-selector restart --json --interpreter nodejs --user "$SSH_USER" --app-root "$APP_PATH"
+else
+  echo "cloudlinux-selector not found — relying on tmp/restart.txt only. Verify the app actually picked up the new code."
+fi
 
 echo "--> Done on server"
 REMOTE
