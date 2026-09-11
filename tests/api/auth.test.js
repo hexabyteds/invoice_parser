@@ -4,6 +4,8 @@ const {
   registerAndLogin,
   uniqueEmail,
   uniqueMobileNumber,
+  uniqueGulfMobileNumber,
+  uniqueUsMobileNumber,
 } = require("../helpers/api");
 const pool = require("../../config/database");
 const { generateResetToken } = require("../../utils/resetToken");
@@ -304,7 +306,7 @@ describe("Auth", () => {
 
     it("accepts a mobile number typed with the country code already included", async () => {
       const email = uniqueEmail();
-      const localNumber = uniqueMobileNumber();
+      const localNumber = uniqueGulfMobileNumber();
 
       const res = await request(app).post("/api/auth/register").send({
         name: "Typed With Code",
@@ -350,20 +352,14 @@ describe("Auth", () => {
     });
 
     it("allows the same mobile number under a different country/country_code", async () => {
-      const mobileNumber = uniqueMobileNumber();
+      // Needs a number that's a genuinely valid mobile number in two
+      // different real countries now that registration validates real
+      // per-country formats (see utils/phone.js) — UAE and Saudi Arabia
+      // share the same "5X" mobile prefix shape, so the same digit
+      // string validates as a real mobile number in both.
+      const mobileNumber = uniqueGulfMobileNumber();
 
       const first = await request(app).post("/api/auth/register").send({
-        name: "PK Owner",
-        email: uniqueEmail(),
-        password: "Password123!",
-        account_type: "FREELANCER",
-        country: "Pakistan",
-        country_code: "+92",
-        mobile_number: mobileNumber,
-      });
-      expect(first.status).toBe(201);
-
-      const second = await request(app).post("/api/auth/register").send({
         name: "UAE Owner",
         email: uniqueEmail(),
         password: "Password123!",
@@ -372,18 +368,29 @@ describe("Auth", () => {
         country_code: "+971",
         mobile_number: mobileNumber,
       });
+      expect(first.status).toBe(201);
+
+      const second = await request(app).post("/api/auth/register").send({
+        name: "Saudi Owner",
+        email: uniqueEmail(),
+        password: "Password123!",
+        account_type: "FREELANCER",
+        country: "Saudi Arabia",
+        country_code: "+966",
+        mobile_number: mobileNumber,
+      });
 
       expect(second.status).toBe(201);
     });
 
     it("updates the country code automatically across different countries", async () => {
       const cases = [
-        { country: "Pakistan", country_code: "+92" },
-        { country: "United Arab Emirates", country_code: "+971" },
-        { country: "United States", country_code: "+1" },
+        { country: "Pakistan", country_code: "+92", mobileNumber: uniqueMobileNumber() },
+        { country: "United Arab Emirates", country_code: "+971", mobileNumber: uniqueGulfMobileNumber() },
+        { country: "United States", country_code: "+1", mobileNumber: uniqueUsMobileNumber() },
       ];
 
-      for (const { country, country_code } of cases) {
+      for (const { country, country_code, mobileNumber } of cases) {
         const res = await request(app).post("/api/auth/register").send({
           name: "Country Switch",
           email: uniqueEmail(),
@@ -391,7 +398,7 @@ describe("Auth", () => {
           account_type: "FREELANCER",
           country,
           country_code,
-          mobile_number: uniqueMobileNumber(),
+          mobile_number: mobileNumber,
         });
 
         expect(res.status).toBe(201);
@@ -707,7 +714,7 @@ describe("Auth", () => {
           name: "Test User",
           country: "United Arab Emirates",
           country_code: "+971",
-          mobile_number: uniqueMobileNumber(),
+          mobile_number: uniqueGulfMobileNumber(),
         });
 
       expect(res.status).toBe(200);

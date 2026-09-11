@@ -164,7 +164,7 @@ class AdminService {
         data.country,
         data.country_code
       );
-      const mobileNumber = normalizeMobileNumber(countryCode, data.mobile_number);
+      const mobileNumber = normalizeMobileNumber(countryCode, data.mobile_number, country);
 
       const existingMobile = await userRepository.findByCountryCodeAndMobile(
         countryCode,

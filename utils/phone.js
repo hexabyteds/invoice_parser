@@ -1,20 +1,34 @@
-// National-number length bounds once the dial code is stripped off — 6
-// covers the shortest real national numbers (a handful of small
-// countries), 14 leaves room for the longest (E.164 allows up to 15
-// digits total, minus at least 1 for the shortest dial code).
-const MOBILE_DIGITS_PATTERN = /^[0-9]{6,14}$/;
+// Real mobile-number validation via Google's libphonenumber (the same
+// metadata Android/Google Contacts uses) instead of a generic digit-count
+// regex — enforces each country's actual mobile prefix rules (e.g.
+// Pakistan mobile numbers start with 3, UAE with 5) without hand-coding a
+// rule per country: the library's per-region metadata already knows this.
+const { PhoneNumberUtil, PhoneNumberType } = require("google-libphonenumber");
+const { getRegionCodeForCountryName } = require("./countryRegion");
+
+const phoneUtil = PhoneNumberUtil.getInstance();
 
 // Accepts digits plus the punctuation people naturally type/paste in a
 // phone field (spaces, hyphens, parentheses, a leading +) and rejects
 // anything else (letters, other symbols) up front.
 const ALLOWED_INPUT_PATTERN = /^[0-9+\-\s()]+$/;
 
+const MOBILE_TYPES = new Set([
+  PhoneNumberType.MOBILE,
+  // Many regions' numbering plans can't distinguish mobile from fixed-line
+  // by prefix alone — libphonenumber reports those as this instead of
+  // MOBILE. Rejecting them would incorrectly block real mobile numbers in
+  // those countries.
+  PhoneNumberType.FIXED_LINE_OR_MOBILE,
+]);
+
 // Normalizes a raw mobile-number input against the already-validated
 // country dial code, returning digits only (no country code, no
 // formatting) so it can be stored alongside country_code without
-// duplicating it. Throws on anything empty, malformed, or that carries a
-// country code which doesn't match the one the user selected.
-function normalizeMobileNumber(countryCode, rawMobileNumber) {
+// duplicating it. Throws on anything empty, malformed, carrying a country
+// code which doesn't match the one the user selected, or that isn't a
+// genuine mobile number for the selected country.
+function normalizeMobileNumber(countryCode, rawMobileNumber, countryName) {
   if (
     !rawMobileNumber ||
     typeof rawMobileNumber !== "string" ||
@@ -44,11 +58,31 @@ function normalizeMobileNumber(countryCode, rawMobileNumber) {
     digits = candidateDigits.slice(dialDigits.length);
   }
 
-  if (!MOBILE_DIGITS_PATTERN.test(digits)) {
+  const regionCode = getRegionCodeForCountryName(countryName);
+
+  if (!regionCode) {
+    throw new Error("Please select a valid country.");
+  }
+
+  let parsed;
+
+  try {
+    parsed = phoneUtil.parse(digits, regionCode);
+  } catch (err) {
     throw new Error("Please enter a valid mobile number.");
   }
 
-  return digits;
+  const isMobile =
+    phoneUtil.isValidNumberForRegion(parsed, regionCode) &&
+    MOBILE_TYPES.has(phoneUtil.getNumberType(parsed));
+
+  if (!isMobile) {
+    throw new Error(
+      `Please enter a valid mobile number for ${countryName}.`
+    );
+  }
+
+  return phoneUtil.getNationalSignificantNumber(parsed);
 }
 
 module.exports = { normalizeMobileNumber };

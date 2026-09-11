@@ -150,7 +150,8 @@ class AuthService {
             );
             const mobileNumber = normalizeMobileNumber(
                 countryCode,
-                data.mobile_number
+                data.mobile_number,
+                country
             );
 
             // Trimmed/lowercased — matching what's actually persisted below
@@ -470,7 +471,8 @@ class AuthService {
             );
             const mobileNumber = normalizeMobileNumber(
                 countryCode,
-                data.mobile_number
+                data.mobile_number,
+                country
             );
 
             const existingMobile = await userRepository.findByCountryCodeAndMobile(
