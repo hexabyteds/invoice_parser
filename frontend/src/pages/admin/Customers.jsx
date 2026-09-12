@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminPageShell from "../../components/admin/AdminPageShell";
 import adminApi from "../../services/adminApi";
@@ -39,8 +39,22 @@ export default function Customers() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
 
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+
   const totalPages = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
   const safePage = Math.min(page, totalPages);
+
+  // Debounced so typing doesn't fire a request per keystroke — same
+  // 350ms pattern the Companies list already uses.
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 350);
+
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
 
   useEffect(() => {
     async function loadCustomers() {
@@ -50,6 +64,7 @@ export default function Customers() {
         const data = await adminApi.getCustomers({
           limit: ROWS_PER_PAGE,
           offset,
+          search,
         });
         setCustomers(data.customers || []);
         setTotal(data.pagination?.total ?? data.customers?.length ?? 0);
@@ -63,7 +78,7 @@ export default function Customers() {
     }
 
     loadCustomers();
-  }, [safePage]);
+  }, [safePage, search]);
 
   const rangeStart = total === 0 ? 0 : (safePage - 1) * ROWS_PER_PAGE + 1;
   const rangeEnd = Math.min(safePage * ROWS_PER_PAGE, total);
@@ -73,6 +88,18 @@ export default function Customers() {
       title="Customers"
       description="View and manage all registered customer accounts."
     >
+      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="relative max-w-md">
+          <Search size={18} className="absolute left-3.5 top-3 text-slate-400" />
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search by email or company name..."
+            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none focus:border-indigo-500"
+          />
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
@@ -99,7 +126,9 @@ export default function Customers() {
               ) : customers.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-10 text-center text-slate-500">
-                    No customers found.
+                    {search
+                      ? `No customers match "${search}".`
+                      : "No customers found."}
                   </td>
                 </tr>
               ) : (

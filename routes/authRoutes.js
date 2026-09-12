@@ -43,6 +43,13 @@ const loginRateLimiter = rateLimit({
     limit: 10,
     standardHeaders: true,
     legacyHeaders: false,
+    // Every test request comes from the same loopback address, so without
+    // this a suite doing more than 10 logins starts getting 429s partway
+    // through and fails for reasons unrelated to what it's testing. Same
+    // skip the other limiters here already carry; no test asserts on
+    // login rate limiting (the only 429 assertions cover the upload
+    // limiter in app-backend.js, which is untouched).
+    skip: () => process.env.NODE_ENV === "test",
     handler: (req, res) => {
         res.status(429).json({
             success: false,

@@ -35,10 +35,10 @@ class AdminService {
     };
   }
 
-  async getCustomers({ limit, offset } = {}) {
+  async getCustomers({ limit, offset, search = "" } = {}) {
     const [rows, total] = await Promise.all([
-      adminRepository.getAllCustomers({ limit, offset }),
-      adminRepository.countAllCustomers(),
+      adminRepository.getAllCustomers({ limit, offset, search }),
+      adminRepository.countAllCustomers({ search }),
     ]);
 
     return {

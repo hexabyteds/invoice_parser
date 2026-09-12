@@ -6,9 +6,9 @@ const adminApi = {
     return data;
   },
 
-  getCustomers: async ({ limit = 20, offset = 0 } = {}) => {
+  getCustomers: async ({ limit = 20, offset = 0, search = "" } = {}) => {
     const { data } = await api.get("/admin/customers", {
-      params: { limit, offset },
+      params: { limit, offset, search },
     });
     return data;
   },

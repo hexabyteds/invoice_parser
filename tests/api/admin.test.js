@@ -172,3 +172,121 @@ describe("Admin — subscription cancellation visibility (BUG-BILLING-002)", () 
     expect(row.stripe_status).toBe("active");
   });
 });
+
+describe("Admin — customer search", () => {
+  let admin;
+
+  beforeAll(async () => {
+    admin = await loginAsAdmin();
+  });
+
+  it("finds a customer by their email address", async () => {
+    const { user } = await registerAndLogin();
+
+    const res = await request(app)
+      .get("/api/admin/customers")
+      .query({ search: user.email })
+      .set(authed(admin.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.customers).toHaveLength(1);
+    expect(res.body.customers[0].id).toBe(user.id);
+    expect(res.body.pagination.total).toBe(1);
+  });
+
+  it("finds a customer by a partial email match", async () => {
+    const { user } = await registerAndLogin();
+
+    const fragment = user.email.split("@")[0].slice(-8);
+
+    const res = await request(app)
+      .get("/api/admin/customers")
+      .query({ search: fragment })
+      .set(authed(admin.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.customers.some((c) => c.id === user.id)).toBe(true);
+  });
+
+  it("finds a customer by company name", async () => {
+    const companyName = `SearchableCo${Date.now()}`;
+    const { user } = await registerAndLogin({ company_name: companyName });
+
+    const res = await request(app)
+      .get("/api/admin/customers")
+      .query({ search: companyName })
+      .set(authed(admin.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.customers).toHaveLength(1);
+    expect(res.body.customers[0].id).toBe(user.id);
+  });
+
+  it("returns an empty list (not an error) when nothing matches", async () => {
+
+    const res = await request(app)
+      .get("/api/admin/customers")
+      .query({ search: `no-such-customer-${Date.now()}` })
+      .set(authed(admin.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.customers).toHaveLength(0);
+    expect(res.body.pagination.total).toBe(0);
+  });
+
+  it("treats a blank/whitespace-only search as no search at all", async () => {
+    await registerAndLogin();
+
+    const unsearched = await request(app)
+      .get("/api/admin/customers")
+      .set(authed(admin.token));
+
+    const blank = await request(app)
+      .get("/api/admin/customers")
+      .query({ search: "   " })
+      .set(authed(admin.token));
+
+    expect(blank.status).toBe(200);
+    expect(blank.body.pagination.total).toBe(unsearched.body.pagination.total);
+  });
+
+  it("keeps the paginated total in sync with the filtered rows", async () => {
+    const companyName = `PagedCo${Date.now()}`;
+    await registerAndLogin({ company_name: companyName });
+    await registerAndLogin({ company_name: companyName });
+
+    const res = await request(app)
+      .get("/api/admin/customers")
+      .query({ search: companyName })
+      .set(authed(admin.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.pagination.total).toBe(2);
+    expect(res.body.customers).toHaveLength(2);
+  });
+
+  it("does not let a search term break out of the query (SQL injection)", async () => {
+    await registerAndLogin();
+
+    const res = await request(app)
+      .get("/api/admin/customers")
+      .query({ search: "' OR '1'='1" })
+      .set(authed(admin.token));
+
+    // Treated as a literal string to match on, so it finds nothing —
+    // it must NOT return every customer.
+    expect(res.status).toBe(200);
+    expect(res.body.customers).toHaveLength(0);
+  });
+
+  it("still requires admin access", async () => {
+    const { token } = await registerAndLogin();
+
+    const res = await request(app)
+      .get("/api/admin/customers")
+      .query({ search: "anything" })
+      .set(authed(token));
+
+    expect(res.status).toBe(403);
+  });
+});

@@ -50,6 +50,7 @@ class AdminController {
       const { customers, total } = await adminService.getCustomers({
         limit,
         offset,
+        search: req.query.search || "",
       });
 
       res.json({

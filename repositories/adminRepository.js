@@ -6,6 +6,25 @@ const CUSTOMER_FILTER = `
   AND u.deleted_at IS NULL
 `;
 
+// Optional free-text search over the two fields an admin actually has to
+// hand when looking someone up: their email and their company name.
+// Returns a WHERE fragment + its params so the list query and the count
+// query that paginates it can't drift apart.
+function buildCustomerSearch(search) {
+  const term = String(search || "").trim();
+
+  if (!term) {
+    return { clause: "", params: [] };
+  }
+
+  const like = `%${term}%`;
+
+  return {
+    clause: ` AND (u.email LIKE ? OR u.company_name LIKE ?)`,
+    params: [like, like],
+  };
+}
+
 class AdminRepository {
   async getPlatformStats() {
     const [[customerStats]] = await db.execute(`
@@ -103,7 +122,9 @@ class AdminRepository {
   // not re-run per output row like the old correlated subqueries were —
   // see PERF-07. Paginated so listing thousands of customers doesn't
   // return (or scan) the whole table at once.
-  async getAllCustomers({ limit = 20, offset = 0 } = {}) {
+  async getAllCustomers({ limit = 20, offset = 0, search = "" } = {}) {
+    const { clause, params } = buildCustomerSearch(search);
+
     const [rows] = await db.query(
       `
       SELECT
@@ -130,19 +151,22 @@ class AdminRepository {
         FROM invoices
         GROUP BY user_id
       ) invoice_stats ON invoice_stats.user_id = u.id
-      WHERE ${CUSTOMER_FILTER}
+      WHERE ${CUSTOMER_FILTER}${clause}
       ORDER BY u.created_at DESC
       LIMIT ? OFFSET ?
       `,
-      [limit, offset]
+      [...params, limit, offset]
     );
 
     return rows;
   }
 
-  async countAllCustomers() {
+  async countAllCustomers({ search = "" } = {}) {
+    const { clause, params } = buildCustomerSearch(search);
+
     const [[row]] = await db.execute(
-      `SELECT COUNT(*) AS total FROM users u WHERE ${CUSTOMER_FILTER}`
+      `SELECT COUNT(*) AS total FROM users u WHERE ${CUSTOMER_FILTER}${clause}`,
+      params
     );
 
     return Number(row.total || 0);
