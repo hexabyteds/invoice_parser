@@ -9,7 +9,11 @@ PassengerStartupFile app-backend.js
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Redirect www -> non-www
+    # Canonicalize to https://eazeebooks.com in a single redirect, whether
+    # the request came in as http, www, or both — previously only the www
+    # case redirected, so http://eazeebooks.com/ (no www) served the full
+    # site unencrypted with no redirect at all.
+    RewriteCond %{HTTPS} off [OR]
     RewriteCond %{HTTP_HOST} ^www\.eazeebooks\.com$ [NC]
     RewriteRule ^(.*)$ https://eazeebooks.com/$1 [R=301,L]
 

@@ -89,7 +89,12 @@ app.use("/api/contact", require("./routes/contactRoutes"));
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public')); // Serve React app
+// index: false — otherwise this auto-serves public/index.html for GET /
+// before the route below ever runs, bypassing the prerendered-snapshot
+// check in sendReactApp() for the homepage specifically (every other
+// route already fell through correctly, since express.static only
+// auto-serves index files, not arbitrary paths).
+app.use(express.static('public', { index: false })); // Serve React app
 
 // Initialize agent
 const agent = new FreeInvoiceAgent();
@@ -1289,14 +1294,35 @@ app.use('/api', (req, res) => {
  * ==================== SERVE REACT APP ====================
  */
 
+// Public marketing routes get a build-time-prerendered snapshot instead of
+// the raw SPA shell, so crawlers/tools that don't execute JS see real
+// content — see frontend/scripts/prerender.mjs. Falls back to the normal
+// SPA shell if no snapshot exists (e.g. before this feature's first
+// deploy), so this can never break a route it doesn't recognize.
+const PRERENDERED_ROUTES = new Set([
+  "/", "/accounting-software", "/invoicing-software", "/ai-invoice-processing",
+  "/features", "/price", "/contact", "/register", "/login", "/privacy", "/terms",
+]);
+
+function sendReactApp(req, res) {
+  if (PRERENDERED_ROUTES.has(req.path)) {
+    const name = req.path === "/" ? "index" : req.path.slice(1);
+    const prerendered = path.join(__dirname, "public", "__prerendered__", `${name}.html`);
+    if (fs.existsSync(prerendered)) {
+      return res.sendFile(prerendered);
+    }
+  }
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+}
+
 // Serve React index.html for all routes (except API)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  sendReactApp(req, res);
 });
 
 app.get('*', (req, res) => {
   if (!req.url.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    sendReactApp(req, res);
   }
 });
 
