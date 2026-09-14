@@ -2,11 +2,43 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="canonical" href="https://eazeebooks.com/" />
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-M92XJKLD');</script>
+    <!-- End Google Tag Manager -->
+    <!-- This is a client-rendered SPA — a single load of this shell serves
+         every route. GTM's own History Change listener can be unreliable
+         with React Router, so src/hooks/useAnalytics.js pushes an explicit
+         "page_view" event to dataLayer on every route change instead;
+         build a Custom Event trigger on that event name in GTM and attach
+         the GA4 Configuration tag to it (not a History Change trigger). -->
+    <!-- No static canonical here on purpose: this file is shared by every
+         route (pure CSR, no SSR), so a hardcoded canonical would point
+         every page at the homepage. useSeo() sets the real per-route
+         canonical once React mounts — see src/hooks/useSeo.js. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EazeeBooks — AI Invoice Processing &amp; Bookkeeping Automation</title>
     <meta name="description" content="EazeeBooks uses AI to extract, structure, and export invoice data straight into QuickBooks, Zoho, and Xero — no manual entry, no per-seat pricing." />
+    <!-- Static fallback OG/Twitter tags: social unfurlers (Slack, X,
+         LinkedIn, Facebook) largely don't execute JS, so they only ever
+         see this generic homepage card. useSeo() overrides these with the
+         real per-page title/description/image for anything that does
+         execute JS (Googlebot included). og:url is deliberately omitted —
+         unfurlers fall back to the actual request URL, whereas a
+         hardcoded one here would misattribute every shared page to "/". -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="EazeeBooks" />
+    <meta property="og:title" content="EazeeBooks — AI Invoice Processing &amp; Bookkeeping Automation" />
+    <meta property="og:description" content="EazeeBooks uses AI to extract, structure, and export invoice data straight into QuickBooks, Zoho, and Xero — no manual entry, no per-seat pricing." />
+    <meta property="og:image" content="https://eazeebooks.com/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="EazeeBooks — AI Invoice Processing &amp; Bookkeeping Automation" />
+    <meta name="twitter:description" content="EazeeBooks uses AI to extract, structure, and export invoice data straight into QuickBooks, Zoho, and Xero — no manual entry, no per-seat pricing." />
+    <meta name="twitter:image" content="https://eazeebooks.com/og-image.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,6 +47,10 @@
     />
   </head>
   <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-M92XJKLD"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

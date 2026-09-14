@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, useParams } from "react-router-dom";
 
+import { useAnalytics } from "./hooks/useAnalytics";
 import Landing from "./pages/landing/Landing";
 import Price from "./pages/landing/Price";
 import LegalStub from "./pages/landing/LegalStub";
@@ -66,7 +67,8 @@ function RedirectParam({ to }) {
 }
 
 function App() {
-  
+  useAnalytics();
+
   return (
     <Routes>
         <Route path="/" element={<Landing />} />
