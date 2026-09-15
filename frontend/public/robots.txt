@@ -3,5 +3,6 @@ User-agent: *
 Allow: /
 Disallow: /dashboard
 Disallow: /admin
+Disallow: /api
 
 Sitemap: https://eazeebooks.com/sitemap.xml

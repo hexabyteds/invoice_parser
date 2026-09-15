@@ -11,6 +11,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { getPostLoginPath } from "../../utils/roles";
 import AuthLayout from "../../layouts/AuthLayout";
+import { useSeo } from "../../hooks/useSeo";
 
 const loginSchema = z.object({
     email: z
@@ -25,6 +26,13 @@ const loginSchema = z.object({
 });
 
 export default function Login() {
+    useSeo({
+        title: "Login",
+        description: "Sign in to your EazeeBooks account.",
+        path: "/login",
+        robots: "noindex, nofollow",
+    });
+
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(true);
     const navigate = useNavigate();

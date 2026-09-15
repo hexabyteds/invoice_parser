@@ -35,14 +35,6 @@
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://eazeebooks.com/register</loc>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://eazeebooks.com/login</loc>
-    <priority>0.3</priority>
-  </url>
-  <url>
     <loc>https://eazeebooks.com/privacy</loc>
     <priority>0.2</priority>
   </url>
