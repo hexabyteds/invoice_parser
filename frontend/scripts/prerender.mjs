@@ -18,6 +18,18 @@ const DIST_DIR = join(__dirname, "..", "dist");
 const OUT_DIR = join(DIST_DIR, "__prerendered__");
 const PORT = 4799;
 
+// page.content() captures the DOM's *current* state, including any
+// self-mutating markup — the deferred Google Fonts <link> in index.html
+// flips its own media="print" to media="all" via onload once the
+// stylesheet fetches. Snapshotting that post-load state would ship every
+// prerendered page (served to *every* visitor for these routes, not just
+// crawlers — see app-backend.js) with a permanently render-blocking font
+// stylesheet, undoing the whole point of deferring it. Restore the
+// original deferred markup before writing the snapshot; the onload
+// handler is untouched, so real browsers still defer it correctly.
+const FONT_LINK_LOADED = /(<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]*")\s+media="all"\s+onload="this\.media='all'"/;
+const FONT_LINK_DEFERRED = '$1 media="print" onload="this.media=\'all\'"';
+
 // Keep in sync with public/sitemap.xml, public/robots.txt, and the public
 // routes registered in src/App.jsx.
 const ROUTES = [
@@ -81,7 +93,7 @@ async function main() {
         })
         .catch(() => {});
 
-      const html = await page.content();
+      const html = (await page.content()).replace(FONT_LINK_LOADED, FONT_LINK_DEFERRED);
       const name = route === "/" ? "index" : route.slice(1);
       writeFileSync(join(OUT_DIR, `${name}.html`), html);
       console.log(`Prerendered ${route} -> __prerendered__/${name}.html`);
