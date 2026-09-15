@@ -1304,6 +1304,23 @@ const PRERENDERED_ROUTES = new Set([
   "/features", "/price", "/contact", "/register", "/login", "/privacy", "/terms",
 ]);
 
+// Every real client-side route this app serves, beyond PRERENDERED_ROUTES:
+// public but non-indexable auth flows (exact match), and the two private
+// app trees, which have arbitrary/dynamic nested paths (:id segments,
+// legacy /dashboard/clients/* redirects, etc.) so they're matched by
+// prefix rather than enumerated. Keep in sync with src/App.jsx.
+const KNOWN_EXACT_ROUTES = new Set([
+  ...PRERENDERED_ROUTES,
+  "/forgot-password", "/reset-password", "/verify-email",
+]);
+const KNOWN_PREFIXES = ["/dashboard", "/admin"];
+
+function isKnownRoute(urlPath) {
+  if (KNOWN_EXACT_ROUTES.has(urlPath)) return true;
+  if (urlPath.startsWith("/invite/") && urlPath.length > "/invite/".length) return true;
+  return KNOWN_PREFIXES.some((prefix) => urlPath === prefix || urlPath.startsWith(`${prefix}/`));
+}
+
 function sendReactApp(req, res) {
   if (PRERENDERED_ROUTES.has(req.path)) {
     const name = req.path === "/" ? "index" : req.path.slice(1);
@@ -1311,6 +1328,14 @@ function sendReactApp(req, res) {
     if (fs.existsSync(prerendered)) {
       return res.sendFile(prerendered);
     }
+  }
+  // Anything not a recognized route (typo'd URL, dead inbound link, etc.)
+  // gets a real 404 status instead of silently returning 200 — the SPA
+  // shell still renders (React Router's NotFound component takes it from
+  // there), only the HTTP status code changes, so this can't break any
+  // legitimate route it doesn't explicitly know about.
+  if (!isKnownRoute(req.path)) {
+    res.status(404);
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 }
