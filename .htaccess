@@ -25,3 +25,15 @@ PassengerStartupFile app-backend.js
     # React Router fallback
     RewriteRule ^ index.html [L]
 </IfModule>
+
+# Vite content-hashes every JS/CSS filename (e.g. index-C_WoY_yO.js), so a
+# new deploy always produces new URLs — safe to cache these for a year
+# instead of the 1h Passenger/Apache's static-file handler defaults to.
+# Does not affect index.html, the prerendered snapshots, robots.txt,
+# sitemap.xml, or llms.txt — none of those are .js/.css and none are
+# content-hashed, so they must stay revalidated on every request.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(js|css)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>
