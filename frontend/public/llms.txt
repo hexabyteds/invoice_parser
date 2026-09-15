@@ -1,0 +1,20 @@
+# EazeeBooks
+
+> AI-powered invoice and accounting software. EazeeBooks extracts, structures, and exports invoice, bill, and bank-statement data automatically — built for freelancers, small businesses, and companies, with UAE VAT support (AED pricing, 5% VAT itemized at checkout). Exports straight into QuickBooks and Zoho Books.
+
+EazeeBooks lets a business upload an invoice (PDF or photo) and get back clean, structured, exportable data — no manual entry. It supports customer and supplier tracking, bank statement processing, multi-company management for freelancers, and role-based access for teams. A 7-day free trial is available, no credit card required.
+
+## Product
+
+- [Homepage](https://eazeebooks.com/): Overview of EazeeBooks — what it does, who it's for, and the free trial.
+- [Features](https://eazeebooks.com/features): Full feature list, including AI invoice extraction, customer/supplier management, and exports.
+- [Pricing](https://eazeebooks.com/price): Plans and AED pricing, with UAE VAT itemized.
+- [Accounting Software for UAE Businesses](https://eazeebooks.com/accounting-software): How EazeeBooks fits UAE business accounting workflows, including VAT handling.
+- [Invoicing Software](https://eazeebooks.com/invoicing-software): Invoice management and processing capabilities.
+- [AI Invoice Processing](https://eazeebooks.com/ai-invoice-processing): How the AI extraction pipeline works.
+- [Contact](https://eazeebooks.com/contact): How to reach EazeeBooks.
+
+## Optional
+
+- [Privacy Policy](https://eazeebooks.com/privacy)
+- [Terms of Service](https://eazeebooks.com/terms)
