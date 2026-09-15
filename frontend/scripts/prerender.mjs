@@ -37,6 +37,7 @@ const ROUTES = [
   "/accounting-software",
   "/invoicing-software",
   "/ai-invoice-processing",
+  "/invoice-generator",
   "/features",
   "/price",
   "/contact",

@@ -124,7 +124,11 @@ export default function InvoicingSoftware() {
           <Link to="/accounting-software" className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300">
             accounting software
           </Link>{" "}
-          page.
+          page. Just need to send a one-off invoice right now? Try the{" "}
+          <Link to="/invoice-generator" className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300">
+            free invoice generator
+          </Link>{" "}
+          — no signup required.
         </p>
       </section>
 

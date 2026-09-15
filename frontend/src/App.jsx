@@ -10,6 +10,7 @@ import Contact from "./pages/landing/Contact";
 import AccountingSoftware from "./pages/landing/AccountingSoftware";
 import InvoicingSoftware from "./pages/landing/InvoicingSoftware";
 import AiInvoiceProcessing from "./pages/landing/AiInvoiceProcessing";
+import InvoiceGenerator from "./pages/landing/InvoiceGenerator";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -84,6 +85,7 @@ function App() {
         <Route path="/accounting-software" element={<AccountingSoftware />} />
         <Route path="/invoicing-software" element={<InvoicingSoftware />} />
         <Route path="/ai-invoice-processing" element={<AiInvoiceProcessing />} />
+        <Route path="/invoice-generator" element={<InvoiceGenerator />} />
         <Route path="/privacy" element={<LegalStub title="Privacy Policy" />} />
         <Route path="/terms" element={<Terms />} />
         <Route

@@ -11,6 +11,7 @@ EazeeBooks lets a business upload an invoice (PDF or photo) and get back clean, 
 - [Pricing](https://eazeebooks.com/price): Plans and AED pricing, with UAE VAT itemized.
 - [Accounting Software for UAE Businesses](https://eazeebooks.com/accounting-software): How EazeeBooks fits UAE business accounting workflows, including VAT handling.
 - [Invoicing Software](https://eazeebooks.com/invoicing-software): Invoice management and processing capabilities.
+- [Free Invoice Generator](https://eazeebooks.com/invoice-generator): Create and download a UAE VAT-compliant invoice as a PDF, no signup required.
 - [AI Invoice Processing](https://eazeebooks.com/ai-invoice-processing): How the AI extraction pipeline works.
 - [Contact](https://eazeebooks.com/contact): How to reach EazeeBooks.
 

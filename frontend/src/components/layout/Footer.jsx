@@ -37,6 +37,7 @@ export default function Footer() {
               <li><Link to="/accounting-software" className="transition-colors hover:text-white">Accounting Software</Link></li>
               <li><Link to="/invoicing-software" className="transition-colors hover:text-white">Invoicing Software</Link></li>
               <li><Link to="/ai-invoice-processing" className="transition-colors hover:text-white">AI Invoice Processing</Link></li>
+              <li><Link to="/invoice-generator" className="transition-colors hover:text-white">Free Invoice Generator</Link></li>
             </ul>
           </div>
 

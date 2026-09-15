@@ -86,6 +86,7 @@ app.use("/api/invitations", require("./routes/invitationRoutes"));
 app.use("/api/bank-statements", require("./routes/bankStatementRoutes"));
 app.use("/api/documents", require("./routes/documentsRoutes"));
 app.use("/api/contact", require("./routes/contactRoutes"));
+app.use("/api/invoice-generator", require("./routes/invoiceGeneratorRoutes"));
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -1301,7 +1302,8 @@ app.use('/api', (req, res) => {
 // deploy), so this can never break a route it doesn't recognize.
 const PRERENDERED_ROUTES = new Set([
   "/", "/accounting-software", "/invoicing-software", "/ai-invoice-processing",
-  "/features", "/price", "/contact", "/register", "/login", "/privacy", "/terms",
+  "/invoice-generator", "/features", "/price", "/contact", "/register", "/login",
+  "/privacy", "/terms",
 ]);
 
 // Every real client-side route this app serves, beyond PRERENDERED_ROUTES:

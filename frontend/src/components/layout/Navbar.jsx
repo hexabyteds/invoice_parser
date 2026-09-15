@@ -1,17 +1,34 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Menu, X, ChevronDown } from "lucide-react";
 
 const navLinks = [
   { to: "/", label: "Home" },
   { to: "/features", label: "Features" },
   { to: "/price", label: "Pricing" },
-  { to: "/contact", label: "Contact Us" },
+];
+
+const contactLink = { to: "/contact", label: "Contact Us" };
+
+const toolsLinks = [
+  { to: "/invoice-generator", label: "Invoice Generator" },
 ];
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (toolsRef.current && !toolsRef.current.contains(e.target)) {
+        setToolsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <motion.header
@@ -45,6 +62,46 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
+
+            <div className="relative" ref={toolsRef}>
+              <button
+                type="button"
+                onClick={() => setToolsOpen((open) => !open)}
+                aria-haspopup="true"
+                aria-expanded={toolsOpen}
+                className="flex items-center gap-1 transition hover:text-white"
+              >
+                Tools
+                <ChevronDown size={14} className={`transition-transform ${toolsOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              <AnimatePresence>
+                {toolsOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 top-full mt-3 min-w-[200px] rounded-2xl border border-slate-800 bg-slate-900/95 p-2 shadow-xl backdrop-blur-xl"
+                  >
+                    {toolsLinks.map((link) => (
+                      <Link
+                        key={link.to}
+                        to={link.to}
+                        onClick={() => setToolsOpen(false)}
+                        className="block rounded-xl px-4 py-2.5 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white"
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <Link to={contactLink.to} className="transition hover:text-white">
+              {contactLink.label}
+            </Link>
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
@@ -96,6 +153,30 @@ export default function Navbar() {
                   {link.label}
                 </Link>
               ))}
+
+              <div className="my-2 h-px bg-slate-800" />
+
+              <p className="px-4 pt-1 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Tools
+              </p>
+              {toolsLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-xl px-4 py-3 text-base text-slate-200 transition hover:bg-slate-800 hover:text-white"
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              <Link
+                to={contactLink.to}
+                onClick={() => setMobileOpen(false)}
+                className="rounded-xl px-4 py-3 text-base text-slate-200 transition hover:bg-slate-800 hover:text-white"
+              >
+                {contactLink.label}
+              </Link>
 
               <div className="my-2 h-px bg-slate-800" />
 
