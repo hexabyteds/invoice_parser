@@ -163,7 +163,6 @@ class AuthService {
             const existingUser = await userRepository.findByEmail(
                 data.email?.trim().toLowerCase()
             );
-            console.log("Existing user:", existingUser);
 
             if (existingUser) {
                 throw new Error("Email already exists.");

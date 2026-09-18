@@ -5,7 +5,6 @@ class AuthController {
     async register(req, res) {
 
         try {
-            console.log("Request body:", req.body);
             const result = await authService.register(req.body, {
                 ipAddress: req.ip,
                 userAgent: req.headers["user-agent"],
