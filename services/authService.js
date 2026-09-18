@@ -363,6 +363,43 @@ class AuthService {
             throw new Error("This account has been suspended.");
         }
 
+        // Unverified-account cleanup: an account that never confirmed its
+        // email within the 7-day trial window gets deactivated at the next
+        // login attempt (same lazy, checked-on-access pattern the trial
+        // system itself already uses — no cron/scheduler needed). A real
+        // paying subscription is exempt — email verification is a trust/
+        // spam-prevention measure, not something that should lock out
+        // actual revenue over a technicality.
+        if (!user.email_verified) {
+            const daysSinceSignup =
+                (Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24);
+
+            if (daysSinceSignup > 7) {
+                const { companies } = await companyService.getMembershipsForUser(user.id, user.email);
+                const subscription = await resolveSubscriptionForUser(user, companies);
+                const isPaying = subscription?.status === "active";
+
+                if (!isPaying) {
+                    await userRepository.updateStatus(user.id, "suspended");
+
+                    try {
+                        await auditLogRepository.create({
+                            userId: user.id,
+                            action: "account_deactivated",
+                            module: "Authentication",
+                            status: "SUCCESS",
+                            description: "Deactivated at login: email not verified within 7 days of signup",
+                            ipAddress: requestMeta.ipAddress || null,
+                        });
+                    } catch (logErr) {}
+
+                    throw new Error(
+                        "Your account was deactivated because the email address wasn't verified within 7 days of signing up. Contact support to reactivate it."
+                    );
+                }
+            }
+        }
+
         const token = generateToken(user);
 
         try {

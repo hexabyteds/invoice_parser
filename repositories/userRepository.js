@@ -1,4 +1,5 @@
 const db = require("../config/database");
+const { toDbStatus } = require("../utils/userStatus");
 
 function formatUser(row) {
   if (!row) return null;
@@ -161,6 +162,17 @@ class UserRepository {
     );
   }
 
+  async updateStatus(id, status) {
+    await db.execute(
+      `
+      UPDATE users
+      SET status = ?
+      WHERE id = ?
+      `,
+      [toDbStatus(status), id]
+    );
+  }
+
   async delete(id) {
     await db.execute(
       `
@@ -237,13 +249,22 @@ class UserRepository {
   }
 
   async markEmailVerified(userId) {
+    // Also restores status to ACTIVE — the only path that deactivates an
+    // account for being unverified (authService.js login, the 7-day rule)
+    // should have an equally automatic way back once the user actually
+    // verifies. This is the only caller of markEmailVerified, so this
+    // can't accidentally undo an unrelated admin suspension unless that
+    // account also happened to be unverified.
     await db.execute(
       `
       UPDATE users
-      SET email_verified = 1, email_verify_token_hash = NULL, email_verify_token_expires = NULL
+      SET email_verified = 1,
+          email_verify_token_hash = NULL,
+          email_verify_token_expires = NULL,
+          status = ?
       WHERE id = ?
       `,
-      [userId]
+      [toDbStatus("active"), userId]
     );
   }
 
